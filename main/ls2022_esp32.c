@@ -11,26 +11,32 @@
 
 #include "config.h"
 
-SemaphoreHandle_t ls_adc1_semaphore = NULL;
+SemaphoreHandle_t adc1_mux = NULL;
+SemaphoreHandle_t print_mux = NULL;
+
 static esp_adc_cal_characteristics_t *adc_chars;
 
 void adc_read_tape_setting_task(void *pvParameter)
 {
   while(1)
   {
+    xSemaphoreTake(print_mux, portMAX_DELAY);
     printf("Check tape setting jumpers...\n");
-    xSemaphoreTake(ls_adc1_semaphore, pdMS_TO_TICKS(1000));
+    xSemaphoreGive(print_mux);
+    xSemaphoreTake(adc1_mux, portMAX_DELAY);
     adc1_config_width(ADC_WIDTH_BIT_12); 
     adc1_config_channel_atten(LSADC1_TAPESETTING, ADC_ATTEN_DB_11);
     uint32_t adc_reading = 0;
     for(int i=0; i<4; i++) {
         adc_reading += adc1_get_raw((adc1_channel_t) LSADC1_TAPESETTING);
     }
-    xSemaphoreGive(ls_adc1_semaphore);
     adc_reading /= 4;
     esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_11db, ADC_WIDTH_12Bit, 1100, adc_chars);
     uint32_t voltage = esp_adc_cal_raw_to_voltage(adc_reading, adc_chars);
+    xSemaphoreGive(adc1_mux);
+    xSemaphoreTake(print_mux, portMAX_DELAY);
     printf("Tape setting raw: %d\tVoltage: %dmV\n", adc_reading, voltage);
+    xSemaphoreGive(print_mux);
     vTaskDelay(pdMS_TO_TICKS(3000));
    }
 }
@@ -39,8 +45,10 @@ void adc_read_light_sensor_task(void *pvParameter)
 {
   while(1)
   {
+    xSemaphoreTake(print_mux, portMAX_DELAY);
     printf("Check ambient light sensor...\n");
-    xSemaphoreTake(ls_adc1_semaphore, pdMS_TO_TICKS(1000));
+    xSemaphoreGive(print_mux);
+    xSemaphoreTake(adc1_mux, pdMS_TO_TICKS(1000));
     adc1_config_width(ADC_WIDTH_BIT_12); 
     // atten 11 for office use... probably 0 in field
     adc1_config_channel_atten(LSADC1_LIGHTSENSE, ADC_ATTEN_11db); 
@@ -51,8 +59,10 @@ void adc_read_light_sensor_task(void *pvParameter)
     adc_reading /= 4;
     esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_11db, ADC_WIDTH_12Bit, 1100, adc_chars);
     uint32_t voltage = esp_adc_cal_raw_to_voltage(adc_reading, adc_chars);
+    xSemaphoreGive(adc1_mux);
+    xSemaphoreTake(print_mux, portMAX_DELAY);
     printf("Ambient light raw: %d\tVoltage: %dmV\n", adc_reading, voltage);
-    xSemaphoreGive(ls_adc1_semaphore);
+    xSemaphoreGive(print_mux);
     vTaskDelay(pdMS_TO_TICKS(1000));
    }
 }
@@ -106,7 +116,8 @@ void app_main(void)
     printf("Checked ADC efuse (wait 5s)\n");
     vTaskDelay(pdMS_TO_TICKS(5000));
     adc_chars = calloc(1, sizeof(esp_adc_cal_characteristics_t));
-	ls_adc1_semaphore = xSemaphoreCreateMutex();
+	adc1_mux = xSemaphoreCreateMutex();
+    print_mux = xSemaphoreCreateMutex();
     lsgpio_initialize();
     printf("Initialized GPIO (wait 5s)\n");
     vTaskDelay(pdMS_TO_TICKS(5000));

@@ -1,5 +1,7 @@
 #include "config.h"
 #include "driver/gpio.h"
+#include "driver/i2c.h"
+#include "sdkconfig.h"
 
 #define LSGPIO_OUTPUT_PIN_SEL (\
     (1ULL<<LSGPIO_LASERPOWERENABLE) | \
