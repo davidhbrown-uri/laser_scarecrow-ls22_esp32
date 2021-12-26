@@ -1,9 +1,7 @@
 {
+    "C_Cpp.intelliSenseEngine": "Tag Parser",
     "idf.adapterTargetName": "esp32",
-    "idf.openOcdConfigs": [
-        "interface/ftdi/esp32_devkitj_v1.cfg",
-        "target/esp32.cfg"
-    ],
     "idf.portWin": "COM3",
-    "idf.flashType": "UART"
+    "idf.flashType": "UART",
+    "idf.gitPath": "C:\\Users\\dave\\.espressif\\tools\\idf-git\\2.30.1\\cmd\\git.exe"
 }
