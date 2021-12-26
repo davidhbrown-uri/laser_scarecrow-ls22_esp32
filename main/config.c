@@ -59,3 +59,21 @@ void lsgpio_initialize(void)
     io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
     gpio_config(&io_conf);
 }
+
+esp_err_t i2c_master_init(void)
+{
+    i2c_config_t conf = {
+        .mode = I2C_MODE_MASTER,
+        .sda_io_num = LSI2C_SDA,
+        .sda_pullup_en = GPIO_PULLUP_ENABLE,
+        .scl_io_num = LSI2C_SCL,
+        .scl_pullup_en = GPIO_PULLUP_ENABLE,
+        .master.clk_speed = LSI2C_FREQ_HZ,
+        // .clk_flags = 0,          /*!< Optional, you can use I2C_SCLK_SRC_FLAG_* flags to choose i2c source clock here. */
+    };
+    esp_err_t err = i2c_param_config(I2C_NUM_0, &conf);
+    if (err != ESP_OK) {
+        return err;
+    }
+    return i2c_driver_install(I2C_NUM_0, conf.mode, 0, 0, 0);
+}

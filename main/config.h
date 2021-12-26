@@ -1,6 +1,8 @@
 #pragma once
-void lsgpio_initialize(void);
+#include "driver/i2c.h"
 
+void lsgpio_initialize(void);
+esp_err_t i2c_master_init(void);
 
 // comment out to compile for production boards
 #define LSBOARD_TESTNOV21
@@ -39,14 +41,19 @@ void lsgpio_initialize(void);
 #define LSGPIO_STEPPERSLEEP 5
 // PWM output (LEDC)
 #define LSGPIO_SERVOPULSE 33
-#define LSGPIO_BUZZERENABLE 2  
+#define LSGPIO_BUZZERENABLE 2
+// I2C (using controller 0; pins selected to match Arduino usage; maybe they have a reason?)
+#define LSIC2_PORT I2C_NUM_0
+#define LSI2C_SDA 21
+#define LSI2C_SCL 22
+#define LSI2C_FREQ_HZ 100000
 // currently unused
 #define LSGPIO_SPARE2 23
 #define LSGPIO_SPARE3 1
 #define LSGPIO_SPARE4 3
 
 
-// Pins were arranged differently on the test board
+// some pins were arranged differently on the test board
 #ifdef LSBOARD_TESTNOV21
     #undef LSGPIO_STEPPERDIRECTION
     #define LSGPIO_STEPPERDIRECTION 5

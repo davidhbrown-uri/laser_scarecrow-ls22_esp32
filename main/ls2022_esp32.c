@@ -121,6 +121,8 @@ void app_main(void)
     lsgpio_initialize();
     printf("Initialized GPIO (wait 5s)\n");
     vTaskDelay(pdMS_TO_TICKS(5000));
+    ESP_ERROR_CHECK(i2c_master_init());
+    printf("Initialized I2C\n");
     // so, do you just have to figure out the usStackDepth parameter (here, configMINIMAL_STACK_SIZE*2) by trial and error?
     xTaskCreate(&adc_read_tape_setting_task, "adcr_tapesetting", configMINIMAL_STACK_SIZE*2, NULL, 1, NULL);
     xTaskCreate(&adc_read_light_sensor_task, "adcr_light", configMINIMAL_STACK_SIZE*2, NULL, 1, NULL);
