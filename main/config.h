@@ -2,7 +2,7 @@
 #include "driver/i2c.h"
 
 void lsgpio_initialize(void);
-esp_err_t i2c_master_init(void);
+esp_err_t lsi2c_master_init(void);
 
 // comment out to compile for production boards
 #define LSBOARD_TESTNOV21

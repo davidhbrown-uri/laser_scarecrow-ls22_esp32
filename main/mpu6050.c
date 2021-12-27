@@ -7,46 +7,78 @@
 #define ACK_VAL 0x0                             /*!< I2C ack value */
 #define NACK_VAL 0x1                            /*!< I2C nack value */
 
-esp_err_t mpu6050_begin(void)
-{
-    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-    i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, MPU6050_ADDR << 1 | I2C_MASTER_WRITE, ACK_CHECK_EN);
-    i2c_master_write_byte(cmd, MPU6050_ACCEL_CONFIG, ACK_CHECK_EN);
-    i2c_master_write_byte(cmd, 0x00, ACK_CHECK_EN);
-    esp_err_t ret = i2c_master_cmd_begin(I2C_NUM_0, cmd, 1000 / portTICK_RATE_MS);
-    i2c_cmd_link_delete(cmd);
-    return ret;
-}
 
 static esp_err_t mpu6050_write_reg_byte(uint8_t register_number, uint8_t data)
 {
+    // see page 35 of MPU-6000/MPU-6050 Product Specification; single-byte write sequence
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-    i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, MPU6050_ADDR << 1 | I2C_MASTER_WRITE, ACK_CHECK_EN);
-    i2c_master_write_byte(cmd, register_number, ACK_CHECK_EN);
-    i2c_master_write_byte(cmd, data, ACK_CHECK_EN);
-    i2c_master_stop(cmd);
+    i2c_master_start(cmd); // S
+    i2c_master_write_byte(cmd, MPU6050_ADDR << 1 | I2C_MASTER_WRITE, ACK_CHECK_EN); // AD+W (ACK)
+    i2c_master_write_byte(cmd, register_number, ACK_CHECK_EN); // RA (ACK)
+    i2c_master_write_byte(cmd, data, ACK_CHECK_EN); // DATA (ACK)
+    i2c_master_stop(cmd); // P
     esp_err_t ret = i2c_master_cmd_begin(I2C_NUM_0, cmd, 1000 / portTICK_RATE_MS);
     i2c_cmd_link_delete(cmd);
     return ret;
 }
 
-static esp_err_t mpu6050_read_reg_int16(uint8_t register_number, int16_t *data)
+static esp_err_t mpu6050_read_reg_uint8(uint8_t register_number, uint8_t *data)
 {
-    uint8_t data_h, data_l;
+    // see page 36 of MPU-6000/MPU-6050 Product Specification; single-byte read sequence
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-    i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, MPU6050_ADDR << 1 | I2C_MASTER_WRITE, ACK_CHECK_EN);
-    i2c_master_write_byte(cmd, register_number, ACK_CHECK_EN);
-    i2c_master_read_byte(cmd, data_h, ACK_VAL);
-    i2c_master_read_byte(cmd, data_l, NACK_VAL);
-    i2c_master_stop(cmd);
+    i2c_master_start(cmd); // S
+    i2c_master_write_byte(cmd, MPU6050_ADDR << 1 | I2C_MASTER_WRITE, ACK_CHECK_EN); // AD+W (ACK)
+    i2c_master_write_byte(cmd, register_number, ACK_CHECK_EN); // RA (ACK)
+    i2c_master_start(cmd); // S
+    i2c_master_write_byte(cmd, MPU6050_ADDR << 1 | I2C_MASTER_READ, ACK_CHECK_EN); // AD+R (ACK)
+    i2c_master_read_byte(cmd, data, I2C_MASTER_NACK); // (DATA) ACK
+    i2c_master_stop(cmd); // P
     esp_err_t ret = i2c_master_cmd_begin(I2C_NUM_0, cmd, 1000 / portTICK_RATE_MS);
     i2c_cmd_link_delete(cmd);
+    return ret;
+}
+static esp_err_t mpu6050_read_reg_int16(uint8_t register_number, int16_t *data)
+{
+    uint8_t data_h=0, data_l=0;
+    // see page 36 of MPU-6000/MPU-6050 Product Specification; burst read sequence
+    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+    i2c_master_start(cmd); // S
+    i2c_master_write_byte(cmd, MPU6050_ADDR << 1 | I2C_MASTER_WRITE, ACK_CHECK_EN); // AD+W (ACK)
+    i2c_master_write_byte(cmd, register_number, ACK_CHECK_EN); // RA (ACK)
+    i2c_master_start(cmd); // S
+    i2c_master_write_byte(cmd, MPU6050_ADDR << 1 | I2C_MASTER_READ, ACK_CHECK_EN); // AD+R (ACK)
+    i2c_master_read_byte(cmd, &data_h, I2C_MASTER_ACK); // (DATA) ACK
+    i2c_master_read_byte(cmd, &data_l, I2C_MASTER_NACK); // (DATA) NACK
+    i2c_master_stop(cmd); // P
+    esp_err_t ret = i2c_master_cmd_begin(I2C_NUM_0, cmd, 1000 / portTICK_RATE_MS);
+    i2c_cmd_link_delete(cmd);
+    // reassemble 2s-complement value from separate high and low bytes
     *data = (data_h & 0x7f) * 256 + data_l;
     if (data_h & 0x80) {
-        *data = 32768 - *data;
+        *data = -32768 + *data;
     }
     return ret;
+}
+
+void mpu6050_begin(void)
+{
+    ESP_ERROR_CHECK(mpu6050_write_reg_byte(MPU6050_PWR_MGMT_1, 0x80));//reset
+    uint8_t address = 255;
+    ESP_ERROR_CHECK(mpu6050_read_reg_uint8(MPU6050_WHO_AM_I, &address));
+    printf("MPU6050 base address is %d\n", address);
+    ESP_ERROR_CHECK(mpu6050_write_reg_byte(MPU6050_PWR_MGMT_1, MPU6050_PWR_MGMT_1_CYCLE_BIT));
+    ESP_ERROR_CHECK(mpu6050_write_reg_byte(MPU6050_PWR_MGMT_2, MPU6050_PWR_MGMT_2_ZA_ONLY));
+}
+
+float mpu6050_read_accel_z(void)
+{
+    int16_t value=0;
+    ESP_ERROR_CHECK(mpu6050_read_reg_int16(MPU6050_ACCEL_ZOUT_H, &value));
+    return ((float) value / 16384.0);
+}
+float mpu6050_read_temp(void)
+{
+    int16_t value=0;
+    ESP_ERROR_CHECK(mpu6050_read_reg_int16(MPU6050_TEMP_H, &value));
+    return ((float) value) / 340.0 + 36.53;
 }

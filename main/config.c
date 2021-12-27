@@ -60,7 +60,7 @@ void lsgpio_initialize(void)
     gpio_config(&io_conf);
 }
 
-esp_err_t i2c_master_init(void)
+esp_err_t lsi2c_master_init(void)
 {
     i2c_config_t conf = {
         .mode = I2C_MODE_MASTER,
