@@ -113,16 +113,17 @@ void app_main(void)
     esp_adc_cal_value_t val_type = esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_11db, ADC_WIDTH_12Bit, 1100, adc_chars);
     print_char_val_type(val_type);
 
-    printf("Checked ADC efuse (wait 5s)\n");
-    vTaskDelay(pdMS_TO_TICKS(5000));
+    printf("Checked ADC efuse (wait 2s)\n");
+    vTaskDelay(pdMS_TO_TICKS(2000));
     adc_chars = calloc(1, sizeof(esp_adc_cal_characteristics_t));
 	adc1_mux = xSemaphoreCreateMutex();
     print_mux = xSemaphoreCreateMutex();
     lsgpio_initialize();
-    printf("Initialized GPIO (wait 5s)\n");
-    vTaskDelay(pdMS_TO_TICKS(5000));
+    printf("Initialized GPIO (wait 2s)\n");
+    vTaskDelay(pdMS_TO_TICKS(2000));
     ESP_ERROR_CHECK(i2c_master_init());
-    printf("Initialized I2C\n");
+    printf("Initialized I2C (wait 2s)\n");
+    vTaskDelay(pdMS_TO_TICKS(2000));
     // so, do you just have to figure out the usStackDepth parameter (here, configMINIMAL_STACK_SIZE*2) by trial and error?
     xTaskCreate(&adc_read_tape_setting_task, "adcr_tapesetting", configMINIMAL_STACK_SIZE*2, NULL, 1, NULL);
     xTaskCreate(&adc_read_light_sensor_task, "adcr_light", configMINIMAL_STACK_SIZE*2, NULL, 1, NULL);
