@@ -53,19 +53,24 @@ static esp_err_t mpu6050_read_reg_int16(uint8_t register_number, int16_t *data)
     esp_err_t ret = i2c_master_cmd_begin(I2C_NUM_0, cmd, 1000 / portTICK_RATE_MS);
     i2c_cmd_link_delete(cmd);
     // reassemble 2s-complement value from separate high and low bytes
-    *data = (data_h & 0x7f) * 256 + data_l;
-    if (data_h & 0x80) {
-        *data = -32768 + *data;
-    }
+    *data = ((data_h & 0x80) ? -32878 : 0) + (data_h & 0x7f) * 256 + data_l;
     return ret;
 }
 
+/**
+ * @brief Initialize the MPU6050 accelerometer
+ * @todo Figure out why every other time the ESP32 is reset, this device is reporting only zero values.
+ * 
+ */
 void mpu6050_begin(void)
 {
     ESP_ERROR_CHECK(mpu6050_write_reg_byte(MPU6050_PWR_MGMT_1, 0x80));//reset
     uint8_t address = 255;
     ESP_ERROR_CHECK(mpu6050_read_reg_uint8(MPU6050_WHO_AM_I, &address));
     printf("MPU6050 base address is %d\n", address);
+    ESP_ERROR_CHECK(mpu6050_write_reg_byte(MPU6050_PWR_MGMT_1, MPU6050_PWR_MGMT_1_RESET_BIT));
+    // wait 100ms
+    vTaskDelay(pdMS_TO_TICKS(100));
     ESP_ERROR_CHECK(mpu6050_write_reg_byte(MPU6050_PWR_MGMT_1, MPU6050_PWR_MGMT_1_CYCLE_BIT));
     ESP_ERROR_CHECK(mpu6050_write_reg_byte(MPU6050_PWR_MGMT_2, MPU6050_PWR_MGMT_2_ZA_ONLY));
 }
