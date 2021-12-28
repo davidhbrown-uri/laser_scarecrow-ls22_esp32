@@ -8,9 +8,11 @@
 #include "freertos/semphr.h"
 #include "driver/adc.h"
 #include "esp_adc_cal.h"
-#include "mpu6050.h"
-
 #include "config.h"
+#include "mpu6050.h"
+#include "events.h"
+
+QueueHandle_t ls_event_queue = NULL;
 
 SemaphoreHandle_t adc1_mux = NULL;
 SemaphoreHandle_t i2c_mux = NULL;
@@ -39,7 +41,7 @@ void adc_read_tape_setting_task(void *pvParameter)
     xSemaphoreTake(print_mux, portMAX_DELAY);
     printf("Tape setting raw: %d\tVoltage: %dmV\n", adc_reading, voltage);
     xSemaphoreGive(print_mux);
-    vTaskDelay(pdMS_TO_TICKS(3000));
+    vTaskDelay(pdMS_TO_TICKS(5000));
    }
 }
 
@@ -65,7 +67,7 @@ void adc_read_light_sensor_task(void *pvParameter)
     xSemaphoreTake(print_mux, portMAX_DELAY);
     printf("Ambient light raw: %d\tVoltage: %dmV\n", adc_reading, voltage);
     xSemaphoreGive(print_mux);
-    vTaskDelay(pdMS_TO_TICKS(1000));
+    vTaskDelay(pdMS_TO_TICKS(5000));
    }
 }
 
@@ -79,7 +81,7 @@ void i2c_read_tilt_task(void *pvParameter)
     xSemaphoreTake(print_mux, portMAX_DELAY);
     printf("Tilt (AccelZ)= %0.2fg\n", tilt);
     xSemaphoreGive(print_mux);
-    vTaskDelay(pdMS_TO_TICKS(400));
+    vTaskDelay(pdMS_TO_TICKS(2000));
     }
 }
 
@@ -93,8 +95,46 @@ void i2c_read_temp_task(void *pvParameter)
     xSemaphoreTake(print_mux, portMAX_DELAY);
     printf("Temperature= %0.1f°C\n", temp);
     xSemaphoreGive(print_mux);
-    vTaskDelay(pdMS_TO_TICKS(5400));
+    vTaskDelay(pdMS_TO_TICKS(5000));
     }
+}
+
+/**
+ * @brief 
+ * @todo switch to using a queue with the full ls_event structure. 
+ * @see https://controllerstech.com/freertos-tutorial-5-using-queue/ 
+ * 
+ * @param pvParameter 
+ */
+void event_handler_task(void *pvParameter)
+{
+    enum ls_event_types received;
+    while(1)
+    {
+        if(xQueueReceive(ls_event_queue, &received, portMAX_DELAY) != pdTRUE)
+        {
+            printf("No events received after maximum delay... getting very bored.");
+        }
+        else {
+            switch (received) {
+                case LSEVT_MAGNET_ENTER:
+                    printf("Magnet Entered detection area\n");
+                    break;
+                case LSEVT_MAGNET_LEAVE:
+                    printf("Magnet left detection area\n");
+                    break;
+                default:
+                    printf("Unknown event %d -- I'm confused", received);
+            }
+        }
+    }
+}
+
+void magnet_event_isr(void *pvParameter)
+{
+    // note that the sensor pulls low when triggered
+    enum ls_event_types event = gpio_get_level(LSGPIO_MAGNETSENSE) ? LSEVT_MAGNET_LEAVE : LSEVT_MAGNET_ENTER;
+    xQueueSendFromISR(ls_event_queue, (void *) &event, NULL);
 }
 
 // from adc1_example_main.c
@@ -137,6 +177,8 @@ static void print_char_val_type(esp_adc_cal_value_t val_type)
 
 void app_main(void)
 {
+    ls_event_queue = xQueueCreate( 32, sizeof(enum ls_event_types));
+
     check_efuse();
     //Characterize ADC
     adc_chars = calloc(1, sizeof(esp_adc_cal_characteristics_t));
@@ -159,11 +201,18 @@ void app_main(void)
     vTaskDelay(pdMS_TO_TICKS(1000));
     printf("Initializing MPU6050\n");
     mpu6050_begin();
-    printf("Initialized MPU6050 i2c device (wait 2s)\n");
-    vTaskDelay(pdMS_TO_TICKS(2000));
+    printf("Initialized MPU6050 i2c device (wait 1s)\n");
+    vTaskDelay(pdMS_TO_TICKS(1000));
     // so, do you just have to figure out the usStackDepth parameter (here, configMINIMAL_STACK_SIZE*2) by trial and error?
-    xTaskCreate(&adc_read_tape_setting_task, "adcr_tapesetting", configMINIMAL_STACK_SIZE*2, NULL, 1, NULL);
+    xTaskCreate(&adc_read_tape_setting_task, "adcr_tapesetting", configMINIMAL_STACK_SIZE*3, NULL, 1, NULL);
     xTaskCreate(&adc_read_light_sensor_task, "adcr_light", configMINIMAL_STACK_SIZE*3, NULL, 1, NULL);
     xTaskCreate(&i2c_read_tilt_task, "i2c_tilt", configMINIMAL_STACK_SIZE*3, NULL, 1, NULL);
     xTaskCreate(&i2c_read_temp_task, "i2c_temp", configMINIMAL_STACK_SIZE*3, NULL, 1, NULL);
+    xTaskCreate(&event_handler_task, "event_handler", configMINIMAL_STACK_SIZE*2, NULL, 2, NULL);
+    printf("Started tasks\n");
+    // set the magnet sensor to trigger an interrupt as it enters and as it leaves
+    gpio_set_intr_type(LSGPIO_MAGNETSENSE, GPIO_INTR_ANYEDGE);
+    gpio_install_isr_service(0);// default, no flags. 
+    gpio_isr_handler_add(LSGPIO_MAGNETSENSE, &magnet_event_isr, NULL);
+    printf("Started magnet sense ISR\n");
 }

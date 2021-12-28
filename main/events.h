@@ -4,6 +4,6 @@ enum ls_event_types {
     LSEVT_MAGNET_ENTER, LSEVT_MAGNET_LEAVE // <! no value for magnet events
 };
 typedef struct ls_event {
-    ls_event_types type;
+    enum ls_event_types type;
     void *value;    
 };
