@@ -58,6 +58,9 @@ esp_err_t lsi2c_master_init(void);
 
 // some pins were arranged differently on the test board
 #ifdef LSBOARD_TESTNOV21
+    //temporary, for diagnosing buzzer electronics issue using spare GPIO pin 
+    // #undef LSGPIO_BUZZERENABLE
+    // #define LSGPIO_BUZZERENABLE 23
     #undef LSGPIO_STEPPERDIRECTION
     #define LSGPIO_STEPPERDIRECTION 5
     #undef LSGPIO_STEPPERSLEEP

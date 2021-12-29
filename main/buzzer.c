@@ -37,7 +37,7 @@ static void buzzer_effect_click(void)
     // 500Hz for 100ms
     ESP_ERROR_CHECK(ledc_set_freq(LEDC_HIGH_SPEED_MODE, LEDC_TIMER_0, 500));
     ESP_ERROR_CHECK(ledc_timer_resume(LEDC_HIGH_SPEED_MODE, LEDC_TIMER_0));
-    vTaskDelay(pdMS_TO_TICKS(100));
+    vTaskDelay(pdMS_TO_TICKS(10));
     ESP_ERROR_CHECK(ledc_timer_pause(LEDC_HIGH_SPEED_MODE, LEDC_TIMER_0));
 }
 
