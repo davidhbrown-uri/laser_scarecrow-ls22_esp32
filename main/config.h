@@ -7,6 +7,9 @@ esp_err_t lsi2c_master_init(void);
 // comment out to compile for production boards
 #define LSBOARD_TESTNOV21
 
+// assignments of our devices to ESP32 peripherals
+#define LSBUZZER_HS_LEDC_CHANNEL 0
+
 // Laser Scarecrow GPIO and ADC channel 0 pin usage
 // GPIO => ADC1 channel mapping:
 // 25=>8, 32=> 4, 33=>5, 34=>6, 35=>7, 36=>0, 39=>3 
