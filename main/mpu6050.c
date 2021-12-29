@@ -59,7 +59,7 @@ static esp_err_t mpu6050_read_reg_int16(uint8_t register_number, int16_t *data)
 
 /**
  * @brief Initialize the MPU6050 accelerometer
- * @todo Figure out why every other time the ESP32 is reset, this device is reporting only zero values.
+ * @todone Figure out why every other time the ESP32 is reset, this device is reporting only zero values.
  * 
  */
 void mpu6050_begin(void)
@@ -68,6 +68,13 @@ void mpu6050_begin(void)
     uint8_t address = 255;
     ESP_ERROR_CHECK(mpu6050_read_reg_uint8(MPU6050_WHO_AM_I, &address));
     printf("MPU6050 base address is %d\n", address);
+    // page 41 of the MPU60x0 register map document has a note that seemed helpful with the zero value reporting:
+        // When using SPI interface, user should use DEVICE_RESET (register 107) as well as SIGNAL_PATH_RESET (register 104) to ensure the reset is performed properly. The sequence used should be:
+        // 1. Set DEVICE_RESET = 1 (register PWR_MGMT_1)
+        // 2. Wait 100ms
+        // 3. Set GYRO_RESET = ACCEL_RESET = TEMP_RESET = 1 (register SIGNAL_PATH_RESET)
+        // 4. Wait 100ms
+    // just the primary device reset + delay, not the signal path reset appears to be sufficient
     ESP_ERROR_CHECK(mpu6050_write_reg_byte(MPU6050_PWR_MGMT_1, MPU6050_PWR_MGMT_1_RESET_BIT));
     // wait 100ms
     vTaskDelay(pdMS_TO_TICKS(100));
