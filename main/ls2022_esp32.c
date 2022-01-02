@@ -103,6 +103,39 @@ void i2c_read_temp_task(void *pvParameter)
 }
 
 /**
+ * @brief White bucket reads <<500 (usually closer to 200) and black tape reads >>2000 (usually closer to 3000)
+ * 
+ * @param pvParameter 
+ */
+void adc_read_reflectance_sensor_task(void *pvParameter)
+{
+    while (1)
+    {
+        // turn on the reflectance sensor (no additional delay was needed)
+        gpio_set_level(LSGPIO_REFLECTANCEENABLE, 1);
+        xSemaphoreTake(adc1_mux, pdMS_TO_TICKS(1000));
+        adc1_config_width(ADC_WIDTH_BIT_12);
+        // atten 11 by default... shouldn't need to focus on lower voltages?
+        adc1_config_channel_atten(LSADC1_REFLECTANCESENSE, ADC_ATTEN_11db);
+        uint32_t adc_reading = 0;
+        for (int i = 0; i < 4; i++)
+        {
+            adc_reading += adc1_get_raw((adc1_channel_t)LSADC1_REFLECTANCESENSE);
+        }
+        adc_reading /= 4;
+        esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_11db, ADC_WIDTH_12Bit, 1100, adc_chars);
+        uint32_t voltage = esp_adc_cal_raw_to_voltage(adc_reading, adc_chars);
+        xSemaphoreGive(adc1_mux);
+        // turn off the reflectance sensor
+        gpio_set_level(LSGPIO_REFLECTANCEENABLE, 0);
+        xSemaphoreTake(print_mux, portMAX_DELAY);
+        printf("Reflectance sensor raw: %d\tVoltage: %dmV\n", adc_reading, voltage);
+        xSemaphoreGive(print_mux);
+        vTaskDelay(pdMS_TO_TICKS(500));
+    }
+}
+
+/**
  * @brief
  * @todo switch to using a queue with the full ls_event structure.
  * @see https://controllerstech.com/freertos-tutorial-5-using-queue/
@@ -137,13 +170,13 @@ void event_handler_task(void *pvParameter)
             default:
                 xSemaphoreTake(print_mux, portMAX_DELAY);
                 printf("Unknown event %d -- I'm confused", received);
-                xSemaphoreGive(print_mux); 
+                xSemaphoreGive(print_mux);
             }
         }
     }
 }
 
-void magnet_event_isr(void *pvParameter)
+void IRAM_ATTR magnet_event_isr(void *pvParameter)
 {
     // note that the sensor pulls low when triggered
     enum ls_event_types event = gpio_get_level(LSGPIO_MAGNETSENSE) ? LSEVT_MAGNET_LEAVE : LSEVT_MAGNET_ENTER;
@@ -211,32 +244,26 @@ void app_main(void)
     adc_chars = calloc(1, sizeof(esp_adc_cal_characteristics_t));
     esp_adc_cal_value_t val_type = esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_11db, ADC_WIDTH_12Bit, 1100, adc_chars);
     print_char_val_type(val_type);
-
-    printf("Checked ADC efuse (wait 1s)\n");
-    vTaskDelay(pdMS_TO_TICKS(1000));
+    printf("Checked ADC efuse\n");
     adc_chars = calloc(1, sizeof(esp_adc_cal_characteristics_t));
     adc1_mux = xSemaphoreCreateMutex();
     i2c_mux = xSemaphoreCreateMutex();
     print_mux = xSemaphoreCreateMutex();
     printf("Initializing GPIO\n");
     lsgpio_initialize();
-    printf("Initialized GPIO (wait 1s)\n");
-    vTaskDelay(pdMS_TO_TICKS(1000));
+    printf("Initialized GPIO\n");
     printf("Initializing I2C\n");
     ESP_ERROR_CHECK(lsi2c_master_init());
-    printf("Initialized I2C (wait 1s)\n");
-    vTaskDelay(pdMS_TO_TICKS(1000));
+    printf("Initialized I2C\n");
     printf("Initializing MPU6050\n");
     mpu6050_begin();
-    printf("Initialized MPU6050 i2c device (wait 1s)\n");
-    vTaskDelay(pdMS_TO_TICKS(1000));
+    printf("Initialized MPU6050 i2c device\n");
     // so, do you just have to figure out the usStackDepth parameter (here, configMINIMAL_STACK_SIZE*2) by trial and error?
     xTaskCreate(&adc_read_tape_setting_task, "adcr_tapesetting", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
     xTaskCreate(&adc_read_light_sensor_task, "adcr_light", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
     xTaskCreate(&i2c_read_tilt_task, "i2c_tilt", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
     xTaskCreate(&i2c_read_temp_task, "i2c_temp", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
     xTaskCreate(&event_handler_task, "event_handler", configMINIMAL_STACK_SIZE * 2, NULL, 2, NULL);
-    printf("Started tasks\n");
     buzzer_init();
     printf("Initialized buzzer\n");
     xTaskCreate(&buzzer_handler_task, "buzzer_handler", configMINIMAL_STACK_SIZE * 2, NULL, 1, NULL);
@@ -245,4 +272,7 @@ void app_main(void)
     gpio_install_isr_service(0); // default, no flags.
     gpio_isr_handler_add(LSGPIO_MAGNETSENSE, &magnet_event_isr, NULL);
     printf("Started magnet sense ISR\n");
+    xTaskCreate(&adc_read_reflectance_sensor_task, "reflectance", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
+    
+    printf("Started all test tasks\n");
 }
