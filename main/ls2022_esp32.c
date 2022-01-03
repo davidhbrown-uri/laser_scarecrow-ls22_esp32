@@ -330,7 +330,35 @@ void adc2_read_knobs_task(void *pvParameter)
         vTaskDelay(pdMS_TO_TICKS(2500));
     }
 }
-
+void adc_heater_task(void *pvParameter)
+{
+    while (1)
+    {
+        // turn on the heater (or test LED)
+        gpio_set_level(LSGPIO_LASERHEATERENABLE, 1);
+        xSemaphoreTake(adc1_mux, pdMS_TO_TICKS(1000));
+        adc1_config_width(ADC_WIDTH_BIT_12);
+        // atten 11 by default... shouldn't need to focus on lower voltages?
+        adc1_config_channel_atten(LSADC1_LASERTEMP, ADC_ATTEN_11db);
+        uint32_t adc_reading = 0;
+        for (int i = 0; i < 4; i++)
+        {
+            adc_reading += adc1_get_raw((adc1_channel_t)LSADC1_LASERTEMP);
+        }
+        adc_reading /= 4;
+        esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_11db, ADC_WIDTH_12Bit, 1100, adc_chars);
+        uint32_t voltage = esp_adc_cal_raw_to_voltage(adc_reading, adc_chars);
+        xSemaphoreGive(adc1_mux);
+        xSemaphoreTake(print_mux, portMAX_DELAY);
+        printf("Laser thermistor sensor raw: %d\tVoltage: %dmV\n", adc_reading, voltage);
+        xSemaphoreGive(print_mux);
+        vTaskDelay(pdMS_TO_TICKS(1500));
+        // turn off the heater after a time
+        gpio_set_level(LSGPIO_LASERHEATERENABLE, 0);
+        // and wait some more time before doing it again
+        vTaskDelay(pdMS_TO_TICKS(1500));
+    }
+}
 void app_main(void)
 {
     ls_event_queue = xQueueCreate(32, sizeof(enum ls_event_types));
@@ -374,5 +402,6 @@ void app_main(void)
     xTaskCreate(&adc_read_reflectance_sensor_task, "reflectance", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
     xTaskCreate(&stepper_task, "stepper", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
     xTaskCreate(&adc2_read_knobs_task, "knobs", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
+    xTaskCreate(&adc_heater_task, "heater", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
     printf("Started all test tasks\n");
 }
