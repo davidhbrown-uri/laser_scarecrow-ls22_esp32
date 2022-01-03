@@ -332,8 +332,10 @@ void app_main(void)
     xTaskCreate(&i2c_read_temp_task, "i2c_temp", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
     xTaskCreate(&event_handler_task, "event_handler", configMINIMAL_STACK_SIZE * 2, NULL, 2, NULL);
     buzzer_init();
+    xTaskCreate(&buzzer_handler_task, "buzzer_handler", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
     printf("Initialized buzzer\n");
-    xTaskCreate(&buzzer_handler_task, "buzzer_handler", configMINIMAL_STACK_SIZE * 2, NULL, 1, NULL);
+    buzzer_play(LS_BUZZER_ALERT_1S);
+
     // set the magnet sensor to trigger an interrupt as it enters and as it leaves
     gpio_set_intr_type(LSGPIO_MAGNETSENSE, GPIO_INTR_ANYEDGE);
     gpio_install_isr_service(0); // default, no flags.

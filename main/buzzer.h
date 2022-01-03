@@ -3,7 +3,8 @@
 #include "freertos/queue.h"
 
 enum ls_buzzer_effects {
-    LS_BUZZER_CLICK
+    LS_BUZZER_CLICK,
+    LS_BUZZER_ALERT_1S
 };
 
 QueueHandle_t ls_buzzer_queue;
