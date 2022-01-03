@@ -364,7 +364,7 @@ void app_main(void)
     buzzer_init();
     xTaskCreate(&buzzer_handler_task, "buzzer_handler", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
     printf("Initialized buzzer\n");
-    buzzer_play(LS_BUZZER_ALERT_1S);
+    buzzer_play(LS_BUZZER_ALTERNATE_HIGH);
 
     // set the magnet sensor to trigger an interrupt as it enters and as it leaves
     gpio_set_intr_type(LSGPIO_MAGNETSENSE, GPIO_INTR_ANYEDGE);

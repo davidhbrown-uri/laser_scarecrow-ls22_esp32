@@ -48,6 +48,17 @@ static void buzzer_effect_click(void)
      vTaskDelay(pdMS_TO_TICKS(10));
 }
 
+static void buzzer_effect_alternate_high(void)
+{
+    for(int i = 0; i < pdMS_TO_TICKS(1000); i+=2)
+    {
+    _buzzer_frequency(3100); // resonant frequency of bucket piezo
+    vTaskDelay(1);
+    _buzzer_frequency(4000); // resonant frequency of knobs pizo   
+    vTaskDelay(1);
+    }
+}
+
 void buzzer_handler_task(void *pvParameter)
 {
     enum ls_buzzer_effects received;
@@ -62,13 +73,17 @@ void buzzer_handler_task(void *pvParameter)
             switch (received)
             {
             case LS_BUZZER_CLICK:
-                printf("Click\n");
+                printf("Buzzer Click\n");
                 buzzer_effect_click();
                 break;
             case LS_BUZZER_ALERT_1S:
-                printf("Alert 1s\n");
+                printf("Buzzer Alert 1s\n");
                 _buzzer_frequency(3100);
                 vTaskDelay(pdMS_TO_TICKS(1000));
+                break;
+            case LS_BUZZER_ALTERNATE_HIGH:
+                printf("Buzzer Alternate High\n");
+                buzzer_effect_alternate_high();
                 break;
             default:
                 printf("Unknown ls_buzzer_effect %d -- I'm confused", received);

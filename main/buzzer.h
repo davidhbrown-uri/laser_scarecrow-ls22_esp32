@@ -4,7 +4,8 @@
 
 enum ls_buzzer_effects {
     LS_BUZZER_CLICK,
-    LS_BUZZER_ALERT_1S
+    LS_BUZZER_ALERT_1S,
+    LS_BUZZER_ALTERNATE_HIGH,
 };
 
 QueueHandle_t ls_buzzer_queue;
