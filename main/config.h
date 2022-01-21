@@ -5,7 +5,7 @@ void lsgpio_initialize(void);
 esp_err_t lsi2c_master_init(void);
 
 // comment out to compile for production boards
-#define LSBOARD_TESTNOV21
+//#undef LSBOARD_TESTNOV21
 
 // assignments of our devices to ESP32 peripherals
 #define LSBUZZER_HS_LEDC_CHANNEL 0

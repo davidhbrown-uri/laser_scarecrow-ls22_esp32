@@ -10,7 +10,11 @@
 #include "driver/adc.h"
 #include "esp_adc_cal.h"
 #include "config.h"
+#ifdef LSBOARD_TESTNOV21
 #include "mpu6050.h"
+#else
+#include "kxtj3.h"
+#endif
 #include "events.h"
 #include "buzzer.h"
 
@@ -78,12 +82,17 @@ void adc_read_light_sensor_task(void *pvParameter)
     }
 }
 
+
 void i2c_read_tilt_task(void *pvParameter)
 {
     while (1)
     {
         xSemaphoreTake(i2c_mux, portMAX_DELAY);
+#ifdef LSBOARD_TESTNOV21
         float tilt = mpu6050_read_accel_z();
+#else
+        float tilt = kxtj3_read_accel_z();
+#endif
         xSemaphoreGive(i2c_mux);
         xSemaphoreTake(print_mux, portMAX_DELAY);
         printf("Tilt (AccelZ)= %0.2fg\n", tilt);
@@ -91,7 +100,7 @@ void i2c_read_tilt_task(void *pvParameter)
         vTaskDelay(pdMS_TO_TICKS(2000));
     }
 }
-
+#ifdef LSBOARD_TESTNOV21
 void i2c_read_temp_task(void *pvParameter)
 {
     while (1)
@@ -105,6 +114,7 @@ void i2c_read_temp_task(void *pvParameter)
         vTaskDelay(pdMS_TO_TICKS(5000));
     }
 }
+#endif
 
 /**
  * @brief White bucket reads <<500 (usually closer to 200) and black tape reads >>2000 (usually closer to 3000)
@@ -380,14 +390,20 @@ void app_main(void)
     printf("Initializing I2C\n");
     ESP_ERROR_CHECK(lsi2c_master_init());
     printf("Initialized I2C\n");
+    #ifdef LSBOARD_TESTNOV21
     printf("Initializing MPU6050\n");
     mpu6050_begin();
-    printf("Initialized MPU6050 i2c device\n");
+    printf("Initialized MPU6050 i2c accelerometer\n");
+    xTaskCreate(&i2c_read_temp_task, "i2c_temp", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
+    #else
+    printf("Initializing KXTJ3-1057\n");
+    kxtj3_begin();
+    printf("Initialized KXTJ3 i2c accelerometer\n");
+    #endif
+    xTaskCreate(&i2c_read_tilt_task, "i2c_tilt", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
     // so, do you just have to figure out the usStackDepth parameter (here, configMINIMAL_STACK_SIZE*2) by trial and error?
     xTaskCreate(&adc_read_tape_setting_task, "adcr_tapesetting", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
     xTaskCreate(&adc_read_light_sensor_task, "adcr_light", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
-    xTaskCreate(&i2c_read_tilt_task, "i2c_tilt", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
-    xTaskCreate(&i2c_read_temp_task, "i2c_temp", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
     xTaskCreate(&event_handler_task, "event_handler", configMINIMAL_STACK_SIZE * 2, NULL, 2, NULL);
     buzzer_init();
     xTaskCreate(&buzzer_handler_task, "buzzer_handler", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
