@@ -51,3 +51,12 @@ esp_err_t lsi2c_master_init(void);
 #define LSGPIO_SPARE2 23
 #define LSGPIO_SPARE3 1
 #define LSGPIO_SPARE4 3
+
+// default parameters for the servo
+#define LS_SERVO_US_MIN 750
+#define LS_SERVO_US_MAX 2250
+#define LS_SERVO_US_MID 1500
+#define LS_SERVO_MCPWM_UNIT MCPWM_UNIT_0
+#define LS_SERVO_MCPWM_IO_SIGNALS MCPWM0A
+#define LS_SERVO_MCPWM_TIMER MCPWM_TIMER_0
+#define LS_SERVO_MCPWM_GENERATOR MCPWM_OPR_A

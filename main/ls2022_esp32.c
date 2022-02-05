@@ -8,6 +8,7 @@
 #include "driver/gpio.h"
 #include "driver/timer.h"
 #include "driver/adc.h"
+#include "driver/mcpwm.h"
 #include "esp_adc_cal.h"
 #include "config.h"
 #ifdef LSBOARD_TESTNOV21
@@ -369,6 +370,57 @@ void adc_heater_task(void *pvParameter)
         vTaskDelay(pdMS_TO_TICKS(1500));
     }
 }
+void servo_task(void *pvParameter)
+{
+    // Set PWM0A to LSGPIO_SERVOPULSE (from the example code)
+    mcpwm_gpio_init(LS_SERVO_MCPWM_UNIT, LS_SERVO_MCPWM_IO_SIGNALS, LSGPIO_SERVOPULSE);
+    mcpwm_config_t pwm_config = {
+        .frequency = 50,    //frequency = 50Hz, i.e. for every servo motor time period should be 20ms
+        .cmpr_a = 0,    //duty cycle of PWMxA = 0
+        .counter_mode = MCPWM_UP_COUNTER,
+        .duty_mode = MCPWM_DUTY_MODE_0
+    };
+    mcpwm_init(LS_SERVO_MCPWM_UNIT, LS_SERVO_MCPWM_TIMER, &pwm_config);    //Configure PWM0A & PWM0B with above settings
+
+    while (1)
+    {
+        // turn on the servo and move to midpoint for 5 seconds
+        xSemaphoreTake(print_mux, portMAX_DELAY);
+        printf("Servo to midpoint (5sec)\n");
+        xSemaphoreGive(print_mux);
+        gpio_set_level(LSGPIO_SERVOPOWERENABLE, 1);
+        mcpwm_start(LS_SERVO_MCPWM_UNIT, LS_SERVO_MCPWM_TIMER);
+        mcpwm_set_duty_in_us(LS_SERVO_MCPWM_UNIT, LS_SERVO_MCPWM_TIMER, LS_SERVO_MCPWM_GENERATOR, LS_SERVO_US_MID);
+        vTaskDelay(pdMS_TO_TICKS(5000));
+        xSemaphoreTake(print_mux, portMAX_DELAY);
+        printf("Servo pulse getting longer\n");
+        xSemaphoreGive(print_mux);
+        for(int i = LS_SERVO_US_MID; i <= LS_SERVO_US_MAX; i+=15) {
+            mcpwm_set_duty_in_us(LS_SERVO_MCPWM_UNIT, LS_SERVO_MCPWM_TIMER, LS_SERVO_MCPWM_GENERATOR, i);
+            vTaskDelay(pdMS_TO_TICKS(100));
+        }
+        xSemaphoreTake(print_mux, portMAX_DELAY);
+        printf("Servo pulse getting shorter\n");
+        xSemaphoreGive(print_mux);
+        for(int i = LS_SERVO_US_MAX; i >= LS_SERVO_US_MIN; i-=15) {
+            mcpwm_set_duty_in_us(LS_SERVO_MCPWM_UNIT, LS_SERVO_MCPWM_TIMER, LS_SERVO_MCPWM_GENERATOR, i);
+            vTaskDelay(pdMS_TO_TICKS(100));
+        }
+        xSemaphoreTake(print_mux, portMAX_DELAY);
+        printf("Servo moving back to midpoint\n");
+        xSemaphoreGive(print_mux);
+        for(int i = LS_SERVO_US_MIN; i <= LS_SERVO_US_MID; i+=15) {
+            mcpwm_set_duty_in_us(LS_SERVO_MCPWM_UNIT, LS_SERVO_MCPWM_TIMER, LS_SERVO_MCPWM_GENERATOR, i);
+            vTaskDelay(pdMS_TO_TICKS(100));
+        }
+        xSemaphoreTake(print_mux, portMAX_DELAY);
+        printf("Servo off (2sec)\n");
+        xSemaphoreGive(print_mux);
+        mcpwm_stop(LS_SERVO_MCPWM_UNIT, LS_SERVO_MCPWM_TIMER);
+        gpio_set_level(LSGPIO_SERVOPOWERENABLE, 0);
+        vTaskDelay(pdMS_TO_TICKS(2000));
+    }
+}
 void app_main(void)
 {
     ls_event_queue = xQueueCreate(32, sizeof(enum ls_event_types));
@@ -419,5 +471,6 @@ void app_main(void)
     xTaskCreate(&stepper_task, "stepper", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
     xTaskCreate(&adc2_read_knobs_task, "knobs", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
     xTaskCreate(&adc_heater_task, "heater", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
+    xTaskCreate(&servo_task, "servo", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
     printf("Started all test tasks\n");
 }
