@@ -4,9 +4,6 @@
 void lsgpio_initialize(void);
 esp_err_t lsi2c_master_init(void);
 
-// comment out to compile for production boards
-//#undef LSBOARD_TESTNOV21
-
 // assignments of our devices to ESP32 peripherals
 #define LSBUZZER_HS_LEDC_CHANNEL 0
 
@@ -54,23 +51,3 @@ esp_err_t lsi2c_master_init(void);
 #define LSGPIO_SPARE2 23
 #define LSGPIO_SPARE3 1
 #define LSGPIO_SPARE4 3
-
-
-// some pins were arranged differently on the test board
-#ifdef LSBOARD_TESTNOV21
-    //temporary, for diagnosing buzzer electronics issue using spare GPIO pin 
-    // #undef LSGPIO_BUZZERENABLE
-    // #define LSGPIO_BUZZERENABLE 23
-    #undef LSGPIO_STEPPERDIRECTION
-    #define LSGPIO_STEPPERDIRECTION 5
-    #undef LSGPIO_STEPPERSLEEP
-    #define LSGPIO_STEPPERSLEEP 19
-    #undef LSGPIO_LASERHEATERENABLE
-    #define LSGPIO_LASERHEATERENABLE 32
-    #undef LSGPIO_LASERPOWERENABLE
-    #define LSGPIO_LASERPOWERENABLE 33
-    #undef LSGPIO_SERVOPULSE
-    #define LSGPIO_SERVOPULSE 25
-    #undef LSGPIO_SERVOPOWERENABLE
-    #define LSGPIO_SERVOPOWERENABLE 26
-#endif
