@@ -1,2 +1,2 @@
-idf_component_register(SRCS "init.c" "mpu6050.c" "kxtj3.c" "buzzer.c" "ls2022_esp32.c"
+idf_component_register(SRCS "init.c" "stepper.c" "mpu6050.c" "kxtj3.c" "buzzer.c" "ls2022_esp32.c"
                     INCLUDE_DIRS ".")
