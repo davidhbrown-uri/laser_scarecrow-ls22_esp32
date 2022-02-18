@@ -1,5 +1,5 @@
-#include "init.h"
 #include "config.h"
+#include "init.h"
 #include "driver/gpio.h"
 #include "driver/i2c.h"
 #include "sdkconfig.h"
