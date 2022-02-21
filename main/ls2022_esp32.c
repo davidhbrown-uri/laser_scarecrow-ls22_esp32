@@ -14,10 +14,11 @@
 #include "events.h"
 #include "buzzer.h"
 #include "stepper.h"
+#include "magnet.h"
 
 #define STEPPER_TIMER_DIVIDER (40)
 
-QueueHandle_t ls_event_queue = NULL;
+extern QueueHandle_t ls_event_queue;
 
 SemaphoreHandle_t adc1_mux = NULL;
 SemaphoreHandle_t i2c_mux = NULL;
@@ -180,12 +181,7 @@ void event_handler_task(void *pvParameter)
     }
 }
 
-void IRAM_ATTR magnet_event_isr(void *pvParameter)
-{
-    // note that the sensor pulls low when triggered
-    enum ls_event_types event = gpio_get_level(LSGPIO_MAGNETSENSE) ? LSEVT_MAGNET_LEAVE : LSEVT_MAGNET_ENTER;
-    xQueueSendFromISR(ls_event_queue, (void *)&event, NULL);
-}
+
 
 // from adc1_example_main.c
 static void check_efuse(void)
@@ -304,9 +300,7 @@ static void stepper_task(void *pvParameter)
 }
 
 void app_main(void)
-{
-    ls_event_queue = xQueueCreate(32, sizeof(enum ls_event_types));
-
+{ /*
     check_efuse();
     // Characterize ADC
     adc_chars = calloc(1, sizeof(esp_adc_cal_characteristics_t));
@@ -335,12 +329,8 @@ void app_main(void)
     buzzer_init();
     printf("Initialized buzzer\n");
     xTaskCreate(&buzzer_handler_task, "buzzer_handler", configMINIMAL_STACK_SIZE * 2, NULL, 1, NULL);
-    // set the magnet sensor to trigger an interrupt as it enters and as it leaves
-    gpio_set_intr_type(LSGPIO_MAGNETSENSE, GPIO_INTR_ANYEDGE);
-    gpio_install_isr_service(0); // default, no flags.
-    gpio_isr_handler_add(LSGPIO_MAGNETSENSE, &magnet_event_isr, NULL);
-    printf("Started magnet sense ISR\n");
+  
     xTaskCreate(&adc_read_reflectance_sensor_task, "reflectance", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
     xTaskCreate(&stepper_task, "stepper", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
     printf("Started all test tasks\n");
-}
+*/}

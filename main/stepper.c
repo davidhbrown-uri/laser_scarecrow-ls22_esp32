@@ -9,11 +9,20 @@
 #include "driver/timer.h"
 #include "stepper.h"
 
-volatile uint32_t stepperstep_level = 0;
+volatile extern bool ls_stepperstep_level;
+volatile extern bool ls_stepper_direction;
+volatile extern bool ls_stepper_sleep;
+
 static bool IRAM_ATTR stepper_step_isr_callback(void *args)
 {
     BaseType_t high_task_awoken = pdFALSE;
-    gpio_set_level(LSGPIO_STEPPERSTEP, stepperstep_level++ % 2);
+    ls_stepperstep_level = !ls_stepperstep_level;
+    gpio_set_level(LSGPIO_STEPPERSTEP, ls_stepperstep_level ? 1 : 0);
+    if (ls_stepperstep_level) {
+;
+    } else {
+        ls_stepper_position += ls_stepper_direction ? 1 : -1;
+    }
     /* See timer_group_example for how to use this: */
     //    xQueueSendFromISR(s_timer_queue, &evt, &high_task_awoken);
 
@@ -54,19 +63,19 @@ static void stepper_task(void *pvParameter)
         gpio_set_level(LSGPIO_STEPPERDIRECTION, 0);
         gpio_set_level(LSGPIO_STEPPERSLEEP, 1);
         // should delay 1ms here before stepping, but deal with that in production code
-        xSemaphoreTake(print_mux, portMAX_DELAY);
-        printf("Stepper forward (%d)\n", stepperstep_level);
-        xSemaphoreGive(print_mux);
+        // xSemaphoreTake(print_mux, portMAX_DELAY);
+        // printf("Stepper forward (%d)\n", stepperstep_level);
+        // xSemaphoreGive(print_mux);
         vTaskDelay(pdMS_TO_TICKS(8000));
         gpio_set_level(LSGPIO_STEPPERDIRECTION, 1);
-        xSemaphoreTake(print_mux, portMAX_DELAY);
-        printf("Stepper reverse (%d)\n", stepperstep_level);
-        xSemaphoreGive(print_mux);
+        // xSemaphoreTake(print_mux, portMAX_DELAY);
+        // printf("Stepper reverse (%d)\n", stepperstep_level);
+        // xSemaphoreGive(print_mux);
         vTaskDelay(pdMS_TO_TICKS(3000));
-        xSemaphoreTake(print_mux, portMAX_DELAY);
         gpio_set_level(LSGPIO_STEPPERSLEEP, 0);
-        printf("Stepper asleep (%d)\n", stepperstep_level);
-        xSemaphoreGive(print_mux);
+        // xSemaphoreTake(print_mux, portMAX_DELAY);
+        // printf("Stepper asleep (%d)\n", stepperstep_level);
+        // xSemaphoreGive(print_mux);
         vTaskDelay(pdMS_TO_TICKS(3000));
     }
 }
