@@ -1,9 +1,12 @@
 #include "magnet.h"
+#include "config.h"
+#include "events.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
 #include "freertos/semphr.h"
 #include "driver/gpio.h"
+
 
 extern QueueHandle_t ls_event_queue;
 
@@ -14,7 +17,7 @@ void IRAM_ATTR magnet_event_isr(void *pvParameter)
     xQueueSendFromISR(ls_event_queue, (void *)&event, NULL);
 }
 
-void ls_magnet_begin(void)
+void ls_magnet_isr_begin(void)
 {
     // set the magnet sensor to trigger an interrupt as it enters and as it leaves
     gpio_set_intr_type(LSGPIO_MAGNETSENSE, GPIO_INTR_ANYEDGE);

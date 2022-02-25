@@ -30,13 +30,11 @@
 
 extern SemaphoreHandle_t print_mux; // in ls2022_esp32.c
 
-volatile int16_t ls_stepper_steps_remaining;
-volatile int16_t ls_stepper_steps_taken;
+volatile int32_t ls_stepper_steps_remaining;
+volatile int32_t ls_stepper_steps_taken;
 volatile bool ls_stepperstep_level = false;
 bool ls_stepper_direction = false;
 bool ls_stepper_sleep = false;
-
-static IRAM_ATTR volatile int32_t ls_stepper_position = 0;
 
 static double ls_stepper_acceleration_slope = (double) (LS_STEPPER_STEPS_PER_SECOND_MAX - LS_STEPPER_STEPS_PER_SECOND_MIN) / (double) LS_STEPPER_STEPS_FULLSPEED;
 
@@ -48,7 +46,15 @@ static bool IRAM_ATTR ls_stepper_step_isr_callback(void *args)
         ls_stepperstep_level = !ls_stepperstep_level;
         gpio_set_level(LSGPIO_STEPPERSTEP, ls_stepperstep_level ? 1 : 0);
         if (ls_stepperstep_level) { // beginning a step pulse
-            ls_stepper_position += ls_stepper_direction ? 1 : -1;
+            ls_stepper_position += ls_stepper_direction*2-1;
+            while(ls_stepper_position < 0)
+            {
+                ls_stepper_position += LS_STEPPER_STEPS_PER_ROTATION;
+            }
+            while(ls_stepper_position > LS_STEPPER_STEPS_PER_ROTATION)
+            {
+                ls_stepper_position -= LS_STEPPER_STEPS_PER_ROTATION;
+            }
         } else { // ending the step pulse
             ls_stepper_steps_remaining--;
             ls_stepper_steps_taken++;
@@ -62,6 +68,7 @@ static bool IRAM_ATTR ls_stepper_step_isr_callback(void *args)
 
 void ls_stepper_init(void)
 {
+    ls_stepper_position = 0;
     bootloader_random_enable();
     gpio_set_level(LSGPIO_STEPPERSLEEP, 0); // don't do anything while we get ready
     ls_stepper_queue = xQueueCreate(8, sizeof(enum ls_stepper_mode));
@@ -130,7 +137,7 @@ void ls_stepper_task(void *pvParameter)
                     gpio_set_level(LSGPIO_STEPPERDIRECTION, ls_stepper_direction ? 1 : 0);
                     ls_stepper_steps_remaining = LS_STEPPER_MOVEMENT_STEPS_MIN + ((random >> 16) * (LS_STEPPER_MOVEMENT_STEPS_MAX - LS_STEPPER_MOVEMENT_STEPS_MIN) / 65536);
                     xSemaphoreTake(print_mux, portMAX_DELAY);
-                    printf("Moving %d steps %s\n", ls_stepper_steps_remaining, ls_stepper_direction ? "forward" : "reverse");
+                    printf("From %d, moving %d steps %s\n", ls_stepper_position, ls_stepper_steps_remaining, ls_stepper_direction ? "forward" : "reverse");
                     xSemaphoreGive(print_mux);
 
                 }
@@ -142,7 +149,22 @@ void ls_stepper_task(void *pvParameter)
             case LS_STEPPER_MODE_HOME:
             /** @todo */
                 break;
+            case LS_STEPPER_MODE_DOUBLE_ROTATION:
+                gpio_set_level(LSGPIO_STEPPERSLEEP, 1);
+                if(ls_stepper_steps_remaining<=0)
+                {
+                    ls_stepper_steps_taken = 0;
+                    ls_stepper_direction = true;
+                    ls_stepper_steps_remaining = LS_STEPPER_STEPS_PER_ROTATION * 2;
+                }
+                ls_stepper_set_speed();
+                break;
         }
         vTaskDelay(2);
     }
 }
+
+int32_t ls_stepper_get_position(void)
+{
+    return ls_stepper_position;
+};

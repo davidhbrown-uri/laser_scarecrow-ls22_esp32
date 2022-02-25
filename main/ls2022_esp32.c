@@ -49,9 +49,6 @@ void adc_read_tape_setting_task(void *pvParameter)
         printf("Tape setting raw: %d\tVoltage: %dmV\n", adc_reading, voltage);
         xSemaphoreGive(print_mux);
         vTaskDelay(pdMS_TO_TICKS(5000));
-        enum ls_stepper_mode stepper_mode = LS_STEPPER_MODE_RANDOM;
-        xQueueSend(ls_stepper_queue, (void *)&stepper_mode, NULL);
-
     }
 }
 
@@ -112,8 +109,8 @@ void i2c_read_temp_task(void *pvParameter)
 
 /**
  * @brief White bucket reads <<500 (usually closer to 200) and black tape reads >>2000 (usually closer to 3000)
- * 
- * @param pvParameter 
+ *
+ * @param pvParameter
  */
 void adc_read_reflectance_sensor_task(void *pvParameter)
 {
@@ -165,13 +162,13 @@ void event_handler_task(void *pvParameter)
             {
             case LSEVT_MAGNET_ENTER:
                 xSemaphoreTake(print_mux, portMAX_DELAY);
-                printf("Magnet Entered detection area\n");
+                printf("Magnet Enter @ %d %s\n", ls_stepper_get_position(), ls_stepper_direction ? "-->" : "<--");
                 xSemaphoreGive(print_mux);
                 buzzer_play(LS_BUZZER_CLICK);
                 break;
             case LSEVT_MAGNET_LEAVE:
                 xSemaphoreTake(print_mux, portMAX_DELAY);
-                printf("Magnet left detection area\n");
+                printf("Magnet Leave @ %d %s\n", ls_stepper_get_position(), ls_stepper_direction ? "-->" : "<--");
                 xSemaphoreGive(print_mux);
                 buzzer_play(LS_BUZZER_CLICK);
                 break;
@@ -183,9 +180,6 @@ void event_handler_task(void *pvParameter)
         }
     }
 }
-
-
-
 
 static void print_char_val_type(esp_adc_cal_value_t val_type)
 {
@@ -203,10 +197,9 @@ static void print_char_val_type(esp_adc_cal_value_t val_type)
     }
 }
 
-
-
 void app_main(void)
-{ 
+{
+    ls_event_queue_init();
     check_efuse();
     // Characterize ADC
     adc_chars = calloc(1, sizeof(esp_adc_cal_characteristics_t));
@@ -232,22 +225,22 @@ void app_main(void)
     xTaskCreate(&adc_read_light_sensor_task, "adcr_light", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
     xTaskCreate(&i2c_read_tilt_task, "i2c_tilt", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
     xTaskCreate(&i2c_read_temp_task, "i2c_temp", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
-    xTaskCreate(&event_handler_task, "event_handler", configMINIMAL_STACK_SIZE * 2, NULL, 2, NULL);
-    buzzer_init();
-    printf("Initialized buzzer\n");
-    xTaskCreate(&buzzer_handler_task, "buzzer_handler", configMINIMAL_STACK_SIZE * 2, NULL, 1, NULL);
-  
+
     xTaskCreate(&adc_read_reflectance_sensor_task, "reflectance", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
     xTaskCreate(&stepper_task, "stepper", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
     printf("Started all test tasks\n");
     */
-   ls_stepper_init();
-   xTaskCreate(&ls_stepper_task, "stepper",configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
-    enum ls_stepper_mode stepper_mode = LS_STEPPER_MODE_RANDOM;
+    xTaskCreate(&event_handler_task, "event_handler", configMINIMAL_STACK_SIZE * 3, NULL, 2, NULL);
+    buzzer_init();
+    printf("Initialized buzzer\n");
+    xTaskCreate(&buzzer_handler_task, "buzzer_handler", configMINIMAL_STACK_SIZE * 2, NULL, 1, NULL);
+    ls_stepper_init();
+    xTaskCreate(&ls_stepper_task, "stepper", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
+    ls_magnet_isr_begin();
+    enum ls_stepper_mode stepper_mode = LS_STEPPER_MODE_DOUBLE_ROTATION;
     xQueueSend(ls_stepper_queue, (void *)&stepper_mode, NULL);
 
     xSemaphoreTake(print_mux, portMAX_DELAY);
     printf("app_main()) has finished.\n");
     xSemaphoreGive(print_mux);
-
 }

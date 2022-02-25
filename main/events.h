@@ -11,7 +11,7 @@ typedef struct ls_event {
     void *value;    
 }ls_event;
 
-extern QueueHandle_t ls_event_queue;
+QueueHandle_t ls_event_queue;
 
 void ls_event_queue_init(void);
 

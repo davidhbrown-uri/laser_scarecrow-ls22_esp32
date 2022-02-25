@@ -1,4 +1,3 @@
 #pragma once
-#include "config.h"
-#include "events.h"
 
+void ls_magnet_isr_begin(void);
