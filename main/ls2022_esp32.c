@@ -7,9 +7,9 @@
 #include "freertos/semphr.h"
 #include "driver/gpio.h"
 #include "driver/timer.h"
-#include "driver/adc.h"
 #include "esp_adc_cal.h"
 #include "config.h"
+#include "init.h"
 #include "mpu6050.h"
 #include "events.h"
 #include "buzzer.h"
@@ -49,6 +49,9 @@ void adc_read_tape_setting_task(void *pvParameter)
         printf("Tape setting raw: %d\tVoltage: %dmV\n", adc_reading, voltage);
         xSemaphoreGive(print_mux);
         vTaskDelay(pdMS_TO_TICKS(5000));
+        enum ls_stepper_mode stepper_mode = LS_STEPPER_MODE_RANDOM;
+        xQueueSend(ls_stepper_queue, (void *)&stepper_mode, NULL);
+
     }
 }
 
@@ -183,41 +186,6 @@ void event_handler_task(void *pvParameter)
 
 
 
-// from adc1_example_main.c
-static void check_efuse(void)
-{
-#if CONFIG_IDF_TARGET_ESP32
-    // Check if TP is burned into eFuse
-    if (esp_adc_cal_check_efuse(ESP_ADC_CAL_VAL_EFUSE_TP) == ESP_OK)
-    {
-        printf("eFuse Two Point: Supported\n");
-    }
-    else
-    {
-        printf("eFuse Two Point: NOT supported\n");
-    }
-    // Check Vref is burned into eFuse
-    if (esp_adc_cal_check_efuse(ESP_ADC_CAL_VAL_EFUSE_VREF) == ESP_OK)
-    {
-        printf("eFuse Vref: Supported\n");
-    }
-    else
-    {
-        printf("eFuse Vref: NOT supported\n");
-    }
-#elif CONFIG_IDF_TARGET_ESP32S2
-    if (esp_adc_cal_check_efuse(ESP_ADC_CAL_VAL_EFUSE_TP) == ESP_OK)
-    {
-        printf("eFuse Two Point: Supported\n");
-    }
-    else
-    {
-        printf("Cannot retrieve eFuse Two Point calibration values. Default calibration values will be used.\n");
-    }
-#else
-#error "This example is configured for ESP32/ESP32S2."
-#endif
-}
 
 static void print_char_val_type(esp_adc_cal_value_t val_type)
 {
@@ -236,71 +204,9 @@ static void print_char_val_type(esp_adc_cal_value_t val_type)
 }
 
 
-volatile uint32_t stepperstep_level = 0;  
-static bool IRAM_ATTR stepper_step_isr_callback(void *args)
-{
-    BaseType_t high_task_awoken = pdFALSE;
-    gpio_set_level(LSGPIO_STEPPERSTEP, stepperstep_level++%2);
-   /* See timer_group_example for how to use this: */
-//    xQueueSendFromISR(s_timer_queue, &evt, &high_task_awoken);
-
-    return high_task_awoken == pdTRUE; // return whether we need to yield at the end of ISR
-
-}
-static void stepper_task(void *pvParameter)
-{
-    gpio_set_level(LSGPIO_STEPPERSLEEP, 0);//don't do anything while we get ready
-    // see https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/peripherals/timer.html
-    // defaut ESP32 clock source is 80MHz (1MHz rate = 1μs period)
-    // Stepper is set to 1/16 microsteps, so 200*16=3200 steps per rotation
-    // if we presume 1s/rotation (60RPM) is a reasonable maximum speed, then
-    // we want to step at a maximum period of 1s/3200steps=312.5μs/step.
-    // Up to 100x slowdown to allow acceleration from stopped sounds good.
-    // Per ch 18 of the ESP32 Technical Reference manual, the minimum clock divisor is 2
-    // So with the clock divider at 2, we'd need timer values of
-    //  - 160 (minimum) to meet A4988's STEP minimum, HIGH pulse width (LOW is the same)
-    //  - 50,000 for the fastest step
-    //  - 5,500,000 for the slowest step
-    // The timers are 64-bit, so counting this number of steps should not be an issue
-    // Tather than aiming for 1ms pulses, toggling at the total timer count for 
-    // a square(ish) wave would make sense.
-    timer_config_t stepper_step_timer_config = {
-        .divider = STEPPER_TIMER_DIVIDER,
-        .counter_dir = TIMER_COUNT_UP,
-        .counter_en = TIMER_PAUSE,
-        .alarm_en = TIMER_ALARM_EN,
-        .auto_reload = TIMER_AUTORELOAD_EN,
-    };
-    ESP_ERROR_CHECK(timer_init(TIMER_GROUP_0, TIMER_0, &stepper_step_timer_config));
-    ESP_ERROR_CHECK(timer_set_counter_value(TIMER_GROUP_0, TIMER_0, 0ULL));
-    ESP_ERROR_CHECK(timer_set_alarm_value(TIMER_GROUP_0, TIMER_0, APB_CLK_FREQ / STEPPER_TIMER_DIVIDER / 1500 ));
-    ESP_ERROR_CHECK(timer_enable_intr(TIMER_GROUP_0, TIMER_0));
-    ESP_ERROR_CHECK(timer_isr_callback_add(TIMER_GROUP_0, TIMER_0, stepper_step_isr_callback, NULL, 0));
-    ESP_ERROR_CHECK(timer_start(TIMER_GROUP_0, TIMER_0));
-    while (1)
-    {
-        gpio_set_level(LSGPIO_STEPPERDIRECTION, 0);
-        gpio_set_level(LSGPIO_STEPPERSLEEP, 1);
-        //should delay 1ms here before stepping, but deal with that in production code
-        xSemaphoreTake(print_mux, portMAX_DELAY);
-        printf("Stepper forward (%d)\n", stepperstep_level);
-        xSemaphoreGive(print_mux);
-        vTaskDelay(pdMS_TO_TICKS(8000));
-        gpio_set_level(LSGPIO_STEPPERDIRECTION, 1);
-        xSemaphoreTake(print_mux, portMAX_DELAY);
-        printf("Stepper reverse (%d)\n", stepperstep_level);
-        xSemaphoreGive(print_mux);
-        vTaskDelay(pdMS_TO_TICKS(3000));
-        xSemaphoreTake(print_mux, portMAX_DELAY);
-        gpio_set_level(LSGPIO_STEPPERSLEEP, 0);
-        printf("Stepper asleep (%d)\n", stepperstep_level);
-        xSemaphoreGive(print_mux);
-        vTaskDelay(pdMS_TO_TICKS(3000));
-    }
-}
 
 void app_main(void)
-{ /*
+{ 
     check_efuse();
     // Characterize ADC
     adc_chars = calloc(1, sizeof(esp_adc_cal_characteristics_t));
@@ -309,12 +215,13 @@ void app_main(void)
     printf("Checked ADC efuse\n");
     adc_chars = calloc(1, sizeof(esp_adc_cal_characteristics_t));
     adc1_mux = xSemaphoreCreateMutex();
-    i2c_mux = xSemaphoreCreateMutex();
     print_mux = xSemaphoreCreateMutex();
     printf("Initializing GPIO\n");
-    lsgpio_initialize();
+    ls_gpio_initialize();
     printf("Initialized GPIO\n");
+    /*
     printf("Initializing I2C\n");
+    i2c_mux = xSemaphoreCreateMutex();
     ESP_ERROR_CHECK(lsi2c_master_init());
     printf("Initialized I2C\n");
     printf("Initializing MPU6050\n");
@@ -333,4 +240,14 @@ void app_main(void)
     xTaskCreate(&adc_read_reflectance_sensor_task, "reflectance", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
     xTaskCreate(&stepper_task, "stepper", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
     printf("Started all test tasks\n");
-*/}
+    */
+   ls_stepper_init();
+   xTaskCreate(&ls_stepper_task, "stepper",configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
+    enum ls_stepper_mode stepper_mode = LS_STEPPER_MODE_RANDOM;
+    xQueueSend(ls_stepper_queue, (void *)&stepper_mode, NULL);
+
+    xSemaphoreTake(print_mux, portMAX_DELAY);
+    printf("app_main()) has finished.\n");
+    xSemaphoreGive(print_mux);
+
+}

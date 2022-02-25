@@ -5,7 +5,9 @@
         "esp_compiler.h": "c",
         "portable.h": "c",
         "freertosconfig.h": "c",
-        "task.h": "c"
+        "task.h": "c",
+        "sdkconfig.h": "c",
+        "i2c.h": "c"
     },
     "idf.espIdfPathWin": "C:\\Users\\dave\\esp\\esp-idf",
     "idf.pythonBinPathWin": "C:\\Users\\dave\\.espressif\\python_env\\idf4.4_py3.8_env\\Scripts\\python.exe",
@@ -16,5 +18,7 @@
     "idf.openOcdConfigs": [
         "interface/ftdi/esp32_devkitj_v1.cfg",
         "target/esp32.cfg"
-    ]
+    ],
+    "idf.portWin": "COM9",
+    "idf.flashType": "UART"
 }

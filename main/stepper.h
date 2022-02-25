@@ -1,17 +1,20 @@
 #pragma once
 #include "config.h"
-#define STEPPER_TIMER_DIVIDER (40)
 
-volatile bool ls_stepperstep_level = false;
-volatile bool ls_stepper_direction = false;
-volatile bool ls_stepper_sleep = false;
+enum ls_stepper_mode {
+    LS_STEPPER_MODE_SLEEP,
+    LS_STEPPER_MODE_STOP,
+    LS_STEPPER_MODE_HOME,
+    LS_STEPPER_MODE_RANDOM
+}ls_stepper_mode;
 
-volatile int16_t ls_stepper_position = 0;
+QueueHandle_t ls_stepper_queue;
 
-void ls_stepper_seek_home();
+// don't need 32 bits, but IRAM read/write must be 32-bit
+static IRAM_ATTR volatile int32_t ls_stepper_position;
 
-void ls_stepper_enable();
+void ls_stepper_init(void);
 
-void ls_stepper_disable();
+void ls_stepper_task(void *pvParameter);
 
-bool ls_stepper_position_valid();
+void ls_stepper_set_mode(enum ls_stepper_mode mode);

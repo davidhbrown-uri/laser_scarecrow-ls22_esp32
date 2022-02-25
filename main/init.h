@@ -1,5 +1,7 @@
 #pragma once
+#include "sdkconfig.h"
 #include "driver/i2c.h"
 
-void lsgpio_initialize(void);
-esp_err_t lsi2c_master_init(void);
+void ls_gpio_initialize(void);
+void check_efuse(void) ;
+esp_err_t ls_i2c_master_init(void);
