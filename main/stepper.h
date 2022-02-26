@@ -1,13 +1,19 @@
 #pragma once
 #include "config.h"
 
-enum ls_stepper_mode {
-    LS_STEPPER_MODE_SLEEP,
-    LS_STEPPER_MODE_STOP,
-    LS_STEPPER_MODE_HOME,
-    LS_STEPPER_MODE_RANDOM,
-    LS_STEPPER_MODE_DOUBLE_ROTATION
-}ls_stepper_mode;
+enum ls_stepper_action {
+    LS_STEPPER_ACTION_IDLE,
+    LS_STEPPER_ACTION_DIRECTION_FORWARD,
+    LS_STEPPER_ACTION_DIRECTION_REVERSE,
+    LS_STEPPER_ACTION_SLEEP,
+    LS_STEPPER_ACTION_STOP,
+    LS_STEPPER_ACTION_RANDOM
+}ls_stepper_action;
+
+typedef struct ls_stepper_action_message {
+    enum ls_stepper_action action;
+    int32_t steps;
+}ls_stepper_action_message;
 
 QueueHandle_t ls_stepper_queue;
 bool ls_stepper_direction;
@@ -19,6 +25,5 @@ void ls_stepper_init(void);
 
 void ls_stepper_task(void *pvParameter);
 
-void ls_stepper_set_mode(enum ls_stepper_mode mode);
 
 int32_t ls_stepper_get_position(void);

@@ -1,6 +1,7 @@
 #include "magnet.h"
 #include "config.h"
 #include "events.h"
+#include "stepper.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
@@ -9,11 +10,15 @@
 
 
 extern QueueHandle_t ls_event_queue;
+int32_t magnet_position;
 
 void IRAM_ATTR magnet_event_isr(void *pvParameter)
 {
     // note that the sensor pulls low when triggered
-    enum ls_event_types event = gpio_get_level(LSGPIO_MAGNETSENSE) ? LSEVT_MAGNET_LEAVE : LSEVT_MAGNET_ENTER;
+    magnet_position = ls_stepper_get_position();
+    ls_event event;
+    event.type = gpio_get_level(LSGPIO_MAGNETSENSE) ? LSEVT_MAGNET_LEAVE : LSEVT_MAGNET_ENTER;
+    event.value = &magnet_position;
     xQueueSendFromISR(ls_event_queue, (void *)&event, NULL);
 }
 

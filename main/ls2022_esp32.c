@@ -149,7 +149,7 @@ void adc_read_reflectance_sensor_task(void *pvParameter)
  */
 void event_handler_task(void *pvParameter)
 {
-    enum ls_event_types received;
+    ls_event received;
     while (1)
     {
         if (xQueueReceive(ls_event_queue, &received, portMAX_DELAY) != pdTRUE)
@@ -158,23 +158,26 @@ void event_handler_task(void *pvParameter)
         }
         else
         {
-            switch (received)
+            switch (received.type)
             {
             case LSEVT_MAGNET_ENTER:
                 xSemaphoreTake(print_mux, portMAX_DELAY);
-                printf("Magnet Enter @ %d %s\n", ls_stepper_get_position(), ls_stepper_direction ? "-->" : "<--");
+                printf("Magnet Enter @ %d %s\n", *(int*)received.value, ls_stepper_direction ? "-->" : "<--");
                 xSemaphoreGive(print_mux);
                 buzzer_play(LS_BUZZER_CLICK);
                 break;
             case LSEVT_MAGNET_LEAVE:
                 xSemaphoreTake(print_mux, portMAX_DELAY);
-                printf("Magnet Leave @ %d %s\n", ls_stepper_get_position(), ls_stepper_direction ? "-->" : "<--");
+                printf("Magnet Leave @ %d %s\n", *(int*)received.value, ls_stepper_direction ? "-->" : "<--");
                 xSemaphoreGive(print_mux);
                 buzzer_play(LS_BUZZER_CLICK);
                 break;
+            case LSEVT_STEPPER_FINISHED_MOVE:
+                printf("Stepper finished %s move @%d \n",  ls_stepper_direction ? "-->" : "<--", ls_stepper_get_position());
+                break;
             default:
                 xSemaphoreTake(print_mux, portMAX_DELAY);
-                printf("Unknown event %d -- I'm confused", received);
+                printf("Unknown event %d -- I'm confused", received.type);
                 xSemaphoreGive(print_mux);
             }
         }
@@ -237,9 +240,10 @@ void app_main(void)
     ls_stepper_init();
     xTaskCreate(&ls_stepper_task, "stepper", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
     ls_magnet_isr_begin();
-    enum ls_stepper_mode stepper_mode = LS_STEPPER_MODE_DOUBLE_ROTATION;
-    xQueueSend(ls_stepper_queue, (void *)&stepper_mode, NULL);
-
+    ls_stepper_action_message stepper_action;
+    stepper_action.action = LS_STEPPER_ACTION_RANDOM;
+    stepper_action.steps = 0;
+    xQueueSend(ls_stepper_queue, (void *)&stepper_action, 0);
     xSemaphoreTake(print_mux, portMAX_DELAY);
     printf("app_main()) has finished.\n");
     xSemaphoreGive(print_mux);

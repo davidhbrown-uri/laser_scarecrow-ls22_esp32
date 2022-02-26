@@ -66,5 +66,5 @@
 #define LS_STEPPER_MOVEMENT_REVERSE_PER255 64
 #define LS_STEPPER_STEPS_PER_SECOND_MIN 128
 // motor/laser seems to have no trouble at 4800 which is probably too fast
-// is having trouble registering magnet reliable that fast, though.
+// is having trouble registering magnet reliably that fast, though.
 #define LS_STEPPER_STEPS_PER_SECOND_MAX 1200
