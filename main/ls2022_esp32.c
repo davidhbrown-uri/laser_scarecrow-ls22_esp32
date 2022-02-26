@@ -138,40 +138,7 @@ void adc_read_reflectance_sensor_task(void *pvParameter)
     }
 }
 
-/**
- * @brief
- * @todo switch to using a queue with the full ls_event structure.
- * @see https://controllerstech.com/freertos-tutorial-5-using-queue/
- *
- * @param pvParameter
- */
-void event_handler_state_machine(void *pvParameter)
-{
-    ls_event event;
-    ls_event state_entry_event;
-    state_entry_event.type = LSEVT_STATE_ENTRY;
-    state_entry_event.value = NULL;
-    ls_State previous_state;
-    previous_state.func = NULL;
 
-    while (1)
-    {
-        if (xQueueReceive(ls_event_queue, &event, portMAX_DELAY) != pdTRUE)
-        {
-            printf("No events received after maximum delay... getting very bored.");
-        }
-        else
-        {
-            ls_state_current = ls_state_current.func(event);
-            // if we have a new state, signal it to do its entry behavior
-            while (ls_state_current.func != previous_state.func)
-            {
-                previous_state.func = ls_state_current.func;
-                ls_state_current = ls_state_current.func(state_entry_event);
-            }
-        }
-    }
-}
 
 static void print_char_val_type(esp_adc_cal_value_t val_type)
 {
@@ -228,11 +195,8 @@ void app_main(void)
     ls_stepper_init();
     xTaskCreate(&ls_stepper_task, "stepper", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
     ls_magnet_isr_begin();
-    ls_state_current.func = ls_state_home_to_magnet; //ls_state_active;
-    ls_event do_entry;
-    do_entry.type = LSEVT_STATE_ENTRY;
-    do_entry.value = NULL;
-    xQueueSendToFront(ls_event_queue, (void*)&do_entry, 0);
+//    ls_state_current.func = ls_state_home_to_magnet; 
+    ls_state_current.func = ls_state_active; ls_stepper_random();
     xTaskCreate(&event_handler_state_machine, "event_handler_state_machine", configMINIMAL_STACK_SIZE * 3, NULL, 2, NULL);
     xSemaphoreTake(print_mux, portMAX_DELAY);
     printf("app_main()) has finished.\n");

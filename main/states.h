@@ -17,6 +17,7 @@ ls_state_funcptr ls_state_homing_error(ls_event);
 ls_state_funcptr ls_state_active(ls_event);
 
 */
+void event_handler_state_machine(void *pvParameter);
 
 typedef struct ls_State {
     struct ls_State (*func)(ls_event);

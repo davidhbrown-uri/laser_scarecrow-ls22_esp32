@@ -4,6 +4,7 @@
 
 enum ls_event_types
 {
+    LSEVT_NOOP, // nothing happened, but we need an event
     // fire when the magnet on the rotating arm enter/leave the detection area of the Hall-effect sensor
     LSEVT_MAGNET_ENTER,
     LSEVT_MAGNET_LEAVE, // <! no value for magnet events
@@ -15,9 +16,7 @@ typedef struct ls_event
 {
     enum ls_event_types type;
     void *value;
-}ls_event;
-
-ls_event foo;
+} ls_event;
 
 QueueHandle_t ls_event_queue;
 

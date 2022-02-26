@@ -235,6 +235,14 @@ void ls_stepper_reverse(uint16_t steps)
     }
 }
 
+void ls_stepper_random(void)
+{
+        ls_stepper_action_message message;
+        message.action = LS_STEPPER_ACTION_RANDOM;
+        message.steps = 0;
+        xQueueSend(ls_stepper_queue, (void *)&message, 0);
+}
+
 int32_t IRAM_ATTR ls_stepper_get_position(void)
 {
     return ls_stepper_position;

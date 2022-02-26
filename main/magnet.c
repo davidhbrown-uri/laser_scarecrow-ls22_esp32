@@ -8,6 +8,11 @@
 #include "freertos/semphr.h"
 #include "driver/gpio.h"
 
+bool ls_magnet_is_detected(void)
+{
+    // note that the sensor pulls low when triggered
+    return gpio_get_level(LSGPIO_MAGNETSENSE) ? false : true;
+}
 
 extern QueueHandle_t ls_event_queue;
 int32_t magnet_position;
