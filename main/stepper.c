@@ -120,9 +120,6 @@ void ls_stepper_task(void *pvParameter)
         if (uxQueueMessagesWaiting(ls_stepper_queue) > 0)
         {
             bool success;
-            xSemaphoreTake(print_mux, portMAX_DELAY);
-            printf("ls_stepper_queue has %d messages waiting\n", uxQueueMessagesWaiting(ls_stepper_queue));
-            xSemaphoreGive(print_mux);
             success = xQueuePeek(ls_stepper_queue, &message, 0);
             if (current_action == LS_STEPPER_ACTION_IDLE || (success && message.action == LS_STEPPER_ACTION_STOP))
             {
@@ -160,6 +157,9 @@ void ls_stepper_task(void *pvParameter)
             _ls_stepper_set_speed();
             break;
         case LS_STEPPER_ACTION_STOP:
+//            xSemaphoreTake(print_mux, portMAX_DELAY);
+//            printf("Stepper stopping\n");
+//            xSemaphoreGive(print_mux);
             gpio_set_level(LSGPIO_STEPPERSLEEP, 1);
             if (ls_stepper_steps_remaining > LS_STEPPER_STEPS_FULLSPEED)
             {
@@ -181,12 +181,15 @@ void ls_stepper_task(void *pvParameter)
                 gpio_set_level(LSGPIO_STEPPERDIRECTION, ls_stepper_direction ? 1 : 0);
                 ls_stepper_steps_remaining = LS_STEPPER_MOVEMENT_STEPS_MIN + ((random >> 16) * (LS_STEPPER_MOVEMENT_STEPS_MAX - LS_STEPPER_MOVEMENT_STEPS_MIN) / 65536);
                 xSemaphoreTake(print_mux, portMAX_DELAY);
-                printf("From %d, moving %d steps %s\n", ls_stepper_position, ls_stepper_steps_remaining, ls_stepper_direction ? "-->" : "<-->");
+                printf("From %d, moving %d steps %s\n", ls_stepper_position, ls_stepper_steps_remaining, ls_stepper_direction ? "-->" : "<--");
                 xSemaphoreGive(print_mux);
             }
             _ls_stepper_set_speed();
             break;
         case LS_STEPPER_ACTION_SLEEP:
+            xSemaphoreTake(print_mux, portMAX_DELAY);
+            printf("Stepper sleeping\n");
+            xSemaphoreGive(print_mux);
             gpio_set_level(LSGPIO_STEPPERSLEEP, 0);
             current_action = LS_STEPPER_ACTION_IDLE;
             break;
@@ -199,10 +202,44 @@ void ls_stepper_stop(void)
 {
     ls_stepper_action_message message;
     message.action = LS_STEPPER_ACTION_STOP;
-    xQueueSend(ls_stepper_queue, (void*)&message, 0);
+    xQueueSend(ls_stepper_queue, (void *)&message, 0);
+}
+
+void ls_stepper_forward(uint16_t steps)
+{
+    if (steps > 0)
+    {
+        ls_stepper_action_message message;
+        message.action = LS_STEPPER_ACTION_DIRECTION_FORWARD;
+        message.steps = steps;
+        xQueueSend(ls_stepper_queue, (void *)&message, 0);
+    }
+    else
+    {
+        ls_stepper_stop();
+    }
+}
+
+void ls_stepper_reverse(uint16_t steps)
+{
+    if (steps > 0)
+    {
+        ls_stepper_action_message message;
+        message.action = LS_STEPPER_ACTION_DIRECTION_REVERSE;
+        message.steps = steps;
+        xQueueSend(ls_stepper_queue, (void *)&message, 0);
+    }
+    else
+    {
+        ls_stepper_stop();
+    }
 }
 
 int32_t IRAM_ATTR ls_stepper_get_position(void)
 {
     return ls_stepper_position;
 };
+void IRAM_ATTR ls_stepper_set_home_position(void)
+{
+    ls_stepper_position = 0;
+}

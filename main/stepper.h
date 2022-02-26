@@ -1,5 +1,8 @@
 #pragma once
 #include "config.h"
+#include "freertos/queue.h"
+
+#define STEPPER_TIMER_DIVIDER (40)
 
 enum ls_stepper_action {
     LS_STEPPER_ACTION_IDLE,
@@ -27,3 +30,8 @@ void ls_stepper_task(void *pvParameter);
 
 
 int32_t ls_stepper_get_position(void);
+void ls_stepper_set_home_position(void);
+
+void ls_stepper_stop(void);
+void ls_stepper_forward(uint16_t steps);
+void ls_stepper_reverse(uint16_t steps);

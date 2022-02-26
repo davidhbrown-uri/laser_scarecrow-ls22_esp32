@@ -15,10 +15,8 @@
 #include "buzzer.h"
 #include "stepper.h"
 #include "magnet.h"
+#include "states.h"
 
-#define STEPPER_TIMER_DIVIDER (40)
-
-extern QueueHandle_t ls_event_queue;
 
 SemaphoreHandle_t adc1_mux = NULL;
 SemaphoreHandle_t i2c_mux = NULL;
@@ -147,38 +145,29 @@ void adc_read_reflectance_sensor_task(void *pvParameter)
  *
  * @param pvParameter
  */
-void event_handler_task(void *pvParameter)
+void event_handler_state_machine(void *pvParameter)
 {
-    ls_event received;
+    ls_event event;
+    ls_event state_entry_event;
+    state_entry_event.type = LSEVT_STATE_ENTRY;
+    state_entry_event.value = NULL;
+    ls_State previous_state;
+    previous_state.func = NULL;
+
     while (1)
     {
-        if (xQueueReceive(ls_event_queue, &received, portMAX_DELAY) != pdTRUE)
+        if (xQueueReceive(ls_event_queue, &event, portMAX_DELAY) != pdTRUE)
         {
             printf("No events received after maximum delay... getting very bored.");
         }
         else
         {
-            switch (received.type)
+            ls_state_current = ls_state_current.func(event);
+            // if we have a new state, signal it to do its entry behavior
+            while (ls_state_current.func != previous_state.func)
             {
-            case LSEVT_MAGNET_ENTER:
-                xSemaphoreTake(print_mux, portMAX_DELAY);
-                printf("Magnet Enter @ %d %s\n", *(int*)received.value, ls_stepper_direction ? "-->" : "<--");
-                xSemaphoreGive(print_mux);
-                buzzer_play(LS_BUZZER_CLICK);
-                break;
-            case LSEVT_MAGNET_LEAVE:
-                xSemaphoreTake(print_mux, portMAX_DELAY);
-                printf("Magnet Leave @ %d %s\n", *(int*)received.value, ls_stepper_direction ? "-->" : "<--");
-                xSemaphoreGive(print_mux);
-                buzzer_play(LS_BUZZER_CLICK);
-                break;
-            case LSEVT_STEPPER_FINISHED_MOVE:
-                printf("Stepper finished %s move @%d \n",  ls_stepper_direction ? "-->" : "<--", ls_stepper_get_position());
-                break;
-            default:
-                xSemaphoreTake(print_mux, portMAX_DELAY);
-                printf("Unknown event %d -- I'm confused", received.type);
-                xSemaphoreGive(print_mux);
+                previous_state.func = ls_state_current.func;
+                ls_state_current = ls_state_current.func(state_entry_event);
             }
         }
     }
@@ -233,17 +222,18 @@ void app_main(void)
     xTaskCreate(&stepper_task, "stepper", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
     printf("Started all test tasks\n");
     */
-    xTaskCreate(&event_handler_task, "event_handler", configMINIMAL_STACK_SIZE * 3, NULL, 2, NULL);
     buzzer_init();
     printf("Initialized buzzer\n");
     xTaskCreate(&buzzer_handler_task, "buzzer_handler", configMINIMAL_STACK_SIZE * 2, NULL, 1, NULL);
     ls_stepper_init();
     xTaskCreate(&ls_stepper_task, "stepper", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
     ls_magnet_isr_begin();
-    ls_stepper_action_message stepper_action;
-    stepper_action.action = LS_STEPPER_ACTION_RANDOM;
-    stepper_action.steps = 0;
-    xQueueSend(ls_stepper_queue, (void *)&stepper_action, 0);
+    ls_state_current.func = ls_state_home_to_magnet; //ls_state_active;
+    ls_event do_entry;
+    do_entry.type = LSEVT_STATE_ENTRY;
+    do_entry.value = NULL;
+    xQueueSendToFront(ls_event_queue, (void*)&do_entry, 0);
+    xTaskCreate(&event_handler_state_machine, "event_handler_state_machine", configMINIMAL_STACK_SIZE * 3, NULL, 2, NULL);
     xSemaphoreTake(print_mux, portMAX_DELAY);
     printf("app_main()) has finished.\n");
     xSemaphoreGive(print_mux);
