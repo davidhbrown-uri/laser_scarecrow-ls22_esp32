@@ -4,12 +4,12 @@
 
 enum ls_event_types
 {
-    LSEVT_NOOP, // nothing happened, but we need an event
+    LSEVT_NOOP, // 0: nothing happened, but we need an event
+    LSEVT_STATE_ENTRY, // 1: allow successor state to initialize
     // fire when the magnet on the rotating arm enter/leave the detection area of the Hall-effect sensor
-    LSEVT_MAGNET_ENTER,
-    LSEVT_MAGNET_LEAVE, // <! no value for magnet events
-    LSEVT_STEPPER_FINISHED_MOVE,
-    LSEVT_STATE_ENTRY // allow successor state to initialize
+    LSEVT_MAGNET_ENTER, // 2: 
+    LSEVT_MAGNET_LEAVE, // 3: <! no value for magnet events
+    LSEVT_STEPPER_FINISHED_MOVE, // 4: 
 } ls_event_types;
 
 typedef struct ls_event
