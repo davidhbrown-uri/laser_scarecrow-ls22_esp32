@@ -36,24 +36,32 @@ void event_handler_state_machine(void *pvParameter)
         }
         else
         {
-            // send state entry events if the state changed
-            while (ls_state_current.func != previous_state.func)
+            xSemaphoreTake(print_mux, portMAX_DELAY);
+            printf("Received event %d\n", event.type);
+            xSemaphoreGive(print_mux);
+            if (ls_state_current.func != NULL) // we have a current state
             {
-                // unless it's the first state in which case we already queued an entry event
-                if (previous_state.func != NULL)
+                ls_state_current = ls_state_current.func(event);
+                // send state entry events if the state changed
+                if (ls_state_current.func != previous_state.func)
                 {
-                    previous_state.func = ls_state_current.func;
-                    ls_state_current = ls_state_current.func(state_entry_event);
+                    xSemaphoreTake(print_mux, portMAX_DELAY);
+                    printf("Switching states; sending entry event\n");
+                    xSemaphoreGive(print_mux);
+                    xQueueSendToFront(ls_event_queue, (void *)&state_entry_event, 0);
                 }
-                else
-                {
-                    previous_state.func = ls_state_current.func;
-                }
+                previous_state.func = ls_state_current.func; // save current state as previous to next event
             }
-            ls_state_current = ls_state_current.func(event);
-            // if we have a new state, signal it to do its entry behavior
+            else
+            {
+                xSemaphoreTake(print_mux, portMAX_DELAY);
+                printf("Event lost; no state function to handle it");
+                xSemaphoreGive(print_mux);
+                ; // do nothing; no state
+            }
         }
-    }
+        // send the event
+    } // while 1 -- task must not exit
 }
 
 bool ls_state_home_to_magnet_status = false;
@@ -111,8 +119,6 @@ ls_State ls_state_home_to_magnet(ls_event event)
 
 /**
  * @brief Back up out of the magnet area to move forward into it more slowly
- *
- * @todo error if this is done too many times? Too long? too much distance?
  *
  * @param event
  * @return ls_state_funcptr

@@ -127,18 +127,23 @@ void ls_stepper_task(void *pvParameter)
                 if (success)
                 {
                     current_action = message.action;
+           xSemaphoreTake(print_mux, portMAX_DELAY);
+           printf("Stepper dequeued action %d (%d steps)\n", message.action, message.steps);
+           xSemaphoreGive(print_mux);                    
                 }
             }
         }
         switch (current_action)
         {
         case LS_STEPPER_ACTION_IDLE:
+            _ls_stepper_set_speed();
             break;
         case LS_STEPPER_ACTION_DIRECTION_FORWARD:
             gpio_set_level(LSGPIO_STEPPERSLEEP, 1);
             if (ls_stepper_steps_remaining <= 0)
             {
-                gpio_set_level(LSGPIO_STEPPERDIRECTION, 1);
+                ls_stepper_direction = 0;
+                gpio_set_level(LSGPIO_STEPPERDIRECTION, ls_stepper_direction);
                 ls_stepper_steps_taken = 0;
                 ls_stepper_steps_remaining = message.steps;
                 current_action = LS_STEPPER_ACTION_IDLE;
@@ -149,7 +154,8 @@ void ls_stepper_task(void *pvParameter)
             gpio_set_level(LSGPIO_STEPPERSLEEP, 1);
             if (ls_stepper_steps_remaining <= 0)
             {
-                gpio_set_level(LSGPIO_STEPPERDIRECTION, 0);
+                ls_stepper_direction = 1;
+                gpio_set_level(LSGPIO_STEPPERDIRECTION, ls_stepper_direction);
                 ls_stepper_steps_taken = 0;
                 ls_stepper_steps_remaining = message.steps;
                 current_action = LS_STEPPER_ACTION_IDLE;
@@ -181,7 +187,7 @@ void ls_stepper_task(void *pvParameter)
                 gpio_set_level(LSGPIO_STEPPERDIRECTION, ls_stepper_direction ? 1 : 0);
                 ls_stepper_steps_remaining = LS_STEPPER_MOVEMENT_STEPS_MIN + ((random >> 16) * (LS_STEPPER_MOVEMENT_STEPS_MAX - LS_STEPPER_MOVEMENT_STEPS_MIN) / 65536);
                 xSemaphoreTake(print_mux, portMAX_DELAY);
-                printf("From %d, moving %d steps %s\n", ls_stepper_position, ls_stepper_steps_remaining, ls_stepper_direction ? "-->" : "<--");
+                printf("From %d, moving %d steps %s\n", ls_stepper_position, ls_stepper_steps_remaining, ls_stepper_direction ? "<--" : "-->" );
                 xSemaphoreGive(print_mux);
             }
             _ls_stepper_set_speed();

@@ -17,7 +17,6 @@
 #include "magnet.h"
 #include "states.h"
 
-
 SemaphoreHandle_t adc1_mux = NULL;
 SemaphoreHandle_t i2c_mux = NULL;
 SemaphoreHandle_t print_mux = NULL;
@@ -138,8 +137,6 @@ void adc_read_reflectance_sensor_task(void *pvParameter)
     }
 }
 
-
-
 static void print_char_val_type(esp_adc_cal_value_t val_type)
 {
     if (val_type == ESP_ADC_CAL_VAL_EFUSE_TP)
@@ -195,8 +192,8 @@ void app_main(void)
     ls_stepper_init();
     xTaskCreate(&ls_stepper_task, "stepper", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
     ls_magnet_isr_begin();
-//    ls_state_current.func = ls_state_home_to_magnet; 
-    ls_state_current.func = ls_state_active; ls_stepper_random();
+    ls_state_current.func = ls_state_home_to_magnet;
+    // ls_state_current.func = ls_state_active; ls_stepper_random();
     xTaskCreate(&event_handler_state_machine, "event_handler_state_machine", configMINIMAL_STACK_SIZE * 3, NULL, 2, NULL);
     xSemaphoreTake(print_mux, portMAX_DELAY);
     printf("app_main()) has finished.\n");
