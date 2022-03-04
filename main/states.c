@@ -60,11 +60,11 @@ void event_handler_state_machine(void *pvParameter)
                 ; // do nothing; no state
             }
         }
-        // send the event
     } // while 1 -- task must not exit
 }
 
 bool ls_state_home_to_magnet_status = false;
+int ls_magnet_homing_tries = 50;
 
 ls_State ls_state_homing_error(ls_event event)
 {
@@ -103,6 +103,7 @@ ls_State ls_state_home_to_magnet(ls_event event)
             printf("homing found magnet; stepper now stopped...\n");
             xSemaphoreGive(print_mux);
             successor.func = ls_state_home_to_magnet_2back_up;
+            ls_magnet_homing_tries = 25; //let the next step try to back up 25 times
         }
         else
         {
@@ -127,7 +128,6 @@ ls_State ls_state_home_to_magnet_2back_up(ls_event event)
 {
     ls_State successor;
     successor.func = ls_state_home_to_magnet_2back_up;
-    int tries = 50;
     switch (event.type)
     {
     case LSEVT_STATE_ENTRY:
@@ -141,7 +141,7 @@ ls_State ls_state_home_to_magnet_2back_up(ls_event event)
         ls_stepper_reverse(LS_STEPPER_STEPS_PER_ROTATION / 100);
         break;
     case LSEVT_STEPPER_FINISHED_MOVE:
-        if (--tries <= 0)
+        if (--ls_magnet_homing_tries <= 0) // initialized at end of previous state
         {
             xSemaphoreTake(print_mux, portMAX_DELAY);
             printf("Homing could not back out of magnet area...\n");

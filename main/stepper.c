@@ -127,9 +127,9 @@ void ls_stepper_task(void *pvParameter)
                 if (success)
                 {
                     current_action = message.action;
-           xSemaphoreTake(print_mux, portMAX_DELAY);
-           printf("Stepper dequeued action %d (%d steps)\n", message.action, message.steps);
-           xSemaphoreGive(print_mux);                    
+        //    xSemaphoreTake(print_mux, portMAX_DELAY);
+        //    printf("Stepper dequeued action %d (%d steps)\n", message.action, message.steps);
+        //    xSemaphoreGive(print_mux);                    
                 }
             }
         }
