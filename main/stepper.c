@@ -102,6 +102,7 @@ void ls_stepper_init(void)
 
 static void _ls_stepper_set_speed(void)
 {
+    /** todo fullspeed = ls_laser_is_on() ? ls_config_get_speed() : LS_STEPPER_STEPS_FULLSPEED; // or something like that */
     // lesser of steps remaining (deceleration) or steps taken (acceleration)
     int16_t steps = ls_stepper_steps_remaining < ls_stepper_steps_taken ? ls_stepper_steps_remaining : ls_stepper_steps_taken;
     // but not more than full speed
@@ -127,9 +128,11 @@ void ls_stepper_task(void *pvParameter)
                 if (success)
                 {
                     current_action = message.action;
-        //    xSemaphoreTake(print_mux, portMAX_DELAY);
-        //    printf("Stepper dequeued action %d (%d steps)\n", message.action, message.steps);
-        //    xSemaphoreGive(print_mux);                    
+#ifdef LSDEBUG_STEPPER
+           xSemaphoreTake(print_mux, portMAX_DELAY);
+           printf("Stepper dequeued action %d (%d steps)\n", message.action, message.steps);
+           xSemaphoreGive(print_mux);                    
+#endif
                 }
             }
         }
@@ -142,7 +145,7 @@ void ls_stepper_task(void *pvParameter)
             gpio_set_level(LSGPIO_STEPPERSLEEP, 1);
             if (ls_stepper_steps_remaining <= 0)
             {
-                ls_stepper_direction = 0;
+                ls_stepper_direction = 1; // A4988 datasheet gives decay mode and other information while DIR=H
                 gpio_set_level(LSGPIO_STEPPERDIRECTION, ls_stepper_direction);
                 ls_stepper_steps_taken = 0;
                 ls_stepper_steps_remaining = message.steps;
@@ -154,7 +157,7 @@ void ls_stepper_task(void *pvParameter)
             gpio_set_level(LSGPIO_STEPPERSLEEP, 1);
             if (ls_stepper_steps_remaining <= 0)
             {
-                ls_stepper_direction = 1;
+                ls_stepper_direction = 0;
                 gpio_set_level(LSGPIO_STEPPERDIRECTION, ls_stepper_direction);
                 ls_stepper_steps_taken = 0;
                 ls_stepper_steps_remaining = message.steps;
@@ -163,9 +166,11 @@ void ls_stepper_task(void *pvParameter)
             _ls_stepper_set_speed();
             break;
         case LS_STEPPER_ACTION_STOP:
-//            xSemaphoreTake(print_mux, portMAX_DELAY);
-//            printf("Stepper stopping\n");
-//            xSemaphoreGive(print_mux);
+#ifdef LSDEBUG_STEPPER
+           xSemaphoreTake(print_mux, portMAX_DELAY);
+           printf("Stepper stopping\n");
+           xSemaphoreGive(print_mux);
+#endif
             gpio_set_level(LSGPIO_STEPPERSLEEP, 1);
             if (ls_stepper_steps_remaining > LS_STEPPER_STEPS_FULLSPEED)
             {
@@ -186,16 +191,20 @@ void ls_stepper_task(void *pvParameter)
                 ls_stepper_direction = ((uint8_t)random & 0xFF) > LS_STEPPER_MOVEMENT_REVERSE_PER255 ? false : true;
                 gpio_set_level(LSGPIO_STEPPERDIRECTION, ls_stepper_direction ? 1 : 0);
                 ls_stepper_steps_remaining = LS_STEPPER_MOVEMENT_STEPS_MIN + ((random >> 16) * (LS_STEPPER_MOVEMENT_STEPS_MAX - LS_STEPPER_MOVEMENT_STEPS_MIN) / 65536);
+#ifdef LSDEBUG_STEPPER
                 xSemaphoreTake(print_mux, portMAX_DELAY);
-                printf("From %d, moving %d steps %s\n", ls_stepper_position, ls_stepper_steps_remaining, ls_stepper_direction ? "<--" : "-->" );
+                printf("From %d, moving %d steps %s\n", ls_stepper_position, ls_stepper_steps_remaining, ls_stepper_direction ? "-->" : "<--" );
                 xSemaphoreGive(print_mux);
+#endif
             }
             _ls_stepper_set_speed();
             break;
         case LS_STEPPER_ACTION_SLEEP:
+#ifdef LSDEBUG_STEPPER
             xSemaphoreTake(print_mux, portMAX_DELAY);
             printf("Stepper sleeping\n");
             xSemaphoreGive(print_mux);
+#endif
             gpio_set_level(LSGPIO_STEPPERSLEEP, 0);
             current_action = LS_STEPPER_ACTION_IDLE;
             break;

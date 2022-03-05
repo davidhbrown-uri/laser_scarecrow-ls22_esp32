@@ -70,9 +70,11 @@ ls_State ls_state_homing_error(ls_event event)
 {
     ls_State successor;
     successor.func = ls_state_homing_error;
+#ifdef LSDEBUG_HOMING
     xSemaphoreTake(print_mux, portMAX_DELAY);
     printf(">>>>HOMING FAILED<<<\n");
     xSemaphoreGive(print_mux);
+#endif
     return successor;
 }
 
@@ -84,32 +86,40 @@ ls_State ls_state_home_to_magnet(ls_event event)
     {
     case LSEVT_STATE_ENTRY:
         ls_state_home_to_magnet_status = false;
+#ifdef LSDEBUG_HOMING
         xSemaphoreTake(print_mux, portMAX_DELAY);
         printf("Homing is looking for magnet...\n");
         xSemaphoreGive(print_mux);
+#endif
         ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION * 2);
         break;
     case LSEVT_MAGNET_ENTER:
         ls_state_home_to_magnet_status = true;
         ls_stepper_stop();
+#ifdef LSDEBUG_HOMING
         xSemaphoreTake(print_mux, portMAX_DELAY);
         printf("homing found magnet; waiting to stop stepper...\n");
         xSemaphoreGive(print_mux);
+#endif
         break;
     case LSEVT_STEPPER_FINISHED_MOVE:
         if (ls_state_home_to_magnet_status)
         {
+#ifdef LSDEBUG_HOMING
             xSemaphoreTake(print_mux, portMAX_DELAY);
             printf("homing found magnet; stepper now stopped...\n");
             xSemaphoreGive(print_mux);
+#endif
             successor.func = ls_state_home_to_magnet_2back_up;
-            ls_magnet_homing_tries = 25; //let the next step try to back up 25 times
+            ls_magnet_homing_tries = 25; // let the next step try to back up 25 times
         }
         else
         {
+#ifdef LSDEBUG_HOMING
             xSemaphoreTake(print_mux, portMAX_DELAY);
             printf("homing could not find magnet in two rotations\n");
             xSemaphoreGive(print_mux);
+#endif
             successor.func = ls_state_homing_error;
         }
         break;
@@ -131,21 +141,27 @@ ls_State ls_state_home_to_magnet_2back_up(ls_event event)
     switch (event.type)
     {
     case LSEVT_STATE_ENTRY:
+#ifdef LSDEBUG_HOMING
         xSemaphoreTake(print_mux, portMAX_DELAY);
         printf("Homing is backing up...\n");
         xSemaphoreGive(print_mux);
+#endif
         ls_state_home_to_magnet_status = ls_magnet_is_detected();
+#ifdef LSDEBUG_HOMING
         xSemaphoreTake(print_mux, portMAX_DELAY);
         printf("...magnet was %sdetected...\n", ls_state_home_to_magnet_status ? "" : "not ");
         xSemaphoreGive(print_mux);
-        ls_stepper_reverse(LS_STEPPER_STEPS_PER_ROTATION / 100);
+#endif
+        ls_stepper_reverse(LS_STEPPER_STEPS_PER_ROTATION / 50);
         break;
     case LSEVT_STEPPER_FINISHED_MOVE:
         if (--ls_magnet_homing_tries <= 0) // initialized at end of previous state
         {
+#ifdef LSDEBUG_HOMING
             xSemaphoreTake(print_mux, portMAX_DELAY);
             printf("Homing could not back out of magnet area...\n");
             xSemaphoreGive(print_mux);
+#endif
             successor.func = ls_state_homing_error;
         }
         else
@@ -158,6 +174,7 @@ ls_State ls_state_home_to_magnet_2back_up(ls_event event)
         {
             ls_stepper_stop();
             successor.func = ls_state_home_to_magnet_3step_to_edge;
+            ls_magnet_homing_tries = 50; // number of tries allowed in next stage
         }
         break;
     case LSEVT_MAGNET_ENTER:
@@ -172,28 +189,33 @@ ls_State ls_state_home_to_magnet_3step_to_edge(ls_event event)
 {
     ls_State successor;
     successor.func = ls_state_home_to_magnet_3step_to_edge;
-    int tries = 100;
     switch (event.type)
     {
     case LSEVT_STATE_ENTRY:
+#ifdef LSDEBUG_HOMING
         xSemaphoreTake(print_mux, portMAX_DELAY);
         printf("Homing is slowly approaching magnet area...\n");
         xSemaphoreGive(print_mux);
+#endif
         ls_stepper_forward(1);
         break;
     case LSEVT_MAGNET_ENTER:
         ls_stepper_set_home_position();
+#ifdef LSDEBUG_HOMING
         xSemaphoreTake(print_mux, portMAX_DELAY);
         printf("Magnet home position found!\n");
         xSemaphoreGive(print_mux);
+#endif
         successor.func = ls_state_active;
         break;
     case LSEVT_STEPPER_FINISHED_MOVE:
-        if (--tries == 0)
+        if (--ls_magnet_homing_tries == 0)
         {
+#ifdef LSDEBUG_HOMING
             xSemaphoreTake(print_mux, portMAX_DELAY);
             printf("Homing could not find magnet again...\n");
             xSemaphoreGive(print_mux);
+#endif
             successor.func = ls_state_homing_error;
         }
         else
@@ -217,6 +239,7 @@ ls_State ls_state_active(ls_event event)
         printf("Beginning active state\n");
         xSemaphoreGive(print_mux);
         buzzer_play(LS_BUZZER_ALTERNATE_HIGH);
+        ls_stepper_random();
         break;
     case LSEVT_MAGNET_ENTER:
         xSemaphoreTake(print_mux, portMAX_DELAY);

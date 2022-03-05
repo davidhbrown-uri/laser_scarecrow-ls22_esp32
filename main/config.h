@@ -61,8 +61,8 @@
 #define LS_STEPPER_STEPS_PER_ROTATION 3200
 // FULLSPEED determines how many steps it takes to get to full speed. Probably 5%-10% of STEPS_PER_SECOND_MAX?
 #define LS_STEPPER_STEPS_FULLSPEED 120
-#define LS_STEPPER_MOVEMENT_STEPS_MIN 200
-#define LS_STEPPER_MOVEMENT_STEPS_MAX 2400
+#define LS_STEPPER_MOVEMENT_STEPS_MIN 160
+#define LS_STEPPER_MOVEMENT_STEPS_MAX 1200
 #define LS_STEPPER_MOVEMENT_REVERSE_PER255 64
 #define LS_STEPPER_STEPS_PER_SECOND_MIN 128
 // motor/laser seems to have no trouble at 4800 which is probably too fast
