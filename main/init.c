@@ -1,5 +1,8 @@
 #include "config.h"
+#include "init.h"
 #include "driver/gpio.h"
+#include "driver/adc.h"
+#include "esp_adc_cal.h"
 #include "driver/i2c.h"
 #include "sdkconfig.h"
 
@@ -25,7 +28,7 @@
     (1ULL<<LSGPIO_TAPESETTING) \
 )
 
-void lsgpio_initialize(void)
+void ls_gpio_initialize(void)
 {
     // a structure to hold all the GPIO configuration data
     gpio_config_t io_conf;
@@ -60,7 +63,43 @@ void lsgpio_initialize(void)
     gpio_config(&io_conf);
 }
 
-esp_err_t lsi2c_master_init(void)
+// from adc1_example_main.c
+void check_efuse(void)
+{
+#if CONFIG_IDF_TARGET_ESP32
+    // Check if TP is burned into eFuse
+    if (esp_adc_cal_check_efuse(ESP_ADC_CAL_VAL_EFUSE_TP) == ESP_OK)
+    {
+        printf("eFuse Two Point: Supported\n");
+    }
+    else
+    {
+        printf("eFuse Two Point: NOT supported\n");
+    }
+    // Check Vref is burned into eFuse
+    if (esp_adc_cal_check_efuse(ESP_ADC_CAL_VAL_EFUSE_VREF) == ESP_OK)
+    {
+        printf("eFuse Vref: Supported\n");
+    }
+    else
+    {
+        printf("eFuse Vref: NOT supported\n");
+    }
+#elif CONFIG_IDF_TARGET_ESP32S2
+    if (esp_adc_cal_check_efuse(ESP_ADC_CAL_VAL_EFUSE_TP) == ESP_OK)
+    {
+        printf("eFuse Two Point: Supported\n");
+    }
+    else
+    {
+        printf("Cannot retrieve eFuse Two Point calibration values. Default calibration values will be used.\n");
+    }
+#else
+#error "This example is configured for ESP32/ESP32S2."
+#endif
+}
+
+esp_err_t lsi_2c_master_init(void)
 {
     i2c_config_t conf = {
         .mode = I2C_MODE_MASTER,

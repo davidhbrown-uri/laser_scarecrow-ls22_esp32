@@ -45,7 +45,7 @@ void buzzer_play(enum ls_buzzer_effects effect)
 static void buzzer_effect_click(void)
 {
     _buzzer_frequency(500);
-     vTaskDelay(pdMS_TO_TICKS(10));
+     vTaskDelay(1);
 }
 
 static void buzzer_effect_alternate_high(void)

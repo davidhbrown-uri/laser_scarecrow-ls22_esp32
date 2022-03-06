@@ -1,8 +1,4 @@
 #pragma once
-#include "driver/i2c.h"
-
-void lsgpio_initialize(void);
-esp_err_t lsi2c_master_init(void);
 
 // assignments of our devices to ESP32 peripherals
 #define LSBUZZER_HS_LEDC_CHANNEL 0
@@ -60,3 +56,15 @@ esp_err_t lsi2c_master_init(void);
 #define LS_SERVO_MCPWM_IO_SIGNALS MCPWM0A
 #define LS_SERVO_MCPWM_TIMER MCPWM_TIMER_0
 #define LS_SERVO_MCPWM_GENERATOR MCPWM_OPR_A
+
+// default parameters for the stepper movement
+#define LS_STEPPER_STEPS_PER_ROTATION 3200
+// FULLSPEED determines how many steps it takes to get to full speed. Probably 5%-10% of STEPS_PER_SECOND_MAX?
+#define LS_STEPPER_STEPS_FULLSPEED 120
+#define LS_STEPPER_MOVEMENT_STEPS_MIN 160
+#define LS_STEPPER_MOVEMENT_STEPS_MAX 1200
+#define LS_STEPPER_MOVEMENT_REVERSE_PER255 64
+#define LS_STEPPER_STEPS_PER_SECOND_MIN 128
+// motor/laser seems to have no trouble at 4800 which is probably too fast
+// is having trouble registering magnet reliably that fast, though.
+#define LS_STEPPER_STEPS_PER_SECOND_MAX 1800
