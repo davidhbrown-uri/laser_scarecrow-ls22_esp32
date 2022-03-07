@@ -17,6 +17,7 @@
 #define LSADC1_TAPESETTING ADC1_CHANNEL_7
 // GPIO => ADC2 channel mapping:
 // 0=>1, 2=>2, 4=>0, 15=>3, 13=>4, 12=>5, 14=>6, 15=>3, 27=>7
+// "KNOB#" refers to the pin # on the connector labeled "Knobs" on the January '22 boards
 #define LSGPIO_KNOB3 14
 #define LSADC2_KNOB3 ADC2_CHANNEL_6
 #define LSGPIO_KNOB4 12
@@ -68,3 +69,8 @@
 // motor/laser seems to have no trouble at 4800 which is probably too fast
 // is having trouble registering magnet reliably that fast, though.
 #define LS_STEPPER_STEPS_PER_SECOND_MAX 1800
+
+// values read by ADC from external controls
+#define LS_CONTROLS_ADC_MAX_DISCONNECT 100
+#define LS_CONTROLS_ADC_MIN_CONNECT 1700
+#define LS_CONTROLS_ADC_MAX_CONNECT 1900

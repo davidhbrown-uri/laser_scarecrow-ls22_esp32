@@ -43,7 +43,8 @@ sdkconfig.old
 
 ### VisualStudioCode ###
 .vscode/*
-!.vscode/settings.json
+#ESP-IDF stores machine-specific data in settings.json :-(
+#!.vscode/settings.json
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
