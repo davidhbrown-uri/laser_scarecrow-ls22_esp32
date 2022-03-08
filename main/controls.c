@@ -21,22 +21,25 @@ extern SemaphoreHandle_t print_mux;
 #define LS_CONTROLS_CONNECTION_KNOB LSADC_KNOB6
 
 static enum ls_controls_status ls_controls_current_status = LS_CONTROLS_STATUS_INVALID;
+static uint32_t ls_controls_current_speed = 0;
+static uint32_t ls_controls_current_angle = 0;
+static uint32_t ls_controls_current_range = 0;
 enum ls_controls_status ls_controls_get_current_status(void)
 {
     return ls_controls_current_status;
 }
 
-uint32_t ls_controls_get_wiggle(void)
+uint32_t ls_controls_get_speed(void)
 {
-    return 0;
+    return ls_controls_current_speed;
 }
 uint32_t ls_controls_get_angle(void)
 {
-    return 0;
+    return ls_controls_current_angle;
 }
 uint32_t ls_controls_get_range(void)
 {
-    return 0;
+    return ls_controls_current_range;
 }
 
 void ls_controls_task(void *pvParameter)
@@ -125,6 +128,12 @@ void ls_controls_task(void *pvParameter)
         printf("External control knobs: %d\t %d\t %d\t %d\n", knob_readings[0], knob_readings[1], knob_readings[2], knob_readings[3]);
         xSemaphoreGive(print_mux);
 #endif
+        if (ls_controls_get_current_status() == LS_CONTROLS_STATUS_CONNECTED)
+        {
+            ls_controls_current_speed = knob_readings[0];
+            ls_controls_current_angle = knob_readings[1];
+            ls_controls_current_range = knob_readings[2];
+        }
         vTaskDelay(ls_controls_current_status == LS_CONTROLS_STATUS_CONNECTED ? pdMS_TO_TICKS(100) : pdMS_TO_TICKS(600));
     }
 }
