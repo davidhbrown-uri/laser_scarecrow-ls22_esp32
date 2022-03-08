@@ -16,8 +16,10 @@
 #include "stepper.h"
 #include "magnet.h"
 #include "states.h"
+#include "controls.h"
 
 SemaphoreHandle_t adc1_mux = NULL;
+SemaphoreHandle_t adc2_mux = NULL;
 SemaphoreHandle_t i2c_mux = NULL;
 SemaphoreHandle_t print_mux = NULL;
 
@@ -164,6 +166,7 @@ void app_main(void)
     printf("Checked ADC efuse\n");
     adc_chars = calloc(1, sizeof(esp_adc_cal_characteristics_t));
     adc1_mux = xSemaphoreCreateMutex();
+    adc2_mux = xSemaphoreCreateMutex();
     print_mux = xSemaphoreCreateMutex();
     printf("Initializing GPIO\n");
     ls_gpio_initialize();
@@ -194,7 +197,8 @@ void app_main(void)
     ls_magnet_isr_begin();
     ls_state_current.func = ls_state_home_to_magnet;
     // ls_state_current.func = ls_state_active; ls_stepper_random();
-    xTaskCreate(&event_handler_state_machine, "event_handler_state_machine", configMINIMAL_STACK_SIZE * 3, NULL, 2, NULL);
+    xTaskCreate(&event_handler_state_machine, "event_handler_state_machine", configMINIMAL_STACK_SIZE * 3, NULL, 15, NULL);
+    xTaskCreate(&ls_controls_task, "controls_task", configMINIMAL_STACK_SIZE * 3, NULL, 5, NULL);
     xSemaphoreTake(print_mux, portMAX_DELAY);
     printf("app_main()) has finished.\n");
     xSemaphoreGive(print_mux);

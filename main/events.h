@@ -10,6 +10,8 @@ enum ls_event_types
     LSEVT_MAGNET_ENTER, // 2: 
     LSEVT_MAGNET_LEAVE, // 3: <! no value for magnet events
     LSEVT_STEPPER_FINISHED_MOVE, // 4: 
+    LSEVT_CONTROLS_CONNECTED, // 5:
+    LSEVT_CONTROLS_DISCONNECTED, // 6:
 } ls_event_types;
 
 typedef struct ls_event
