@@ -23,11 +23,19 @@ typedef struct ls_State {
     struct ls_State (*func)(ls_event);
 }ls_State;
 
-ls_State ls_state_current;
+ls_State ls_state_current, ls_state_previous;
+
+ls_State ls_state_poweron(ls_event);
+ls_State ls_state_selftest(ls_event);
+ls_State ls_state_manual(ls_event);
+ls_State ls_state_sleep(ls_event);
 
 ls_State ls_state_active(ls_event);
+ls_State ls_state_active_substate_home(ls_event);
 
-ls_State ls_state_home_to_magnet(ls_event);
-ls_State ls_state_home_to_magnet_2back_up(ls_event);
-ls_State ls_state_home_to_magnet_3step_to_edge(ls_event);
-ls_State ls_state_home_to_magnet_error(ls_event);
+ls_State ls_state_map_build(ls_event);
+ls_State ls_state_map_build_substate_home(ls_event);
+
+ls_State ls_state_error_home(ls_event);
+ls_State ls_state_error_map(ls_event);
+ls_State ls_state_error_tilt(ls_event);

@@ -12,7 +12,9 @@
         "stdlib.h": "c",
         "string.h": "c",
         "stdio.h": "c",
-        "config.h": "c"
+        "config.h": "c",
+        "queue.h": "c",
+        "substate_home.h": "c"
     },
     "idf.espIdfPathWin": "C:\\Users\\dave\\esp\\esp-idf",
     "idf.pythonBinPathWin": "C:\\Users\\dave\\.espressif\\python_env\\idf4.4_py3.8_env\\Scripts\\python.exe",
