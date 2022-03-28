@@ -155,9 +155,20 @@ static void print_char_val_type(esp_adc_cal_value_t val_type)
     }
 }
 
+/**
+ * @brief Handle essential setup, then transfer to event loop
+ * 
+ * Phase 1: essential initialization of hardware
+ * Phase 2: initialization of queues, mutexes, etc
+ * Phase 3: setup of output (laser, stepper, servo, buzzer)
+ * Phase 4: setup state machine to handle events (read saved settings in poweron state?)
+ * Phase 5: setup of inputs (light, tape, tilt, controls)
+ */
 void app_main(void)
 {
-    ls_event_queue_init();
+    printf("Initializing GPIO\n");
+    ls_gpio_initialize();
+    printf("Initialized GPIO\n");
     check_efuse();
     // Characterize ADC
     adc_chars = calloc(1, sizeof(esp_adc_cal_characteristics_t));
@@ -168,9 +179,7 @@ void app_main(void)
     adc1_mux = xSemaphoreCreateMutex();
     adc2_mux = xSemaphoreCreateMutex();
     print_mux = xSemaphoreCreateMutex();
-    printf("Initializing GPIO\n");
-    ls_gpio_initialize();
-    printf("Initialized GPIO\n");
+    ls_event_queue_init();
     /*
     printf("Initializing I2C\n");
     i2c_mux = xSemaphoreCreateMutex();
@@ -194,11 +203,14 @@ void app_main(void)
     xTaskCreate(&buzzer_handler_task, "buzzer_handler", configMINIMAL_STACK_SIZE * 2, NULL, 1, NULL);
     ls_stepper_init();
     xTaskCreate(&ls_stepper_task, "stepper", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
-    ls_magnet_isr_begin();
     ls_state_current.func = ls_state_home_to_magnet;
     // ls_state_current.func = ls_state_active; ls_stepper_random();
+    /** @todo: servo setup */
     xTaskCreate(&event_handler_state_machine, "event_handler_state_machine", configMINIMAL_STACK_SIZE * 3, NULL, 15, NULL);
+
     xTaskCreate(&ls_controls_task, "controls_task", configMINIMAL_STACK_SIZE * 3, NULL, 5, NULL);
+    ls_magnet_isr_begin();
+
     xSemaphoreTake(print_mux, portMAX_DELAY);
     printf("app_main()) has finished.\n");
     xSemaphoreGive(print_mux);
