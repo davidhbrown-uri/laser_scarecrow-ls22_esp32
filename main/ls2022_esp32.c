@@ -203,7 +203,7 @@ void app_main(void)
     xTaskCreate(&buzzer_handler_task, "buzzer_handler", configMINIMAL_STACK_SIZE * 2, NULL, 1, NULL);
     ls_stepper_init();
     xTaskCreate(&ls_stepper_task, "stepper", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
-    ls_state_current.func = ls_state_home_to_magnet;
+    ls_state_current.func = ls_state_map_build_substate_home;
     // ls_state_current.func = ls_state_active; ls_stepper_random();
     /** @todo: servo setup */
     xTaskCreate(&event_handler_state_machine, "event_handler_state_machine", configMINIMAL_STACK_SIZE * 3, NULL, 15, NULL);

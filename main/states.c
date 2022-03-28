@@ -95,7 +95,10 @@ ls_State ls_state_poweron(ls_event event)
         xSemaphoreGive(print_mux);
 #endif
         break;
+    default: //switch event.type
+;
     }
+    return successor;
 }
 ls_State ls_state_active(ls_event event)
 {
