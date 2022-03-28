@@ -18,6 +18,23 @@ enum
 static int ls_substate_home_tries = 0;
 static bool ls_substate_home_status = false;
 
+static void ls_substate_home_failed(void)
+{
+    ls_substate_home_substate = LS_HOME_SUBSTATE_FAILED;
+    ls_event event;
+    event.type = LSEVT_HOME_FAILED;
+    event.value = NULL;
+    xQueueSendToFront(ls_event_queue, (void *) &event, 0);
+}
+static void ls_substate_home_completed(void)
+{
+    ls_substate_home_substate = LS_HOME_SUBSTATE_COMPLETE;
+    ls_event event;
+    event.type = LSEVT_HOME_COMPLETED;
+    event.value = NULL;
+    xQueueSendToFront(ls_event_queue, (void *) &event, 0);
+}
+
 void ls_substate_home_init(void)
 {
     // enter substate ROTATE_TO_MAGNET
@@ -60,7 +77,7 @@ void ls_substate_home_handle_event(ls_event event)
                 ls_substate_home_substate = LS_HOME_SUBSTATE_BACKUP_PAST_MAGNET;
                 ls_substate_home_tries = 25;
                 ls_substate_home_status = false;
-                ls_substate_home_queue_noop_event();
+                ls_event_enqueue_noop();
             }
             else
             {
@@ -73,6 +90,8 @@ void ls_substate_home_handle_event(ls_event event)
                 xSemaphoreGive(print_mux);
 #endif
             }
+            default:
+            ;
         }
 
         break;
@@ -157,6 +176,8 @@ void ls_substate_home_handle_event(ls_event event)
                 ls_substate_home_failed();
             }
             break;
+            default:
+            ; // do not handle this event type
         }
         break;
     case LS_HOME_SUBSTATE_FAILED:
@@ -168,20 +189,5 @@ void ls_substate_home_handle_event(ls_event event)
     }
 }
 
-static void ls_substate_home_failed(void)
-{
-    ls_substate_home_substate = LS_HOME_SUBSTATE_FAILED;
-    ls_event event;
-    event.type = LSEVT_HOME_FAILED;
-    event.value = NULL;
-    xQueueCRSendToFront(ls_event_queue, (void *) &event, 0);
-}
-static void ls_substate_home_completed(void)
-{
-    ls_substate_home_substate = LS_HOME_SUBSTATE_COMPLETE;
-    ls_event event;
-    event.type = LSEVT_HOME_COMPLETED;
-    event.value = NULL;
-    xQueueCRSendToFront(ls_event_queue, (void *) &event, 0);
-}
+
 
