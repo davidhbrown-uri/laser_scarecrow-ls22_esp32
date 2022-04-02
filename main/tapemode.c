@@ -10,19 +10,10 @@
 
 extern SemaphoreHandle_t adc1_mux;
 extern SemaphoreHandle_t print_mux;
+static enum ls_tapemode_mode _ls_tapemode = LS_TAPEMODE_NOT_INITIALIZED;
 
-enum ls_tapemode ls_tapemode_get(void)
+static enum ls_tapemode_mode ls_tapemode_from_adc(uint32_t adc_reading)
 {
-    xSemaphoreTake(adc1_mux, pdMS_TO_TICKS(1000));
-    xSemaphoreTake(adc1_mux, portMAX_DELAY);
-    adc1_config_width(ADC_WIDTH_BIT_12);
-    adc1_config_channel_atten(LSADC1_TAPESETTING, ADC_ATTEN_DB_11);
-    uint32_t adc_reading = 0;
-    for (int i = 0; i < 4; i++)
-    {
-        adc_reading += adc1_get_raw((adc1_channel_t)LSADC1_TAPESETTING);
-    }
-    adc_reading /= 4;
     if (adc_reading > LS_TAPEMODE_THRESHOLD_5)
     {
         return LS_TAPEMODE_REFLECT_SAFE;
@@ -46,6 +37,32 @@ enum ls_tapemode ls_tapemode_get(void)
     return LS_TAPEMODE_SELFTEST;
 }
 
+void ls_tapemode_init(void)
+{
+    _ls_tapemode = ls_tapemode_current();
+}
+
+
+
+enum ls_tapemode_mode ls_tapemode(void)
+{
+    return _ls_tapemode;
+}
+
+enum ls_tapemode_mode ls_tapemode_current(void)
+{
+    xSemaphoreTake(adc1_mux, portMAX_DELAY);
+    adc1_config_width(ADC_WIDTH_BIT_12);
+    adc1_config_channel_atten(LSADC1_TAPESETTING, ADC_ATTEN_DB_11);
+    uint32_t adc_reading = 0;
+    for (int i = 0; i < 4; i++)
+    {
+        adc_reading += adc1_get_raw((adc1_channel_t)LSADC1_TAPESETTING);
+    }
+    adc_reading /= 4;
+    return ls_tapemode_from_adc(adc_reading);
+}
+
 #ifdef LSDEBUG_TAPEMODE
 void ls_tapemode_debug_task(void *pvParameter)
 {
@@ -62,7 +79,7 @@ void ls_tapemode_debug_task(void *pvParameter)
         adc_reading /= 4;
         xSemaphoreGive(adc1_mux);
         xSemaphoreTake(print_mux, portMAX_DELAY);
-        printf("Tape setting raw: %d\n", adc_reading);
+        printf("Tape mode %d (raw: %d)\n", (int)ls_tapemode_from_adc(adc_reading), adc_reading);
         xSemaphoreGive(print_mux);
         vTaskDelay(pdMS_TO_TICKS(5000));
     }

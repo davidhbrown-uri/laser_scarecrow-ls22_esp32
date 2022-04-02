@@ -8,4 +8,4 @@
 
 //#define LSDEBUG_CONTROLS
 
-#define LSDEBUG_TAPEMODE
+//#define LSDEBUG_TAPEMODE

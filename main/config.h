@@ -82,6 +82,7 @@
 #define LS_REFLECTANCE_ADC_MIN_BLACK_BUCKET 2000
 #define LS_REFLECTANCE_ADC_MAX_SILVER_TAPE 500
 
+// approximate midpoints between settings (3 boards tested Apr 2 '22)
 #define LS_TAPEMODE_THRESHOLD_1 300
 #define LS_TAPEMODE_THRESHOLD_2 975
 #define LS_TAPEMODE_THRESHOLD_3 1750
