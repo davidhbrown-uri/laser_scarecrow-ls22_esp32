@@ -200,6 +200,10 @@ void app_main(void)
     xTaskCreate(&stepper_task, "stepper", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
     printf("Started all test tasks\n");
     */
+    ls_tapemode_init();
+#ifdef LSDEBUG_TAPEMODE
+    xTaskCreate(&ls_tapemode_debug_task, "tapemode_debug_task", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
+#endif
     buzzer_init();
     printf("Initialized buzzer\n");
     xTaskCreate(&buzzer_handler_task, "buzzer_handler", configMINIMAL_STACK_SIZE * 2, NULL, 1, NULL);
@@ -212,10 +216,6 @@ void app_main(void)
 
     xTaskCreate(&ls_controls_task, "controls_task", configMINIMAL_STACK_SIZE * 3, NULL, 5, NULL);
     ls_magnet_isr_begin();
-
-#ifdef LSDEBUG_TAPEMODE
-    xTaskCreate(&ls_tapemode_debug_task, "tapemode_debug_task", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
-#endif
 
     xSemaphoreTake(print_mux, portMAX_DELAY);
     printf("app_main()) has finished.\n");
