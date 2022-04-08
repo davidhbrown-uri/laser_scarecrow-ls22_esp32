@@ -19,6 +19,7 @@
 #include "states.h"
 #include "controls.h"
 #include "tapemode.h"
+#include "tape.h"
 
 SemaphoreHandle_t adc1_mux = NULL;
 SemaphoreHandle_t adc2_mux = NULL;
