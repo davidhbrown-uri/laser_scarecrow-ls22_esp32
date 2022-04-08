@@ -9,6 +9,7 @@
 #include "driver/timer.h"
 #include "esp_adc_cal.h"
 #include "config.h"
+#include "debug.h"
 #include "init.h"
 #include "mpu6050.h"
 #include "events.h"
@@ -17,6 +18,7 @@
 #include "magnet.h"
 #include "states.h"
 #include "controls.h"
+#include "tapemode.h"
 
 SemaphoreHandle_t adc1_mux = NULL;
 SemaphoreHandle_t adc2_mux = NULL;
@@ -157,7 +159,7 @@ static void print_char_val_type(esp_adc_cal_value_t val_type)
 
 /**
  * @brief Handle essential setup, then transfer to event loop
- * 
+ *
  * Phase 1: essential initialization of hardware
  * Phase 2: initialization of queues, mutexes, etc
  * Phase 3: setup of output (laser, stepper, servo, buzzer)
@@ -198,6 +200,10 @@ void app_main(void)
     xTaskCreate(&stepper_task, "stepper", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
     printf("Started all test tasks\n");
     */
+    ls_tapemode_init();
+#ifdef LSDEBUG_TAPEMODE
+    xTaskCreate(&ls_tapemode_debug_task, "tapemode_debug_task", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
+#endif
     buzzer_init();
     printf("Initialized buzzer\n");
     xTaskCreate(&buzzer_handler_task, "buzzer_handler", configMINIMAL_STACK_SIZE * 2, NULL, 1, NULL);
