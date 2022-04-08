@@ -78,9 +78,13 @@ HomeError : /exit: queue LSEVT_HOME_COMPLETED
 
 
 state MapBuild {
+  [*] --> SeekHome
   SeekHome --> BuildMap : [HomedSuccessfully]
-  BuildMap --> BuildMapError : [!MapBuilt && !MapOptional]
-  BuildMap --> Active : [MapBuilt || MapOptional)]
+  BuildMap : /entry: read tape mode; set map_optional and thresholds; enable reflectance sensor
+  BuildMap : /do: step stepper and read tape reflectance levels for one rotation
+  BuildMap : /exit: disable reflectance sensor; check map - map_built := tape sections detected AND bucket sections detected
+  BuildMap --> BuildMapError : [!map_built && !map_optional]
+  BuildMap --> Active : [map_built || map_optional)]
   BuildMapError : /entry: turn off devices
   BuildMapError : /do: tape error code beeps periodically
 }

@@ -219,3 +219,4 @@ ls_State ls_state_map_build_substate_home(ls_event event)
     }
     return successor;
 }
+
