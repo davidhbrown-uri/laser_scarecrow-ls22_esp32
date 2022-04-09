@@ -11,5 +11,6 @@ enum ls_map_status_t {
 bool ls_map_is_enabled_at(int32_t stepper_position);
 void ls_map_enable_at(int32_t stepper_position);
 void ls_map_disable_at(int32_t stepper_position);
+void ls_map_ignore(void);
 
 enum ls_map_status_t ls_map_status(void);

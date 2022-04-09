@@ -81,6 +81,8 @@
 #define LS_REFLECTANCE_ADC_MIN_BLACK_TAPE 2500
 #define LS_REFLECTANCE_ADC_MIN_BLACK_BUCKET 2000
 #define LS_REFLECTANCE_ADC_MAX_SILVER_TAPE 500
+// e.g., LS_REFLECTANCE_ALLOW_MISREAD_PER_READS = 100 means [0%-1%) misreads allowed; 50 => [0%-2%)
+#define LS_REFLECTANCE_ALLOW_MISREAD_PER_READS 40
 
 // approximate midpoints between settings (3 boards tested Apr 2 '22)
 #define LS_TAPEMODE_THRESHOLD_1 300

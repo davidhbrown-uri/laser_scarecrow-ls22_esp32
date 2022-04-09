@@ -4,6 +4,10 @@
 #include "stepper.h"
 #include "buzzer.h"
 #include "magnet.h"
+#include "tapemode.h"
+#include "tape.h"
+#include "map.h"
+#include "init.h"
 #include "substate_home.h"
 
 extern SemaphoreHandle_t print_mux;
@@ -40,27 +44,34 @@ void event_handler_state_machine(void *pvParameter)
         }
         else
         {
+#ifdef LSDEBUG_STATES
             xSemaphoreTake(print_mux, portMAX_DELAY);
             printf("Received event %d\n", event.type);
             xSemaphoreGive(print_mux);
+#endif
             if (ls_state_current.func != NULL) // we have a current state
             {
                 ls_state_current = ls_state_current.func(event);
                 // send state entry events if the state changed
                 if (ls_state_current.func != previous_state.func)
                 {
+#ifdef LSDEBUG_STATES
                     xSemaphoreTake(print_mux, portMAX_DELAY);
                     printf("Switching states; sending entry event\n");
                     xSemaphoreGive(print_mux);
+#endif
                     xQueueSendToFront(ls_event_queue, (void *)&state_entry_event, 0);
+
                 }
                 previous_state.func = ls_state_current.func; // save current state as previous to next event
             }
             else
             {
+#ifdef LSDEBUG_STATES
                 xSemaphoreTake(print_mux, portMAX_DELAY);
                 printf("Event lost; no state function to handle it");
                 xSemaphoreGive(print_mux);
+#endif
                 ; // do nothing; no state
             }
         }
@@ -72,6 +83,7 @@ int ls_magnet_homing_tries = 50;
 
 ls_State ls_state_error_home(ls_event event)
 {
+    ls_gpio_initialize(); // turn things off
     ls_State successor;
     successor.func = ls_state_error_home;
 #ifdef LSDEBUG_HOMING
@@ -82,26 +94,87 @@ ls_State ls_state_error_home(ls_event event)
     return successor;
 }
 
+ls_State ls_state_error_map(ls_event event)
+{
+    ls_gpio_initialize(); // turn things off
+    ls_State successor;
+    successor.func = ls_state_error_map;
+#ifdef LSDEBUG_MAP
+    xSemaphoreTake(print_mux, portMAX_DELAY);
+    printf(">>>>MAPPING FAILED<<<\n");
+    xSemaphoreGive(print_mux);
+#endif
+    return successor;
+}
+
+ls_State ls_state_error_tilt(ls_event event)
+{
+    ls_gpio_initialize(); // turn things off
+    ls_State successor;
+    successor.func = ls_state_error_map;
+#ifdef LSDEBUG_MAP
+    xSemaphoreTake(print_mux, portMAX_DELAY);
+    printf(">>>>MAPPING FAILED<<<\n");
+    xSemaphoreGive(print_mux);
+#endif
+    return successor;
+}
+
 ls_State ls_state_poweron(ls_event event)
 {
+#ifdef LSDEBUG_STATES
+        xSemaphoreTake(print_mux, portMAX_DELAY);
+        printf("POWERON state handling event\n");
+        xSemaphoreGive(print_mux);
+#endif
     ls_State successor;
     successor.func = ls_state_active;
     switch (event.type)
     {
     case LSEVT_STATE_ENTRY:
+        ls_tapemode_init();
+        switch (ls_tapemode())
+        {
+        case LS_TAPEMODE_IGNORE:
+            ls_map_ignore();
+            successor.func = ls_state_active;
 #ifdef LSDEBUG_STATES
         xSemaphoreTake(print_mux, portMAX_DELAY);
-        printf("Beginning poweron state\n");
+        printf("State poweron => active\n");
         xSemaphoreGive(print_mux);
 #endif
+            break;
+        case LS_TAPEMODE_SELFTEST:
+#ifdef LSDEBUG_STATES
+        xSemaphoreTake(print_mux, portMAX_DELAY);
+        printf("State poweron => selftest\n");
+        xSemaphoreGive(print_mux);
+#endif
+            ls_map_ignore();
+            successor.func = ls_state_selftest;
+            break;
+        default:
+#ifdef LSDEBUG_STATES
+        xSemaphoreTake(print_mux, portMAX_DELAY);
+        printf("State poweron => build_substate_home\n");
+        xSemaphoreGive(print_mux);
+#endif
+            successor.func = ls_state_map_build_substate_home;
+        }
         break;
-    default: //switch event.type
-;
+    default: // switch event.type
+        ;
     }
     return successor;
 }
+
 ls_State ls_state_active(ls_event event)
 {
+#ifdef LSDEBUG_STATES
+        xSemaphoreTake(print_mux, portMAX_DELAY);
+        printf("ACTIVE state handling event\n");
+        xSemaphoreGive(print_mux);
+#endif
     ls_State successor;
     successor.func = ls_state_active;
     switch (event.type)
@@ -150,6 +223,11 @@ ls_State ls_state_active(ls_event event)
 
 ls_State ls_state_active_substate_home(ls_event event)
 {
+#ifdef LSDEBUG_STATES
+        xSemaphoreTake(print_mux, portMAX_DELAY);
+        printf("ACTIVE_SUBSTATE_HOME handling event\n");
+        xSemaphoreGive(print_mux);
+#endif
     ls_State successor;
     successor.func = ls_state_active_substate_home;
     switch (event.type)
@@ -174,6 +252,11 @@ ls_State ls_state_active_substate_home(ls_event event)
 
 ls_State ls_state_selftest(ls_event event)
 {
+#ifdef LSDEBUG_STATES
+        xSemaphoreTake(print_mux, portMAX_DELAY);
+        printf("SELFTEST state handling event\n");
+        xSemaphoreGive(print_mux);
+#endif
     ls_State successor;
     successor.func = ls_state_selftest;
 
@@ -182,22 +265,122 @@ ls_State ls_state_selftest(ls_event event)
 
 ls_State ls_state_manual(ls_event event)
 {
+#ifdef LSDEBUG_STATES
+        xSemaphoreTake(print_mux, portMAX_DELAY);
+        printf("MANUAL state handling event\n");
+        xSemaphoreGive(print_mux);
+#endif
     ls_State successor;
     successor.func = ls_state_manual;
 
     return successor;
 }
 
+static int _ls_state_map_build_steps_remaining;
+static int _ls_state_map_misread_count;
+static void _ls_state_map_build_read_and_set_map(void)
+{
+    uint32_t reading = ls_tape_sensor_read();
+    uint32_t position = ls_stepper_get_position();
+    switch (ls_tapemode())
+    {
+    case LS_TAPEMODE_BLACK:
+    case LS_TAPEMODE_BLACK_SAFE:
+        if (reading <= LS_REFLECTANCE_ADC_MAX_WHITE_BUCKET)
+        {
+            ls_map_enable_at(position);
+        }
+        else
+        {
+            ls_map_disable_at(position);
+            if (reading < LS_REFLECTANCE_ADC_MIN_BLACK_TAPE)
+            {
+                _ls_state_map_misread_count++;
+            }
+        }
+        break;
+    case LS_TAPEMODE_REFLECT:
+    case LS_TAPEMODE_REFLECT_SAFE:
+        if (reading >= LS_REFLECTANCE_ADC_MIN_BLACK_BUCKET)
+        {
+            ls_map_enable_at(position);
+        }
+        else
+        {
+            ls_map_disable_at(position);
+            if (reading > LS_REFLECTANCE_ADC_MAX_SILVER_TAPE)
+            {
+                _ls_state_map_misread_count++;
+            }
+        }
+        break;
+    default:
+        // we are ignoring the map, so why are we building a map?
+        ls_map_enable_at(position);
+    }
+#ifdef LSDEBUG_MAP
+    xSemaphoreTake(print_mux, portMAX_DELAY);
+    if (position % 8 == 0)
+    {
+        printf("\nmapping: %d => ", position);
+    }
+    printf("%c ", ls_map_is_enabled_at(position) ? 'O' : '.');
+    xSemaphoreGive(print_mux);
+#endif
+}
 ls_State ls_state_map_build(ls_event event)
 {
+#ifdef LSDEBUG_STATES
+        xSemaphoreTake(print_mux, portMAX_DELAY);
+        printf("MAP_BUILD state handling event\n");
+        xSemaphoreGive(print_mux);
+#endif
     ls_State successor;
     successor.func = ls_state_map_build;
-
+    switch (event.type)
+    {
+    case LSEVT_STATE_ENTRY:
+        _ls_state_map_build_steps_remaining = LS_STEPPER_STEPS_PER_ROTATION;
+        _ls_state_map_misread_count = 0;
+        ls_tape_sensor_enable();
+        ls_stepper_forward(1);
+        break;
+    case LSEVT_STEPPER_FINISHED_MOVE:
+        if (_ls_state_map_build_steps_remaining >= 0)
+        {
+            _ls_state_map_build_read_and_set_map();
+            ls_stepper_forward(1);
+            _ls_state_map_build_steps_remaining--;
+        }
+        else
+        { // we're done building the map
+#ifdef LSDEBUG_MAP
+            xSemaphoreTake(print_mux, portMAX_DELAY);
+            printf("\nMapping completed with %d misreads\n", _ls_state_map_misread_count);
+            xSemaphoreGive(print_mux);
+#endif
+            if ((_ls_state_map_misread_count / LS_REFLECTANCE_ALLOW_MISREAD_PER_READS) > 0)
+            {
+                successor.func = ls_state_error_map;
+            }
+            else
+            {
+                successor.func = ls_state_active;
+            }
+        }
+        break;
+    default:; // error?
+    }
     return successor;
 }
 
 ls_State ls_state_map_build_substate_home(ls_event event)
 {
+#ifdef LSDEBUG_STATES
+        xSemaphoreTake(print_mux, portMAX_DELAY);
+        printf("MAP_BUILD_SUBSTATE_HOME handling event\n");
+        xSemaphoreGive(print_mux);
+#endif
     ls_State successor;
     successor.func = ls_state_map_build_substate_home;
     switch (event.type)
@@ -208,15 +391,12 @@ ls_State ls_state_map_build_substate_home(ls_event event)
         break;
     case LSEVT_HOME_COMPLETED:
         successor.func = ls_state_map_build;
-        ls_event_enqueue_noop();
         break;
     case LSEVT_HOME_FAILED:
         successor.func = ls_state_error_home;
-        ls_event_enqueue_noop();
         break;
     default:
         ls_substate_home_handle_event(event);
     }
     return successor;
 }
-

@@ -11,6 +11,7 @@
 #include "esp_random.h"
 #include "stepper.h"
 #include "events.h"
+#include "debug.h"
 
 #define LS_STEPPER_TIMER_DIVIDER (20)
 // see https://docs.espressif.com/projects/esp-idf/en/v4.4/esp32/api-reference/peripherals/timer.html
@@ -122,6 +123,10 @@ void ls_stepper_task(void *pvParameter)
         {
             bool success;
             success = xQueuePeek(ls_stepper_queue, &message, 0);
+            // check if message.action is forward and we're already going forward or reverse and already reverse
+            // if so, then receive the message and add the message's steps to the current travel
+            // if action is forward/reverse and we're going the other way, change current action to stop
+            // but leave the message in the queue until we are stopped.
             if (current_action == LS_STEPPER_ACTION_IDLE || (success && message.action == LS_STEPPER_ACTION_STOP))
             {
                 success = xQueueReceive(ls_stepper_queue, &message, 0);
@@ -209,7 +214,7 @@ void ls_stepper_task(void *pvParameter)
             current_action = LS_STEPPER_ACTION_IDLE;
             break;
         }
-        vTaskDelay(2);
+        vTaskDelay(1);
     }
 }
 
@@ -217,6 +222,7 @@ void ls_stepper_stop(void)
 {
     ls_stepper_action_message message;
     message.action = LS_STEPPER_ACTION_STOP;
+    message.steps = 0; 
     xQueueSend(ls_stepper_queue, (void *)&message, 0);
 }
 
