@@ -116,17 +116,19 @@ void app_main(void)
 {
     printf("Initializing GPIO\n");
     ls_gpio_initialize();
-    printf("Initialized GPIO\n");
-    check_efuse();
+    /** @todo: servo setup */
     // Characterize ADC
     adc_chars = calloc(1, sizeof(esp_adc_cal_characteristics_t));
     esp_adc_cal_value_t val_type = esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_11db, ADC_WIDTH_12Bit, 1100, adc_chars);
     print_char_val_type(val_type);
-    printf("Checked ADC efuse\n");
+    check_efuse();
+    printf("Initialized Hardware\n");
     adc_chars = calloc(1, sizeof(esp_adc_cal_characteristics_t));
     adc1_mux = xSemaphoreCreateMutex();
     adc2_mux = xSemaphoreCreateMutex();
     print_mux = xSemaphoreCreateMutex();
+    ls_state_current.func = ls_state_poweron;
+    // ls_state_current.func = ls_state_active; ls_stepper_random();
     ls_event_queue_init();
     /*
     printf("Initializing I2C\n");
@@ -143,20 +145,30 @@ void app_main(void)
 
     printf("Started all test tasks\n");
     */
+    printf("Initialized hardware\n");
+
+    // higher priority tasks get higher priority values
+
+    // highest priority (30-31)
+
+    // high-priority; time/performance sensitive (20-29)
+    ls_stepper_init();
+    xTaskCreate(&ls_stepper_task, "stepper", configMINIMAL_STACK_SIZE * 3, NULL, 25, NULL);
+
+    // medium-priority (10-19)
+    xTaskCreate(&event_handler_state_machine, "event_handler_state_machine", configMINIMAL_STACK_SIZE * 3, NULL, 15, NULL);
+    xTaskCreate(&ls_controls_task, "controls_task", configMINIMAL_STACK_SIZE * 3, NULL, 10, NULL);
+
+    // lowest priority (1-9)
+    buzzer_init();
+    xTaskCreate(&buzzer_handler_task, "buzzer_handler", configMINIMAL_STACK_SIZE * 2, NULL, 5, NULL);
 #ifdef LSDEBUG_TAPEMODE
     xTaskCreate(&ls_tapemode_debug_task, "tapemode_debug_task", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
 #endif
-    buzzer_init();
-    printf("Initialized buzzer\n");
-    xTaskCreate(&buzzer_handler_task, "buzzer_handler", configMINIMAL_STACK_SIZE * 2, NULL, 1, NULL);
-    ls_stepper_init();
-    xTaskCreate(&ls_stepper_task, "stepper", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
-    ls_state_current.func = ls_state_poweron;
-    // ls_state_current.func = ls_state_active; ls_stepper_random();
-    /** @todo: servo setup */
-    xTaskCreate(&event_handler_state_machine, "event_handler_state_machine", configMINIMAL_STACK_SIZE * 3, NULL, 15, NULL);
+#ifdef LSDEBUG_STEPPER
+    xTaskCreate(&ls_stepper_debug_task, "stepper_debug", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
+#endif
 
-    xTaskCreate(&ls_controls_task, "controls_task", configMINIMAL_STACK_SIZE * 3, NULL, 5, NULL);
     ls_magnet_isr_begin();
 
     xSemaphoreTake(print_mux, portMAX_DELAY);

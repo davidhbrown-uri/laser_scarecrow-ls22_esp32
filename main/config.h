@@ -77,12 +77,10 @@
 
 // values read by ADC for tape reflectance sensor
 // based on testing conducted March 18 '22
-#define LS_REFLECTANCE_ADC_MAX_WHITE_BUCKET 1000
-#define LS_REFLECTANCE_ADC_MIN_BLACK_TAPE 2500
+#define LS_REFLECTANCE_ADC_MAX_WHITE_BUCKET 1750
+#define LS_REFLECTANCE_ADC_MIN_BLACK_TAPE 2750
 #define LS_REFLECTANCE_ADC_MIN_BLACK_BUCKET 2000
 #define LS_REFLECTANCE_ADC_MAX_SILVER_TAPE 500
-// e.g., LS_REFLECTANCE_ALLOW_MISREAD_PER_READS = 100 means [0%-1%) misreads allowed; 50 => [0%-2%)
-#define LS_REFLECTANCE_ALLOW_MISREAD_PER_READS 40
 
 // approximate midpoints between settings (3 boards tested Apr 2 '22)
 #define LS_TAPEMODE_THRESHOLD_1 300
@@ -90,3 +88,8 @@
 #define LS_TAPEMODE_THRESHOLD_3 1750
 #define LS_TAPEMODE_THRESHOLD_4 2525
 #define LS_TAPEMODE_THRESHOLD_5 3525
+
+// map resolution: read tape sensor every n steps
+#define LS_MAP_RESOLUTION (LS_STEPPER_STEPS_PER_ROTATION / 400)
+#define LS_MAP_ALLOWABLE_GRAY_PERCENT 4
+

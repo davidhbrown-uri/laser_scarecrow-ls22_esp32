@@ -21,11 +21,11 @@ uint32_t ls_tape_sensor_read(void)
     }
     xSemaphoreTake(adc1_mux, portMAX_DELAY);
     adc1_config_width(ADC_WIDTH_BIT_12);
-    adc1_config_channel_atten(LSADC1_TAPESETTING, ADC_ATTEN_DB_11);
+    adc1_config_channel_atten(LSADC1_REFLECTANCESENSE, ADC_ATTEN_DB_11);
     uint32_t adc_reading = 0;
     for (int i = 0; i < 4; i++)
     {
-        adc_reading += adc1_get_raw((adc1_channel_t)LSADC1_TAPESETTING);
+        adc_reading += adc1_get_raw((adc1_channel_t)LSADC1_REFLECTANCESENSE);
     }
     adc_reading /= 4;
     xSemaphoreGive(adc1_mux);
@@ -33,7 +33,7 @@ uint32_t ls_tape_sensor_read(void)
     {
         ls_tape_sensor_disable();
     }
-    return adc_reading;
+    return (int) adc_reading;
 }
 
 void ls_tape_sensor_enable(void)

@@ -60,6 +60,7 @@ enum ls_tapemode_mode ls_tapemode_current(void)
         adc_reading += adc1_get_raw((adc1_channel_t)LSADC1_TAPESETTING);
     }
     adc_reading /= 4;
+    xSemaphoreGive(adc1_mux);
     return ls_tapemode_from_adc(adc_reading);
 }
 
