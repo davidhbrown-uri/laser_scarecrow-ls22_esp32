@@ -24,7 +24,7 @@ void IRAM_ATTR magnet_event_isr(void *pvParameter)
     ls_event event;
     event.type = gpio_get_level(LSGPIO_MAGNETSENSE) ? LSEVT_MAGNET_LEAVE : LSEVT_MAGNET_ENTER;
     event.value = &magnet_position;
-    xQueueSendFromISR(ls_event_queue, (void *)&event, NULL);
+    xQueueSendToFrontFromISR(ls_event_queue, (void *)&event, NULL);
 }
 
 void ls_magnet_isr_begin(void)
