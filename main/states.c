@@ -80,45 +80,6 @@ void event_handler_state_machine(void *pvParameter)
 bool ls_state_home_to_magnet_status = false;
 int ls_magnet_homing_tries = 50;
 
-ls_State ls_state_error_home(ls_event event)
-{
-    ls_gpio_initialize(); // turn things off
-    ls_State successor;
-    successor.func = ls_state_error_home;
-#ifdef LSDEBUG_HOMING
-    xSemaphoreTake(print_mux, portMAX_DELAY);
-    printf(">>>>HOMING FAILED<<<\n");
-    xSemaphoreGive(print_mux);
-#endif
-    return successor;
-}
-
-ls_State ls_state_error_map(ls_event event)
-{
-    ls_gpio_initialize(); // turn things off
-    ls_State successor;
-    successor.func = ls_state_error_map;
-#ifdef LSDEBUG_MAP
-    xSemaphoreTake(print_mux, portMAX_DELAY);
-    printf(">>>>MAPPING FAILED<<<\n");
-    xSemaphoreGive(print_mux);
-#endif
-    return successor;
-}
-
-ls_State ls_state_error_tilt(ls_event event)
-{
-    ls_gpio_initialize(); // turn things off
-    ls_State successor;
-    successor.func = ls_state_error_map;
-#ifdef LSDEBUG_MAP
-    xSemaphoreTake(print_mux, portMAX_DELAY);
-    printf(">>>>MAPPING FAILED<<<\n");
-    xSemaphoreGive(print_mux);
-#endif
-    return successor;
-}
-
 ls_State ls_state_poweron(ls_event event)
 {
 #ifdef LSDEBUG_STATES
@@ -184,7 +145,7 @@ ls_State ls_state_active(ls_event event)
         printf("Beginning active state\n");
         xSemaphoreGive(print_mux);
 #endif
-        buzzer_play(LS_BUZZER_ALTERNATE_HIGH);
+        ls_buzzer_play(LS_BUZZER_ALTERNATE_HIGH);
         ls_stepper_random();
         break;
     case LSEVT_MAGNET_ENTER:
@@ -193,7 +154,7 @@ ls_State ls_state_active(ls_event event)
         printf("Magnet Enter @ %d %s\n", *(int32_t *)event.value, ls_stepper_direction ? "-->" : "<--");
         xSemaphoreGive(print_mux);
 #endif
-        buzzer_play(LS_BUZZER_CLICK);
+        ls_buzzer_play(LS_BUZZER_CLICK);
         break;
     case LSEVT_MAGNET_LEAVE:
 #ifdef LSDEBUG_STATES
@@ -201,7 +162,7 @@ ls_State ls_state_active(ls_event event)
         printf("Magnet Leave @ %d %s\n", *(int32_t *)event.value, ls_stepper_direction ? "-->" : "<--");
         xSemaphoreGive(print_mux);
 #endif
-        buzzer_play(LS_BUZZER_CLICK);
+        ls_buzzer_play(LS_BUZZER_CLICK);
         break;
     case LSEVT_STEPPER_FINISHED_MOVE:
 #ifdef LSDEBUG_STATES
@@ -277,49 +238,77 @@ ls_State ls_state_manual(ls_event event)
 
 static int _ls_state_map_build_steps_remaining;
 static int _ls_state_map_misread_count;
+static int _ls_state_map_enable_count;
+static int _ls_state_map_disable_count;
+static enum _ls_state_map_reading {
+    LS_STATE_MAP_READING_DISABLE,
+    LS_STATE_MAP_READING_ENABLE,
+    LS_STATE_MAP_READING_MISREAD,
+    LS_STATE_MAP_READING_INIT
+} _ls_state_map_previous_read = LS_STATE_MAP_READING_INIT;
+
 static void _ls_state_map_build_read_and_set_map(void)
 {
-    BaseType_t reading = ls_tape_sensor_read();
+    enum _ls_state_map_reading reading = LS_STATE_MAP_READING_MISREAD;
+    BaseType_t raw_adc = ls_tape_sensor_read();
     BaseType_t position = ls_stepper_get_position();
     switch (ls_tapemode())
     {
     case LS_TAPEMODE_BLACK:
     case LS_TAPEMODE_BLACK_SAFE:
-        if (reading <= LS_REFLECTANCE_ADC_MAX_WHITE_BUCKET)
+        if (raw_adc <= LS_REFLECTANCE_ADC_MAX_WHITE_BUCKET)
         {
-            ls_map_enable_at(position);
+            reading = LS_STATE_MAP_READING_ENABLE;
         }
-        else
+        if (raw_adc >= LS_REFLECTANCE_ADC_MIN_BLACK_TAPE)
         {
-            ls_map_disable_at(position);
-            if (reading < LS_REFLECTANCE_ADC_MIN_BLACK_TAPE)
-            {
-                _ls_state_map_misread_count++;
-            }
+            reading = LS_STATE_MAP_READING_DISABLE;
         }
         break;
     case LS_TAPEMODE_REFLECT:
     case LS_TAPEMODE_REFLECT_SAFE:
-        if (reading >= LS_REFLECTANCE_ADC_MIN_BLACK_BUCKET)
+        if (raw_adc >= LS_REFLECTANCE_ADC_MIN_BLACK_BUCKET)
         {
-            ls_map_enable_at(position);
+            reading = LS_STATE_MAP_READING_ENABLE;
         }
-        else
+        if (raw_adc <= LS_REFLECTANCE_ADC_MAX_SILVER_TAPE)
         {
-            ls_map_disable_at(position);
-            if (reading > LS_REFLECTANCE_ADC_MAX_SILVER_TAPE)
-            {
-                _ls_state_map_misread_count++;
-            }
+            reading = LS_STATE_MAP_READING_DISABLE;
         }
         break;
     default:
         // we are ignoring the map, so why are we building a map?
-        ls_map_enable_at(position);
+        reading = LS_STATE_MAP_READING_ENABLE;
     }
+    switch (reading)
+    {
+    case LS_STATE_MAP_READING_ENABLE:
+        _ls_state_map_enable_count++;
+        ls_map_enable_at(position);
+        if (reading != _ls_state_map_previous_read)
+        {
+            ls_buzzer_play(LS_BUZZER_PLAY_TAPE_ENABLE);
+        }
+        break;
+    case LS_STATE_MAP_READING_DISABLE:
+        _ls_state_map_disable_count++;
+        ls_map_disable_at(position);
+        if (reading != _ls_state_map_previous_read)
+        {
+            ls_buzzer_play(LS_BUZZER_PLAY_TAPE_DISABLE);
+        }
+        break;
+    case LS_STATE_MAP_READING_MISREAD:
+        _ls_state_map_misread_count++;
+        ls_map_disable_at(position);
+        ls_buzzer_play(LS_BUZZER_PLAY_TAPE_MISREAD);
+        break;
+    default:; // init case only for previous
+    }
+    _ls_state_map_previous_read = reading;
 #ifdef LSDEBUG_MAP
     xSemaphoreTake(print_mux, portMAX_DELAY);
-    printf("map @%d: %d=>%c\n", position, reading, ls_map_is_enabled_at(position) ? 'O' : '.');
+    printf("map @%d: %d [%d]=>%c\n", position, raw_adc, reading, ls_map_is_enabled_at(position) ? 'O' : '.');
     xSemaphoreGive(print_mux);
 #endif
 }
@@ -343,9 +332,9 @@ ls_State ls_state_map_build(ls_event event)
         break;
     case LSEVT_STEPPER_FINISHED_MOVE:
 #ifdef LSDEBUG_STATES
-            xSemaphoreTake(print_mux, portMAX_DELAY);
-            printf("case LSEVT_STEPPER_FINISHED_MOVE...\n");
-            xSemaphoreGive(print_mux);
+        xSemaphoreTake(print_mux, portMAX_DELAY);
+        printf("case LSEVT_STEPPER_FINISHED_MOVE...\n");
+        xSemaphoreGive(print_mux);
 #endif
         if (_ls_state_map_build_steps_remaining >= 0)
         {
@@ -362,21 +351,49 @@ ls_State ls_state_map_build(ls_event event)
         { // we're done building the map
 #ifdef LSDEBUG_MAP
             xSemaphoreTake(print_mux, portMAX_DELAY);
-            printf("\nMapping completed with %d misreads\n", _ls_state_map_misread_count);
+            printf("\nMapping completed with %d enabled, %d disabled, and %d misreads\n", _ls_state_map_enable_count, _ls_state_map_disable_count, _ls_state_map_misread_count);
             xSemaphoreGive(print_mux);
 #endif
-            if ((_ls_state_map_misread_count * 100 / (LS_STEPPER_STEPS_PER_ROTATION / LS_MAP_RESOLUTION)) > LS_MAP_ALLOWABLE_GRAY_PERCENT)
+            bool badmap = false;
+            successor.func = ls_state_active;
+            if (0 == _ls_state_map_enable_count || 0 == _ls_state_map_disable_count)
             {
-                successor.func = ls_state_error_map;
+                badmap = true;
+#ifdef LSDEBUG_MAP
+                xSemaphoreTake(print_mux, portMAX_DELAY);
+                printf("\nBad map: must include at least one enabled and one disabled reading.\n");
+                xSemaphoreGive(print_mux);
+#endif
             }
-            else
+            if (LS_MAP_EXCESSIVE_MISREADS(_ls_state_map_misread_count))
             {
-                successor.func = ls_state_active;
+                badmap = true;
+#ifdef LSDEBUG_MAP
+                xSemaphoreTake(print_mux, portMAX_DELAY);
+                printf("\nBad map: too many misreads\n");
+                xSemaphoreGive(print_mux);
+#endif
             }
-        }
-        break;
-    default:; // error?
-    }
+            if (badmap)
+            {
+                ls_buzzer_play(LS_BUZZER_PLAY_MAP_FAIL);
+                switch (ls_tapemode())
+                {
+                case LS_TAPEMODE_BLACK_SAFE:
+                case LS_TAPEMODE_REFLECT_SAFE:
+                    successor.func = ls_state_error_map;
+                    break;
+                default:
+                    if (0 == _ls_state_map_enable_count)
+                    {
+                        ls_map_ignore();
+                    }
+                    break;
+                }
+            } // handle bad map
+        }     // done building map
+    default:; // nothing to do for event of this type
+    }         // switch  on event
     return successor;
 }
 
@@ -404,5 +421,64 @@ ls_State ls_state_map_build_substate_home(ls_event event)
     default:
         ls_substate_home_handle_event(event);
     }
+    return successor;
+}
+ls_State ls_state_error_home(ls_event event)
+{
+    ls_gpio_initialize(); // turn things off
+    ls_State successor;
+    successor.func = ls_state_error_home;
+#ifdef LSDEBUG_HOMING
+    xSemaphoreTake(print_mux, portMAX_DELAY);
+    printf(">>>>HOMING FAILED<<<\n");
+    xSemaphoreGive(print_mux);
+#endif
+    return successor;
+}
+
+ls_State ls_state_error_map(ls_event event)
+{
+    if (LSEVT_STATE_ENTRY == event.type)
+    {
+        ls_gpio_initialize(); // turn things off
+    }
+    ls_State successor;
+    successor.func = ls_state_error_map;
+#ifdef LSDEBUG_MAP
+    xSemaphoreTake(print_mux, portMAX_DELAY);
+    printf(">>>>MAPPING FAILED<<<\n");
+    xSemaphoreGive(print_mux);
+#endif
+    vTaskDelay(pdMS_TO_TICKS(30000)); // 30 seconds between alerts
+    if (0 == _ls_state_map_enable_count)
+    {
+        ls_buzzer_play(LS_BUZZER_PLAY_TAPE_DISABLE);
+        vTaskDelay(pdMS_TO_TICKS(1000)); // 1 second between tones
+    }
+    if (0 == _ls_state_map_disable_count)
+    {
+        ls_buzzer_play(LS_BUZZER_PLAY_TAPE_ENABLE);
+        vTaskDelay(pdMS_TO_TICKS(1000)); // 1 second between tones
+    }
+    if (LS_MAP_EXCESSIVE_MISREADS(_ls_state_map_misread_count))
+    {
+        ls_buzzer_play(LS_BUZZER_PLAY_TAPE_MISREAD);
+        vTaskDelay(pdMS_TO_TICKS(1000)); // 1 second between tones
+    }
+    ls_buzzer_play(LS_BUZZER_PLAY_MAP_FAIL);
+    ls_event_enqueue_noop();
+    return successor;
+}
+
+ls_State ls_state_error_tilt(ls_event event)
+{
+    ls_gpio_initialize(); // turn things off
+    ls_State successor;
+    successor.func = ls_state_error_map;
+#ifdef LSDEBUG_MAP
+    xSemaphoreTake(print_mux, portMAX_DELAY);
+    printf(">>>>MAPPING FAILED<<<\n");
+    xSemaphoreGive(print_mux);
+#endif
     return successor;
 }

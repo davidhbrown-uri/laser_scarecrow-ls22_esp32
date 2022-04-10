@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include "substate_home.h"
 #include "stepper.h"
+#include "buzzer.h"
 
 extern QueueHandle_t ls_event_queue;
 extern SemaphoreHandle_t print_mux;
@@ -34,6 +35,7 @@ static void ls_substate_home_completed(void)
     event.type = LSEVT_HOME_COMPLETED;
     event.value = NULL;
     xQueueSendToFront(ls_event_queue, (void *)&event, 0);
+    ls_buzzer_play(LS_BUZZER_PLAY_HOME_SUCCESS);
 }
 
 void ls_substate_home_init(void)

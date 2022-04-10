@@ -10,4 +10,6 @@
 
 // #define LSDEBUG_TAPEMODE
 
+#define LSDEBUG_BUZZER
+
 #define LSDEBUG_MAP
