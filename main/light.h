@@ -51,5 +51,3 @@ Individual set light level so each phototransistor read as close to 500 as possi
 then measured with light meter (same first device)
 500=>9 lx, 25, 12, 12, 8, 15, 14, 10, 12, 16 
 */
-
-
