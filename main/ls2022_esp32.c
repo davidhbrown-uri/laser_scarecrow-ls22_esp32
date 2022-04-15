@@ -22,6 +22,7 @@
 #include "tapemode.h"
 #include "tape.h"
 #include "map.h"
+#include "lightsense.h"
 
 SemaphoreHandle_t adc1_mux = NULL;
 SemaphoreHandle_t adc2_mux = NULL;
@@ -168,7 +169,7 @@ void app_main(void)
 #ifdef LSDEBUG_STEPPER
     xTaskCreate(&ls_stepper_debug_task, "stepper_debug", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
 #endif
-
+    xTaskCreate(&ls_lightsense_read_task, "lightsense_read", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
     ls_magnet_isr_begin();
 
     xSemaphoreTake(print_mux, portMAX_DELAY);
