@@ -474,10 +474,10 @@ ls_State ls_state_error_tilt(ls_event event)
 {
     ls_gpio_initialize(); // turn things off
     ls_State successor;
-    successor.func = ls_state_error_map;
-#ifdef LSDEBUG_MAP
+    successor.func = ls_state_error_tilt;
+#ifdef LSDEBUG_TILT
     xSemaphoreTake(print_mux, portMAX_DELAY);
-    printf(">>>>MAPPING FAILED<<<\n");
+    printf(">>>>I'VE FALLEN AND CAN'T GET UP<<<\n");
     xSemaphoreGive(print_mux);
 #endif
     return successor;
