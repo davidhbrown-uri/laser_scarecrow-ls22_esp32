@@ -4,7 +4,8 @@
 
 enum ls_lightsense_mode_t {
     LS_LIGHTSENSE_MODE_NIGHT,
-    LS_LIGHTSENSE_MODE_DAY
+    LS_LIGHTSENSE_MODE_DAY,
+    LS_LIGHTSENSE_MODE_STARTUP
 };
 
 enum ls_lightsense_level_t {
@@ -13,6 +14,8 @@ enum ls_lightsense_level_t {
     LS_LIGHTSENSE_LEVEL_INDETERMINATE
 };
 
+enum ls_lightsense_mode_t ls_lightsense_current_mode(void);
+int ls_lightsense_read_adc(void);
 void ls_lightsense_read_task(void *pvParameter);
 
 
