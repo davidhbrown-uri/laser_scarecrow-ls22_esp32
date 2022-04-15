@@ -423,6 +423,7 @@ ls_State ls_state_map_build_substate_home(ls_event event)
     }
     return successor;
 }
+
 ls_State ls_state_error_home(ls_event event)
 {
     ls_gpio_initialize(); // turn things off
@@ -433,6 +434,10 @@ ls_State ls_state_error_home(ls_event event)
     printf(">>>>HOMING FAILED<<<\n");
     xSemaphoreGive(print_mux);
 #endif
+
+    ls_buzzer_play(LS_BUZZER_PLAY_HOME_FAIL);
+    vTaskDelay(pdMS_TO_TICKS(30000)); // 30 seconds between alerts
+    ls_event_enqueue_noop();
     return successor;
 }
 

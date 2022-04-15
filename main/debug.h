@@ -12,6 +12,6 @@
 
 //#define LSDEBUG_BUZZER
 
-//#define LSDEBUG_MAP
+#define LSDEBUG_MAP
 
 //#define LSDEBUG_LIGHTSENSE

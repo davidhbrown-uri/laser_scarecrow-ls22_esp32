@@ -144,6 +144,14 @@ void ls_buzzer_handler_task(void *pvParameter)
                 _ls_buzzer_play_note(LS_BUZZER_SCALE_CC, 300);
                 vTaskDelay(pdMS_TO_TICKS(300));//rest
                 break;
+            case LS_BUZZER_PLAY_HOME_FAIL:
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_A, 100);
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_F, 100);
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_A, 100);
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_F, 100);
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_D, 400);
+                vTaskDelay(pdMS_TO_TICKS(300));//rest
+                break;
             case LS_BUZZER_PLAY_MAP_FAIL:
                 _ls_buzzer_play_note(LS_BUZZER_SCALE_A, 200);
                 _ls_buzzer_play_note(LS_BUZZER_SCALE_F, 300);
