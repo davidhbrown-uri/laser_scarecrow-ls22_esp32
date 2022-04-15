@@ -2,7 +2,7 @@
 #include "tape.h"
 #include "config.h"
 
-// IRAM supports only 32-bit reads/writes or LoadStoreError panic
+// IRAM supports only 32-bit reads/writes or LoadStoreError panic, so 32-bit "boolean"!
 static uint32_t IRAM_ATTR _ls_map_ignore = false;
 
 #define LS_MAP_BYTES_REQUIRED (LS_STEPPER_STEPS_PER_ROTATION / 32 / LS_MAP_RESOLUTION)

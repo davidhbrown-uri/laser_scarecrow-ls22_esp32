@@ -91,8 +91,7 @@
 
 // map resolution: read tape sensor every n steps
 #define LS_MAP_RESOLUTION (LS_STEPPER_STEPS_PER_ROTATION / 400)
-#define LS_MAP_ALLOWABLE_GRAY_PERCENT 4
-#define LS_MAP_EXCESSIVE_MISREADS(misreads) ((misreads * 100) / (LS_STEPPER_STEPS_PER_ROTATION / LS_MAP_RESOLUTION))
+#define LS_MAP_ALLOWABLE_MISREAD_PERCENT 4
 
 // light levels based on sample data recorded in light.h
 #define LS_LIGHTSENSE_DAY_THRESHOLD 1000

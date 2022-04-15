@@ -365,7 +365,7 @@ ls_State ls_state_map_build(ls_event event)
                 xSemaphoreGive(print_mux);
 #endif
             }
-            if (LS_MAP_EXCESSIVE_MISREADS(_ls_state_map_misread_count))
+            if (ls_map_is_excessive_misreads(_ls_state_map_misread_count))
             {
                 badmap = true;
 #ifdef LSDEBUG_MAP
@@ -465,7 +465,7 @@ ls_State ls_state_error_map(ls_event event)
         ls_buzzer_play(LS_BUZZER_PLAY_TAPE_ENABLE);
         vTaskDelay(pdMS_TO_TICKS(1000)); // 1 second between tones
     }
-    if (LS_MAP_EXCESSIVE_MISREADS(_ls_state_map_misread_count))
+    if (ls_map_is_excessive_misreads(_ls_state_map_misread_count))
     {
         ls_buzzer_play(LS_BUZZER_PLAY_TAPE_MISREAD);
         vTaskDelay(pdMS_TO_TICKS(1000)); // 1 second between tones
