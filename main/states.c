@@ -145,7 +145,7 @@ ls_State ls_state_active(ls_event event)
         printf("Beginning active state\n");
         xSemaphoreGive(print_mux);
 #endif
-        ls_buzzer_play(LS_BUZZER_ALTERNATE_HIGH);
+        ls_buzzer_play(LS_BUZZER_PRE_LASER_WARNING);
         ls_stepper_random();
         break;
     case LSEVT_MAGNET_ENTER:

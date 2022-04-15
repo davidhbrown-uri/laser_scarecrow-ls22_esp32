@@ -5,6 +5,7 @@
 #include "config.h"
 #include "buzzer.h"
 #include "debug.h"
+#include "events.h"
 
 extern SemaphoreHandle_t print_mux;
 
@@ -75,20 +76,43 @@ static void _ls_buzzer_play_note(enum _ls_buzzer_scale note, int ms_duration)
     vTaskDelay(pdMS_TO_TICKS(ms_duration));
 }
 
-static void _ls_buzzer_effect_alternate_high(void)
+static void _ls_buzzer_effect_alternate_high(int duration_ms)
 {
 #ifdef LSDEBUG_BUZZER
     xSemaphoreTake(print_mux, portMAX_DELAY);
     printf("Buzzer Alternate High\n");
     xSemaphoreGive(print_mux);
 #endif
-    for (int i = 0; i < pdMS_TO_TICKS(1000); i += 2)
+    for (int i = 0; i < pdMS_TO_TICKS(duration_ms); i += 2)
     {
         _ls_buzzer_frequency(3100); // resonant frequency of bucket piezo
         vTaskDelay(1);
         _ls_buzzer_frequency(4000); // resonant frequency of knobs pizo
         vTaskDelay(1);
     }
+}
+
+static void _ls_buzzer_pre_laser_warning(void)
+{
+#ifdef LSDEBUG_BUZZER
+    xSemaphoreTake(print_mux, portMAX_DELAY);
+    printf("Begin pre-laser warning\n");
+    xSemaphoreGive(print_mux);
+#endif
+    for (int i=0; i < 3; i++)
+    {
+        _ls_buzzer_effect_alternate_high(2000);
+        vTaskDelay(pdMS_TO_TICKS(2000));
+    }
+    for (int i=0; i < 8; i++)
+    {
+        _ls_buzzer_effect_alternate_high(500-i*50);
+        vTaskDelay(pdMS_TO_TICKS(500-i*50));
+    }
+    ls_event event;
+    event.type=LSEVT_BUZZER_WARNING_COMPLETE;
+    event.value = NULL;
+    xQueueSendToBack(ls_event_queue, (void *)&event, pdMS_TO_TICKS(10000));
 }
 
 void ls_buzzer_handler_task(void *pvParameter)
@@ -121,7 +145,10 @@ void ls_buzzer_handler_task(void *pvParameter)
                 vTaskDelay(pdMS_TO_TICKS(1000));
                 break;
             case LS_BUZZER_ALTERNATE_HIGH:
-                _ls_buzzer_effect_alternate_high();
+                _ls_buzzer_effect_alternate_high(1000);
+                break;
+            case LS_BUZZER_PRE_LASER_WARNING:
+                _ls_buzzer_pre_laser_warning();
                 break;
             case LS_BUZZER_PLAY_TAPE_ENABLE:
                 _ls_buzzer_play_note(LS_BUZZER_SCALE_B, 200);
@@ -156,6 +183,15 @@ void ls_buzzer_handler_task(void *pvParameter)
                 _ls_buzzer_play_note(LS_BUZZER_SCALE_A, 200);
                 _ls_buzzer_play_note(LS_BUZZER_SCALE_F, 300);
                 _ls_buzzer_play_note(LS_BUZZER_SCALE_D, 400);
+                vTaskDelay(pdMS_TO_TICKS(500));//rest
+                break;
+            case LS_BUZZER_PLAY_TILT_FAIL:
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_G, 100);
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_F, 100);
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_E, 100);
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_D, 100);
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_C, 100);
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_bb, 400);
                 vTaskDelay(pdMS_TO_TICKS(500));//rest
                 break;
             default:
