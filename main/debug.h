@@ -15,3 +15,5 @@
 //#define LSDEBUG_MAP
 
 //#define LSDEBUG_LIGHTSENSE
+
+#define LSDEBUG_SERVO
