@@ -131,6 +131,8 @@ void app_main(void)
     ls_state_current.func = ls_state_poweron;
     // ls_state_current.func = ls_state_active; ls_stepper_random();
     ls_event_queue_init();
+    ls_buzzer_init();
+    ls_stepper_init();
     /*
     printf("Initializing I2C\n");
     i2c_mux = xSemaphoreCreateMutex();
@@ -146,14 +148,13 @@ void app_main(void)
 
     printf("Started all test tasks\n");
     */
-    printf("Initialized hardware\n");
+    printf("Initialized queues / semaphores / mutexes / IRQs\n");
 
     // higher priority tasks get higher priority values
 
     // highest priority (30-31)
 
     // high-priority; time/performance sensitive (20-29)
-    ls_stepper_init();
     xTaskCreate(&ls_stepper_task, "stepper", configMINIMAL_STACK_SIZE * 3, NULL, 25, NULL);
 
     // medium-priority (10-19)
@@ -161,7 +162,6 @@ void app_main(void)
     xTaskCreate(&ls_controls_task, "controls_task", configMINIMAL_STACK_SIZE * 3, NULL, 10, NULL);
 
     // lowest priority (1-9)
-    ls_buzzer_init();
     xTaskCreate(&ls_buzzer_handler_task, "buzzer_handler", configMINIMAL_STACK_SIZE * 2, NULL, 5, NULL);
 #ifdef LSDEBUG_TAPEMODE
     xTaskCreate(&ls_tapemode_debug_task, "tapemode_debug_task", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);

@@ -18,13 +18,13 @@ extern SemaphoreHandle_t print_mux;
 
 static enum _ls_buzzer_scale {
     LS_BUZZER_SCALE_bb = 967,  // b
-    LS_BUZZER_SCALE_C = 1024, // C
-    LS_BUZZER_SCALE_D = 1149, // D
-    LS_BUZZER_SCALE_E = 1289, // E
-    LS_BUZZER_SCALE_F = 1367, // F
-    LS_BUZZER_SCALE_G = 1534, // G
-    LS_BUZZER_SCALE_A = 1722, // A
-    LS_BUZZER_SCALE_B = 1933, // B
+    LS_BUZZER_SCALE_C = 1024,  // C
+    LS_BUZZER_SCALE_D = 1149,  // D
+    LS_BUZZER_SCALE_E = 1289,  // E
+    LS_BUZZER_SCALE_F = 1367,  // F
+    LS_BUZZER_SCALE_G = 1534,  // G
+    LS_BUZZER_SCALE_A = 1722,  // A
+    LS_BUZZER_SCALE_B = 1933,  // B
     LS_BUZZER_SCALE_CC = 2048, // C'
 };
 
@@ -72,8 +72,9 @@ static void _ls_buzzer_effect_click(void)
 
 static void _ls_buzzer_play_note(enum _ls_buzzer_scale note, int ms_duration)
 {
-    _ls_buzzer_frequency((uint32_t) note);
+    _ls_buzzer_frequency((uint32_t)note);
     vTaskDelay(pdMS_TO_TICKS(ms_duration));
+    ESP_ERROR_CHECK(ledc_stop(BUZZER_SPEED, BUZZER_CHANNEL, 0));
 }
 
 static void _ls_buzzer_effect_alternate_high(int duration_ms)
@@ -90,6 +91,7 @@ static void _ls_buzzer_effect_alternate_high(int duration_ms)
         _ls_buzzer_frequency(4000); // resonant frequency of knobs pizo
         vTaskDelay(1);
     }
+    ESP_ERROR_CHECK(ledc_stop(BUZZER_SPEED, BUZZER_CHANNEL, 0));
 }
 
 static void _ls_buzzer_pre_laser_warning(void)
@@ -99,18 +101,18 @@ static void _ls_buzzer_pre_laser_warning(void)
     printf("Begin pre-laser warning\n");
     xSemaphoreGive(print_mux);
 #endif
-    for (int i=0; i < 3; i++)
+    for (int i = 0; i < 2; i++)
     {
-        _ls_buzzer_effect_alternate_high(2000);
-        vTaskDelay(pdMS_TO_TICKS(2000));
+        _ls_buzzer_effect_alternate_high(1500);
+        vTaskDelay(pdMS_TO_TICKS(1000));
     }
-    for (int i=0; i < 8; i++)
+    for (int i = 0; i < 4; i++)
     {
-        _ls_buzzer_effect_alternate_high(500-i*50);
-        vTaskDelay(pdMS_TO_TICKS(500-i*50));
+        _ls_buzzer_effect_alternate_high(500 - i * 100);
+        vTaskDelay(pdMS_TO_TICKS(500 - i * 100));
     }
     ls_event event;
-    event.type=LSEVT_BUZZER_WARNING_COMPLETE;
+    event.type = LSEVT_BUZZER_WARNING_COMPLETE;
     event.value = NULL;
     xQueueSendToBack(ls_event_queue, (void *)&event, pdMS_TO_TICKS(10000));
 }
@@ -162,14 +164,14 @@ void ls_buzzer_handler_task(void *pvParameter)
                 _ls_buzzer_play_note(LS_BUZZER_SCALE_F, 100);
                 _ls_buzzer_play_note(LS_BUZZER_SCALE_B, 100);
                 _ls_buzzer_play_note(LS_BUZZER_SCALE_F, 100);
-                vTaskDelay(pdMS_TO_TICKS(200));//rest
+                vTaskDelay(pdMS_TO_TICKS(200)); // rest
                 break;
             case LS_BUZZER_PLAY_HOME_SUCCESS:
                 _ls_buzzer_play_note(LS_BUZZER_SCALE_C, 100);
                 _ls_buzzer_play_note(LS_BUZZER_SCALE_E, 100);
                 _ls_buzzer_play_note(LS_BUZZER_SCALE_G, 100);
                 _ls_buzzer_play_note(LS_BUZZER_SCALE_CC, 300);
-                vTaskDelay(pdMS_TO_TICKS(300));//rest
+                vTaskDelay(pdMS_TO_TICKS(300)); // rest
                 break;
             case LS_BUZZER_PLAY_HOME_FAIL:
                 _ls_buzzer_play_note(LS_BUZZER_SCALE_A, 100);
@@ -177,13 +179,13 @@ void ls_buzzer_handler_task(void *pvParameter)
                 _ls_buzzer_play_note(LS_BUZZER_SCALE_A, 100);
                 _ls_buzzer_play_note(LS_BUZZER_SCALE_F, 100);
                 _ls_buzzer_play_note(LS_BUZZER_SCALE_D, 400);
-                vTaskDelay(pdMS_TO_TICKS(300));//rest
+                vTaskDelay(pdMS_TO_TICKS(300)); // rest
                 break;
             case LS_BUZZER_PLAY_MAP_FAIL:
                 _ls_buzzer_play_note(LS_BUZZER_SCALE_A, 200);
                 _ls_buzzer_play_note(LS_BUZZER_SCALE_F, 300);
                 _ls_buzzer_play_note(LS_BUZZER_SCALE_D, 400);
-                vTaskDelay(pdMS_TO_TICKS(500));//rest
+                vTaskDelay(pdMS_TO_TICKS(500)); // rest
                 break;
             case LS_BUZZER_PLAY_TILT_FAIL:
                 _ls_buzzer_play_note(LS_BUZZER_SCALE_G, 100);
@@ -192,10 +194,9 @@ void ls_buzzer_handler_task(void *pvParameter)
                 _ls_buzzer_play_note(LS_BUZZER_SCALE_D, 100);
                 _ls_buzzer_play_note(LS_BUZZER_SCALE_C, 100);
                 _ls_buzzer_play_note(LS_BUZZER_SCALE_bb, 400);
-                vTaskDelay(pdMS_TO_TICKS(500));//rest
+                vTaskDelay(pdMS_TO_TICKS(500)); // rest
                 break;
-            default:
-            ;
+            default:;
 #ifdef LSDEBUG_BUZZER
                 xSemaphoreTake(print_mux, portMAX_DELAY);
                 printf("Unknown ls_buzzer_effect %d -- I'm confused", received);

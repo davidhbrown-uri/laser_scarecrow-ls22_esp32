@@ -68,7 +68,7 @@
 #define LS_STEPPER_STEPS_PER_SECOND_MIN 128
 // motor/laser seems to have no trouble at 4800 which is probably too fast
 // is having trouble registering magnet reliably that fast, though.
-#define LS_STEPPER_STEPS_PER_SECOND_MAX 1800
+#define LS_STEPPER_STEPS_PER_SECOND_MAX 2400
 
 // values read by ADC from external controls
 #define LS_CONTROLS_ADC_MAX_DISCONNECT 100

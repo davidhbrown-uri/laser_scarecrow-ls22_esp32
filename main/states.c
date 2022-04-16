@@ -88,7 +88,7 @@ ls_State ls_state_poweron(ls_event event)
     xSemaphoreGive(print_mux);
 #endif
     ls_State successor;
-    successor.func = ls_state_active;
+    successor.func = ls_state_prelaserwarn_active;
     switch (event.type)
     {
     case LSEVT_STATE_ENTRY:
@@ -97,7 +97,7 @@ ls_State ls_state_poweron(ls_event event)
         {
         case LS_TAPEMODE_IGNORE:
             ls_map_ignore();
-            successor.func = ls_state_active;
+            successor.func = ls_state_prelaserwarn_active;
 #ifdef LSDEBUG_STATES
             xSemaphoreTake(print_mux, portMAX_DELAY);
             printf("State poweron => active\n");
@@ -128,6 +128,54 @@ ls_State ls_state_poweron(ls_event event)
     return successor;
 }
 
+static bool _ls_state_prelaserwarn_buzzer_complete;
+static bool _ls_state_prelaserwarn_movement_complete;
+static int _ls_state_prelaserwarn_rotation_count;
+ls_State ls_state_prelaserwarn_active(ls_event event)
+{
+#ifdef LSDEBUG_STATES
+    xSemaphoreTake(print_mux, portMAX_DELAY);
+    printf("PRELASERWARN_ACTIVE state handling event\n");
+    xSemaphoreGive(print_mux);
+#endif
+    ls_State successor;
+    successor.func = ls_state_prelaserwarn_active;
+    switch (event.type)
+    {
+    case LSEVT_STATE_ENTRY:
+        _ls_state_prelaserwarn_buzzer_complete=false;
+        _ls_state_prelaserwarn_movement_complete=false;
+        _ls_state_prelaserwarn_rotation_count=0;
+        ls_buzzer_play(LS_BUZZER_PRE_LASER_WARNING);
+        ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION / 2);
+        break;
+    case LSEVT_BUZZER_WARNING_COMPLETE:
+        _ls_state_prelaserwarn_buzzer_complete = true;
+        break;
+    case LSEVT_STEPPER_FINISHED_MOVE:
+        _ls_state_prelaserwarn_rotation_count++;
+        if(2 > _ls_state_prelaserwarn_rotation_count)
+        {
+            ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION / 2);
+        }
+        if(2 == _ls_state_prelaserwarn_rotation_count)
+        {
+            ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION * 3 / 2);
+        }
+        if(2 < _ls_state_prelaserwarn_rotation_count)
+        {
+            _ls_state_prelaserwarn_movement_complete = true;
+        }
+        break;
+        default:; // does not handle other events
+    }
+    if(_ls_state_prelaserwarn_buzzer_complete && _ls_state_prelaserwarn_movement_complete)
+    {
+        successor.func = ls_state_active;
+    }
+    return successor;
+}
+
 ls_State ls_state_active(ls_event event)
 {
 #ifdef LSDEBUG_STATES
@@ -145,7 +193,6 @@ ls_State ls_state_active(ls_event event)
         printf("Beginning active state\n");
         xSemaphoreGive(print_mux);
 #endif
-        ls_buzzer_play(LS_BUZZER_PRE_LASER_WARNING);
         ls_stepper_random();
         break;
     case LSEVT_MAGNET_ENTER:
@@ -355,7 +402,7 @@ ls_State ls_state_map_build(ls_event event)
             xSemaphoreGive(print_mux);
 #endif
             bool badmap = false;
-            successor.func = ls_state_active;
+            successor.func = ls_state_prelaserwarn_active;
             if (0 == _ls_state_map_enable_count || 0 == _ls_state_map_disable_count)
             {
                 badmap = true;
