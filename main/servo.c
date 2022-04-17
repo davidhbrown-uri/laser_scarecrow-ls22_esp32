@@ -177,6 +177,9 @@ void ls_servo_task(void *pvParameter)
                 break;
             
             case LS_SERVO_MOVE_RANDOMLY:
+#ifdef LSDEBUG_SERVO
+                _ls_servo_emit_message("TODO: LS_SERVO_RANDOM mode not yet implemented\n");
+#endif
                 mode = LS_SERVO_MODE_RANDOM;
                 target_pulse_width = current_pulse_width;
                 break;
@@ -201,9 +204,6 @@ void ls_servo_task(void *pvParameter)
             if(mode == LS_SERVO_MODE_RANDOM && current_pulse_width == target_pulse_width)
             {
                 // TODO Check how David used the esp randomness in stepper.c, or Google esp docs
-#ifdef LSDEBUG_SERVO
-                _ls_servo_emit_message("TODO: LS_SERVO_RANDOM mode not yet implemented\n");
-#endif
                 target_pulse_width = LS_SERVO_US_MID;
             }
             else if(mode == LS_SERVO_MODE_SWEEP && current_pulse_width == target_pulse_width)
