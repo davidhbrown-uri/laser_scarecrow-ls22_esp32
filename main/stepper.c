@@ -10,8 +10,11 @@
 #include "bootloader_random.h"
 #include "esp_random.h"
 #include "stepper.h"
+#include "laser.h"
 #include "events.h"
+#include "config.h"
 #include "debug.h"
+#include "map.h"
 
 #define LS_STEPPER_TIMER_DIVIDER (20)
 // see https://docs.espressif.com/projects/esp-idf/en/v4.4/esp32/api-reference/peripherals/timer.html
@@ -59,6 +62,10 @@ static bool IRAM_ATTR ls_stepper_step_isr_callback(void *args)
             while (ls_stepper_position >= LS_STEPPER_STEPS_PER_ROTATION)
             {
                 ls_stepper_position -= LS_STEPPER_STEPS_PER_ROTATION;
+            }
+            if (ls_laser_mode_is_mappped())
+            {
+                gpio_set_level(LSGPIO_LASERPOWERENABLE, ls_map_is_enabled_at(ls_stepper_position));
             }
         }
         else
