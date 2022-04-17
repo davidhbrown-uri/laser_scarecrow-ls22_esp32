@@ -177,6 +177,6 @@ void app_main(void)
     ls_magnet_isr_begin();
 
     xSemaphoreTake(print_mux, portMAX_DELAY);
-    printf("app_main()) has finished.\n");
+    printf("app_main() has finished.\n");
     xSemaphoreGive(print_mux);
 }

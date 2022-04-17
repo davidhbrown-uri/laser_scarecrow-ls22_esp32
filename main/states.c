@@ -2,6 +2,7 @@
 #include "states.h"
 #include "freertos/semphr.h"
 #include "stepper.h"
+#include "servo.h"
 #include "buzzer.h"
 #include "magnet.h"
 #include "tapemode.h"
@@ -194,6 +195,7 @@ ls_State ls_state_active(ls_event event)
         xSemaphoreGive(print_mux);
 #endif
         ls_stepper_random();
+        ls_servo_random();
         break;
     case LSEVT_MAGNET_ENTER:
 #ifdef LSDEBUG_STATES
