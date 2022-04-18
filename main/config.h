@@ -1,4 +1,5 @@
 #pragma once
+#include "debug.h"
 
 // assignments of our devices to ESP32 peripherals
 #define LSBUZZER_HS_LEDC_CHANNEL 0
@@ -94,8 +95,12 @@
 #define LS_MAP_RESOLUTION (LS_STEPPER_STEPS_PER_ROTATION / 400)
 #define LS_MAP_ALLOWABLE_MISREAD_PERCENT 4
 
-// how often should we rehome if using the map?
+// how often should we rehome if using the map? 10000=10s debug/test, 3600000=1h production
+#ifdef LSDEBUG_HOMING
 #define LS_STATE_REHOME_TIMER_PERIOD_MS 10000
+#else
+#define LS_STATE_REHOME_TIMER_PERIOD_MS 3600000
+#endif
 
 // light levels based on sample data recorded in light.h
 #define LS_LIGHTSENSE_DAY_THRESHOLD 1000
