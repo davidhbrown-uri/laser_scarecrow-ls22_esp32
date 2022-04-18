@@ -4,6 +4,8 @@
 #include "freertos/queue.h"
 #include "freertos/semphr.h"
 #include "driver/mcpwm.h"
+#include "esp_random.h"
+#include "bootloader_random.h"
 #include "config.h"
 #include "debug.h"
 
@@ -43,6 +45,9 @@ void ls_servo_init()
 {
     // Initialize the task queue
     ls_servo_queue = xQueueCreate(32, sizeof(struct ls_servo_event));
+
+    // Enable bootloader random (for esp_random())
+    bootloader_random_enable();
 
     // Set PWM0A to LSGPIO_SERVOPULSE (from the example code)
     mcpwm_gpio_init(LS_SERVO_MCPWM_UNIT, LS_SERVO_MCPWM_IO_SIGNALS, LSGPIO_SERVOPULSE);
@@ -177,9 +182,6 @@ void ls_servo_task(void *pvParameter)
                 break;
             
             case LS_SERVO_MOVE_RANDOMLY:
-#ifdef LSDEBUG_SERVO
-                _ls_servo_emit_message("TODO: LS_SERVO_RANDOM mode not yet implemented\n");
-#endif
                 mode = LS_SERVO_MODE_RANDOM;
                 target_pulse_width = current_pulse_width;
                 break;
@@ -203,8 +205,7 @@ void ls_servo_task(void *pvParameter)
             // and (possibly) change it depending on the mode we're in
             if(mode == LS_SERVO_MODE_RANDOM && current_pulse_width == target_pulse_width)
             {
-                // TODO Check how David used the esp randomness in stepper.c, or Google esp docs
-                target_pulse_width = LS_SERVO_US_MID;
+                target_pulse_width = esp_random() % (LS_SERVO_US_MAX - LS_SERVO_US_MIN + 1) + LS_SERVO_US_MIN;
             }
             else if(mode == LS_SERVO_MODE_SWEEP && current_pulse_width == target_pulse_width)
             {
