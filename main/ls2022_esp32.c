@@ -133,6 +133,7 @@ void app_main(void)
     ls_event_queue_init();
     ls_buzzer_init();
     ls_stepper_init();
+    ls_state_init();
     /*
     printf("Initializing I2C\n");
     i2c_mux = xSemaphoreCreateMutex();

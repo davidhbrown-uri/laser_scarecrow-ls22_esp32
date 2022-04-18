@@ -2,7 +2,7 @@
 
 //#define LSDEBUG_STEPPER
 
-//#define LSDEBUG_HOMING
+#define LSDEBUG_HOMING
 
 //#define LSDEBUG_STATES
 

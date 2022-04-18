@@ -60,15 +60,16 @@
 
 // default parameters for the stepper movement
 #define LS_STEPPER_STEPS_PER_ROTATION 3200
-// FULLSPEED determines how many steps it takes to get to full speed. Probably 5%-10% of STEPS_PER_SECOND_MAX?
-#define LS_STEPPER_STEPS_FULLSPEED 120
+// FULLSPEED_DIVISOR determines how many steps it takes to get to full speed. 16=> 6%, 8=>12% of STEPS_PER_SECOND_MAX
+#define LS_STEPPER_STEPS_FULLSPEED_DIVISOR 8
 #define LS_STEPPER_MOVEMENT_STEPS_MIN 160
 #define LS_STEPPER_MOVEMENT_STEPS_MAX 1200
 #define LS_STEPPER_MOVEMENT_REVERSE_PER255 64
 #define LS_STEPPER_STEPS_PER_SECOND_MIN 128
 // motor/laser seems to have no trouble at 4800 which is probably too fast
 // is having trouble registering magnet reliably that fast, though.
-#define LS_STEPPER_STEPS_PER_SECOND_MAX 2400
+#define LS_STEPPER_STEPS_PER_SECOND_MAX 3600
+#define LS_STEPPER_STEPS_PER_SECOND_HOMING 1800
 
 // values read by ADC from external controls
 #define LS_CONTROLS_ADC_MAX_DISCONNECT 100
@@ -92,6 +93,9 @@
 // map resolution: read tape sensor every n steps
 #define LS_MAP_RESOLUTION (LS_STEPPER_STEPS_PER_ROTATION / 400)
 #define LS_MAP_ALLOWABLE_MISREAD_PERCENT 4
+
+// how often should we rehome if using the map?
+#define LS_STATE_REHOME_TIMER_PERIOD_MS 10000
 
 // light levels based on sample data recorded in light.h
 #define LS_LIGHTSENSE_DAY_THRESHOLD 1000
