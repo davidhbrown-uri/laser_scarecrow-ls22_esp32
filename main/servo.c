@@ -193,7 +193,7 @@ void ls_servo_task(void *pvParameter)
 
             default:
 #ifdef LSDEBUG_SERVO
-                _ls_servo_emit_message("Warning: Received unknown ls_servo_event_type " + received.event_type);
+                _ls_servo_emit_message("Warning: Received unknown ls_servo_event_type");
 #endif
             }
         }
