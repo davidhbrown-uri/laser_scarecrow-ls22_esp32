@@ -11,6 +11,7 @@
 #include "init.h"
 #include "substate_home.h"
 #include "laser.h"
+#include "settings.h"
 
 extern SemaphoreHandle_t print_mux;
 
@@ -220,8 +221,7 @@ ls_State ls_state_active(ls_event event)
         printf("Beginning active state\n");
         xSemaphoreGive(print_mux);
 #endif
-        /** @todo ls_stepper_set_maximum_steps_per_second should take setting, not the absolute max */
-        ls_stepper_set_maximum_steps_per_second(LS_STEPPER_STEPS_PER_SECOND_MAX);
+        ls_stepper_set_maximum_steps_per_second(ls_settings_get_stepper_speed());
         ls_stepper_random();
         if (ls_map_get_status() == LS_MAP_STATUS_OK)
         {

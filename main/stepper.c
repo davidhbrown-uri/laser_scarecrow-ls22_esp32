@@ -41,14 +41,16 @@ volatile static BaseType_t IRAM_ATTR _ls_stepperstep_phase = 0;
 
 enum ls_stepper_direction IRAM_ATTR ls_stepper_direction = LS_STEPPER_ACTION_FORWARD_STEPS;
 bool ls_stepper_sleep = false;
-
+static bool _ls_stepper_enable_skipping = false;
 static double _ls_stepper_acceleration_slope;
 static int _ls_stepper_steps_per_second_max;
 static int _ls_stepper_steps_fullspeed;
+static int _ls_stepper_speed_when_skipping = LS_STEPPER_STEPS_PER_SECOND_MAX;
+static int _ls_stepper_speed_not_skipping = LS_STEPPER_STEPS_PER_SECOND_DEFAULT;
 
-void ls_stepper_set_maximum_steps_per_second(int steps)
+void ls_stepper_set_maximum_steps_per_second(int steps_per_second)
 {
-    _ls_stepper_steps_per_second_max = steps;
+    _ls_stepper_steps_per_second_max = steps_per_second;
     _ls_stepper_steps_fullspeed = _ls_stepper_steps_per_second_max / LS_STEPPER_STEPS_FULLSPEED_DIVISOR;
     _ls_stepper_acceleration_slope = (double)(_ls_stepper_steps_per_second_max - LS_STEPPER_STEPS_PER_SECOND_MIN) / (double)_ls_stepper_steps_fullspeed;
 }
@@ -122,7 +124,21 @@ void ls_stepper_init(void)
 
 static void _ls_stepper_set_speed(void)
 {
-    /** todo fullspeed = ls_laser_is_on() ? ls_config_get_speed() : LS_STEPPER_STEPS_FULLSPEED; // or something like that */
+    if(_ls_stepper_enable_skipping)
+    {
+        if(ls_map_is_enabled_at(ls_stepper_position))
+        {
+            ls_stepper_set_maximum_steps_per_second(_ls_stepper_speed_not_skipping);
+        }
+        else
+        {
+            ls_stepper_set_maximum_steps_per_second(_ls_stepper_speed_when_skipping);
+            if(ls_stepper_steps_remaining < _ls_stepper_steps_fullspeed)
+            {
+                ls_stepper_steps_remaining = _ls_stepper_steps_fullspeed;
+            }
+        }
+    }
     // lesser of steps remaining (deceleration) or steps taken (acceleration)
     int16_t steps = ls_stepper_steps_remaining < ls_stepper_steps_taken ? ls_stepper_steps_remaining : ls_stepper_steps_taken;
     // but not more than full speed
@@ -279,6 +295,7 @@ void ls_stepper_task(void *pvParameter)
 
 void ls_stepper_stop(void)
 {
+    _ls_stepper_enable_skipping = false;
     ls_stepper_action_message message;
     message.action = LS_STEPPER_ACTION_STOP;
     message.steps = 0;
@@ -287,6 +304,7 @@ void ls_stepper_stop(void)
 
 void ls_stepper_forward(uint16_t steps)
 {
+    _ls_stepper_enable_skipping = false;
     if (steps > 0)
     {
         ls_stepper_action_message message;
@@ -302,6 +320,7 @@ void ls_stepper_forward(uint16_t steps)
 
 void ls_stepper_reverse(uint16_t steps)
 {
+    _ls_stepper_enable_skipping = false;
     if (steps > 0)
     {
         ls_stepper_action_message message;
@@ -317,6 +336,11 @@ void ls_stepper_reverse(uint16_t steps)
 
 void ls_stepper_random(void)
 {
+    _ls_stepper_enable_skipping = LS_MAP_STATUS_OK == ls_map_get_status();
+    if (_ls_stepper_enable_skipping)
+    {
+        _ls_stepper_speed_not_skipping = _ls_stepper_steps_per_second_max;
+    }
     ls_stepper_action_message message;
     message.action = LS_STEPPER_ACTION_RANDOM;
     message.steps = 0;
