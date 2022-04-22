@@ -1,4 +1,5 @@
 #pragma once
+#include "debug.h"
 
 // assignments of our devices to ESP32 peripherals
 #define LSBUZZER_HS_LEDC_CHANNEL 0
@@ -60,20 +61,30 @@
 
 // default parameters for the stepper movement
 #define LS_STEPPER_STEPS_PER_ROTATION 3200
-// FULLSPEED determines how many steps it takes to get to full speed. Probably 5%-10% of STEPS_PER_SECOND_MAX?
-#define LS_STEPPER_STEPS_FULLSPEED 120
 #define LS_STEPPER_MOVEMENT_STEPS_MIN 160
 #define LS_STEPPER_MOVEMENT_STEPS_MAX 1200
-#define LS_STEPPER_MOVEMENT_REVERSE_PER255 64
-#define LS_STEPPER_STEPS_PER_SECOND_MIN 128
+#define LS_STEPPER_MOVEMENT_REVERSE_PER255 96
+#define LS_STEPPER_STEPS_PER_SECOND_MIN 240
 // motor/laser seems to have no trouble at 4800 which is probably too fast
 // is having trouble registering magnet reliably that fast, though.
-#define LS_STEPPER_STEPS_PER_SECOND_MAX 2400
+#define LS_STEPPER_STEPS_PER_SECOND_MAX 3600
+#define LS_STEPPER_STEPS_PER_SECOND_HOMING 1800
+#define LS_STEPPER_STEPS_PER_SECOND_MAPPING 1800
+#define LS_STEPPER_STEPS_PER_SECOND_DEFAULT 2400
+// LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_SECOND will be added or subtracted to the steps per second when accelerating or decelerating
+#define LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_SECOND 6000
+#define LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_TICK ( LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_SECOND / pdMS_TO_TICKS(1000))
 
 // values read by ADC from external controls
 #define LS_CONTROLS_ADC_MAX_DISCONNECT 100
 #define LS_CONTROLS_ADC_MIN_CONNECT 1700
 #define LS_CONTROLS_ADC_MAX_CONNECT 1900
+// to ensure the full range of value can be selected,
+// any ADC reading >= LS_CONTROLS_READING_TOP is considered max
+#define LS_CONTROLS_READING_TOP 4040
+// any ADC reading <= LS_CONTROLS_READING_BOTTOM is considered min
+#define LS_CONTROLS_READING_BOTTOM 50
+
 
 // values read by ADC for tape reflectance sensor
 // based on testing conducted March 18 '22
@@ -92,6 +103,13 @@
 // map resolution: read tape sensor every n steps
 #define LS_MAP_RESOLUTION (LS_STEPPER_STEPS_PER_ROTATION / 400)
 #define LS_MAP_ALLOWABLE_MISREAD_PERCENT 4
+
+// how often should we rehome if using the map? 10000=10s debug/test, 3600000=1h production
+#ifdef LSDEBUG_HOMING
+#define LS_STATE_REHOME_TIMER_PERIOD_MS 10000
+#else
+#define LS_STATE_REHOME_TIMER_PERIOD_MS 3600000
+#endif
 
 // light levels based on sample data recorded in light.h
 #define LS_LIGHTSENSE_DAY_THRESHOLD 1000

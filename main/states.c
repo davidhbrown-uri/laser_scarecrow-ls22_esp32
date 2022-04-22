@@ -1,6 +1,7 @@
 #include "debug.h"
 #include "states.h"
 #include "freertos/semphr.h"
+#include "freertos/timers.h"
 #include "stepper.h"
 #include "servo.h"
 #include "buzzer.h"
@@ -10,8 +11,35 @@
 #include "map.h"
 #include "init.h"
 #include "substate_home.h"
+#include "laser.h"
+#include "settings.h"
 
 extern SemaphoreHandle_t print_mux;
+
+TimerHandle_t _ls_state_rehome_timer;
+void _ls_state_rehome_timer_callback(TimerHandle_t xTimer)
+{
+    ls_event event;
+    event.type = LSEVT_REHOME_REQUIRED;
+    event.value = NULL;
+    if (xQueueSendToBack(ls_event_queue, (void *)&event, pdMS_TO_TICKS(5000)) != pdPASS)
+    {
+        xSemaphoreTake(print_mux, portMAX_DELAY);
+        printf("WARNING: Could not enqueue LSEVT_REHOME_REQUIRED; will try to try again later\n");
+        xSemaphoreGive(print_mux);
+        xTimerReset(_ls_state_rehome_timer, pdMS_TO_TICKS(5000));
+    }
+}
+
+void ls_state_init(void)
+{
+    _ls_state_rehome_timer = xTimerCreate("rehome_timer",                                 // pcTimerName
+                                          pdMS_TO_TICKS(LS_STATE_REHOME_TIMER_PERIOD_MS), // xTimerPeriodInTicks
+                                          pdFALSE,                                        // uxAutoReload
+                                          0,                                              // pvTimerId not used; only timer for callback
+                                          _ls_state_rehome_timer_callback                 // pxCallbackFunction
+    );
+}
 
 /**
  * @brief
@@ -97,7 +125,6 @@ ls_State ls_state_poweron(ls_event event)
         switch (ls_tapemode())
         {
         case LS_TAPEMODE_IGNORE:
-            ls_map_ignore();
             successor.func = ls_state_prelaserwarn_active;
 #ifdef LSDEBUG_STATES
             xSemaphoreTake(print_mux, portMAX_DELAY);
@@ -111,7 +138,6 @@ ls_State ls_state_poweron(ls_event event)
             printf("State poweron => selftest\n");
             xSemaphoreGive(print_mux);
 #endif
-            ls_map_ignore();
             successor.func = ls_state_selftest;
             break;
         default:
@@ -132,6 +158,7 @@ ls_State ls_state_poweron(ls_event event)
 static bool _ls_state_prelaserwarn_buzzer_complete;
 static bool _ls_state_prelaserwarn_movement_complete;
 static int _ls_state_prelaserwarn_rotation_count;
+
 ls_State ls_state_prelaserwarn_active(ls_event event)
 {
 #ifdef LSDEBUG_STATES
@@ -144,10 +171,11 @@ ls_State ls_state_prelaserwarn_active(ls_event event)
     switch (event.type)
     {
     case LSEVT_STATE_ENTRY:
-        _ls_state_prelaserwarn_buzzer_complete=false;
-        _ls_state_prelaserwarn_movement_complete=false;
-        _ls_state_prelaserwarn_rotation_count=0;
+        _ls_state_prelaserwarn_buzzer_complete = false;
+        _ls_state_prelaserwarn_movement_complete = false;
+        _ls_state_prelaserwarn_rotation_count = 0;
         ls_buzzer_play(LS_BUZZER_PRE_LASER_WARNING);
+        ls_stepper_set_maximum_steps_per_second(LS_STEPPER_STEPS_PER_SECOND_MAX);
         ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION / 2);
         break;
     case LSEVT_BUZZER_WARNING_COMPLETE:
@@ -155,22 +183,22 @@ ls_State ls_state_prelaserwarn_active(ls_event event)
         break;
     case LSEVT_STEPPER_FINISHED_MOVE:
         _ls_state_prelaserwarn_rotation_count++;
-        if(2 > _ls_state_prelaserwarn_rotation_count)
+        if (2 > _ls_state_prelaserwarn_rotation_count)
         {
             ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION / 2);
         }
-        if(2 == _ls_state_prelaserwarn_rotation_count)
+        if (2 == _ls_state_prelaserwarn_rotation_count)
         {
             ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION * 3 / 2);
         }
-        if(2 < _ls_state_prelaserwarn_rotation_count)
+        if (2 < _ls_state_prelaserwarn_rotation_count)
         {
             _ls_state_prelaserwarn_movement_complete = true;
         }
         break;
-        default:; // does not handle other events
+    default:; // does not handle other events
     }
-    if(_ls_state_prelaserwarn_buzzer_complete && _ls_state_prelaserwarn_movement_complete)
+    if (_ls_state_prelaserwarn_buzzer_complete && _ls_state_prelaserwarn_movement_complete)
     {
         successor.func = ls_state_active;
     }
@@ -194,8 +222,19 @@ ls_State ls_state_active(ls_event event)
         printf("Beginning active state\n");
         xSemaphoreGive(print_mux);
 #endif
+        ls_stepper_set_maximum_steps_per_second(ls_settings_get_stepper_speed());
         ls_stepper_random();
         ls_servo_random();
+
+        if (ls_map_get_status() == LS_MAP_STATUS_OK)
+        {
+            ls_laser_set_mode_mapped();
+            xTimerReset(_ls_state_rehome_timer, pdMS_TO_TICKS(5000));
+        }
+        else
+        {
+            ls_laser_set_mode_on();
+        }
         break;
     case LSEVT_MAGNET_ENTER:
 #ifdef LSDEBUG_STATES
@@ -220,12 +259,27 @@ ls_State ls_state_active(ls_event event)
         xSemaphoreGive(print_mux);
 #endif
         break;
+    case LSEVT_REHOME_REQUIRED:
+#ifdef LSDEBUG_STATES
+        xSemaphoreTake(print_mux, portMAX_DELAY);
+        printf("Rehoming from active state\n");
+        xSemaphoreGive(print_mux);
+#endif
+        successor.func = ls_state_active_substate_home;
+        break;
     default:;
 #ifdef LSDEBUG_STATES
         xSemaphoreTake(print_mux, portMAX_DELAY);
         printf("Unknown event %d", event.type);
         xSemaphoreGive(print_mux);
 #endif
+    }
+    // /exit behaviors: 
+    if (successor.func != ls_state_active)
+    {
+        ls_stepper_stop();
+        // servo stop
+        ls_laser_set_mode_off();
     }
     return successor;
 }
@@ -377,6 +431,7 @@ ls_State ls_state_map_build(ls_event event)
         _ls_state_map_build_steps_remaining = LS_STEPPER_STEPS_PER_ROTATION / LS_MAP_RESOLUTION;
         _ls_state_map_misread_count = 0;
         ls_tape_sensor_enable();
+        ls_stepper_set_maximum_steps_per_second(LS_STEPPER_STEPS_PER_SECOND_MAPPING);
         ls_stepper_forward(LS_MAP_RESOLUTION);
         break;
     case LSEVT_STEPPER_FINISHED_MOVE:
@@ -425,6 +480,7 @@ ls_State ls_state_map_build(ls_event event)
             }
             if (badmap)
             {
+                ls_map_set_status(LS_MAP_STATUS_FAILED);
                 ls_buzzer_play(LS_BUZZER_PLAY_MAP_FAIL);
                 switch (ls_tapemode())
                 {
@@ -435,11 +491,34 @@ ls_State ls_state_map_build(ls_event event)
                 default:
                     if (0 == _ls_state_map_enable_count)
                     {
-                        ls_map_ignore();
+                        ls_map_set_status(LS_MAP_STATUS_IGNORE);
                     }
                     break;
                 }
             } // handle bad map
+            else
+            {
+                int max_span_enabled = 0;
+                int current_span = 0;
+                for(int i=0; i < LS_STEPPER_STEPS_PER_ROTATION * 2; i++)
+                {
+                    bool enabled = (bool) ls_map_is_enabled_at(i % LS_STEPPER_STEPS_PER_ROTATION);
+                    if(enabled)
+                    {
+                        current_span++;
+                    }
+                    else
+                    {
+                        max_span_enabled = (current_span > max_span_enabled) ? current_span : max_span_enabled;
+                        current_span = 0;
+                    }
+                }
+                ls_settings_set_stepper_random_max(max_span_enabled / 3);
+                ls_map_set_status(LS_MAP_STATUS_OK);
+#ifdef LSDEBUG_MAP
+                ls_debug_printf("Set LS_MAP_STATUS_OK; longest enabled span is %d steps.\n", max_span_enabled);
+#endif
+            }
         }     // done building map
     default:; // nothing to do for event of this type
     }         // switch  on event

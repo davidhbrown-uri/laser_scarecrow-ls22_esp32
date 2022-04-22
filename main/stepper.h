@@ -30,6 +30,8 @@ void ls_stepper_init(void);
 
 void ls_stepper_task(void *pvParameter);
 
+bool ls_stepper_is_stopped(void);
+BaseType_t ls_stepper_get_steps_taken(void);
 
 int32_t ls_stepper_get_position(void);
 void ls_stepper_set_home_position(void);
@@ -38,6 +40,8 @@ void ls_stepper_stop(void);
 void ls_stepper_forward(uint16_t steps);
 void ls_stepper_reverse(uint16_t steps);
 void ls_stepper_random(void);
+
+void ls_stepper_set_maximum_steps_per_second(int);
 
 #ifdef LSDEBUG_STEPPER
 void ls_stepper_debug_task(void *pvParameter);
