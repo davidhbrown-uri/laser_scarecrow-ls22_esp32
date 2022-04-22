@@ -210,6 +210,9 @@ void ls_servo_task(void *pvParameter)
                 uint16_t min = (uint16_t) ls_settings_get_servo_top();
                 uint16_t max = (uint16_t) ls_settings_get_servo_bottom();
                 target_pulse_width = esp_random() % (max - min + 1) + min;
+
+                // Delay for 500ms
+                vTaskDelay(pdMS_TO_TICKS(500));
             }
             else if(mode == LS_SERVO_MODE_SWEEP && current_pulse_width == target_pulse_width)
             {
