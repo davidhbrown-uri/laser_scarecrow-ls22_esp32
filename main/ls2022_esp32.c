@@ -23,6 +23,7 @@
 #include "tape.h"
 #include "map.h"
 #include "lightsense.h"
+#include "settings.h"
 
 SemaphoreHandle_t adc1_mux = NULL;
 SemaphoreHandle_t adc2_mux = NULL;
@@ -124,6 +125,9 @@ void app_main(void)
     print_char_val_type(val_type);
     check_efuse();
     printf("Initialized Hardware\n");
+    ls_settings_set_defaults();
+    ls_settings_read_from_flash();
+    printf("Loaded settings\n");
     adc_chars = calloc(1, sizeof(esp_adc_cal_characteristics_t));
     adc1_mux = xSemaphoreCreateMutex();
     adc2_mux = xSemaphoreCreateMutex();
