@@ -121,14 +121,12 @@ void ls_servo_task(void *pvParameter)
     _ls_servo_on();
     bool servo_is_on = true;
 
-    const int MS_BETWEEN_STEPS = 20; // TODO Chosen based on pwm_config config of 50hz... not sure if this is at all related. Consult David
-
-    const uint16_t PW_MAX_DELTA = 25;
+    const uint16_t PW_MAX_DELTA = 1;
     uint16_t current_pulse_width = LS_SERVO_US_MID;
     uint16_t target_pulse_width = LS_SERVO_US_MID;
     
-    // enum _ls_servo_motion_modes mode = LS_SERVO_MODE_FIXED;
-    enum _ls_servo_motion_modes mode = LS_SERVO_MODE_RANDOM;
+    enum _ls_servo_motion_modes mode = LS_SERVO_MODE_FIXED;
+    // enum _ls_servo_motion_modes mode = LS_SERVO_MODE_SWEEP;
 
     // Variable to hold the received event
     struct ls_servo_event received;
@@ -137,7 +135,7 @@ void ls_servo_task(void *pvParameter)
     {
         // Adjust the delay based on whether or not the servo should be moving
         bool servo_should_move = current_pulse_width != target_pulse_width || mode != LS_SERVO_MODE_FIXED;
-        TickType_t delay = servo_should_move ? pdMS_TO_TICKS(MS_BETWEEN_STEPS) : portMAX_DELAY;
+        TickType_t delay = servo_should_move ? pdMS_TO_TICKS(10) : portMAX_DELAY;
 
         if (xQueueReceive(ls_servo_queue, &received, delay) == pdTRUE)
         {
