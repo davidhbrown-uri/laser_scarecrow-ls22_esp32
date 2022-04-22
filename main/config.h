@@ -71,11 +71,18 @@
 // is having trouble registering magnet reliably that fast, though.
 #define LS_STEPPER_STEPS_PER_SECOND_MAX 3600
 #define LS_STEPPER_STEPS_PER_SECOND_HOMING 1800
+#define LS_STEPPER_STEPS_PER_SECOND_DEFAULT 2400
 
 // values read by ADC from external controls
 #define LS_CONTROLS_ADC_MAX_DISCONNECT 100
 #define LS_CONTROLS_ADC_MIN_CONNECT 1700
 #define LS_CONTROLS_ADC_MAX_CONNECT 1900
+// to ensure the full range of value can be selected,
+// any ADC reading >= LS_CONTROLS_READING_TOP is considered max
+#define LS_CONTROLS_READING_TOP 4040
+// any ADC reading <= LS_CONTROLS_READING_BOTTOM is considered min
+#define LS_CONTROLS_READING_BOTTOM 50
+
 
 // values read by ADC for tape reflectance sensor
 // based on testing conducted March 18 '22
