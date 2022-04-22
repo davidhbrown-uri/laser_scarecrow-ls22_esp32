@@ -15,6 +15,7 @@
 #include "config.h"
 #include "debug.h"
 #include "map.h"
+#include "util.h"
 
 #define LS_STEPPER_TIMER_DIVIDER (20)
 // see https://docs.espressif.com/projects/esp-idf/en/v4.4/esp32/api-reference/peripherals/timer.html
@@ -33,8 +34,6 @@
 // Tather than aiming for 1ms pulses, toggling at the total timer count for
 // a square(ish) wave would make sense.
 
-extern SemaphoreHandle_t print_mux; // in ls2022_esp32.c
-
 volatile BaseType_t IRAM_ATTR ls_stepper_steps_remaining;
 volatile BaseType_t IRAM_ATTR ls_stepper_steps_taken;
 volatile static BaseType_t IRAM_ATTR _ls_stepperstep_phase = 0;
@@ -42,17 +41,27 @@ volatile static BaseType_t IRAM_ATTR _ls_stepperstep_phase = 0;
 enum ls_stepper_direction IRAM_ATTR ls_stepper_direction = LS_STEPPER_ACTION_FORWARD_STEPS;
 bool ls_stepper_sleep = false;
 static bool _ls_stepper_enable_skipping = false;
-static double _ls_stepper_acceleration_slope;
-static int _ls_stepper_steps_per_second_max;
-static int _ls_stepper_steps_fullspeed;
+static int _ls_stepper_steps_per_second_max = LS_STEPPER_STEPS_PER_SECOND_DEFAULT;
+
 static int _ls_stepper_speed_when_skipping = LS_STEPPER_STEPS_PER_SECOND_MAX;
-static int _ls_stepper_speed_not_skipping = LS_STEPPER_STEPS_PER_SECOND_DEFAULT;
+static int _ls_stepper_speed_not_skipping;
+static int _ls_stepper_speed_current_rate;
+
+// how many steps it will take to decelerate from full speed
+static int _ls_stepper_steps_to_decelerate(int current_rate)
+{
+    return (current_rate * current_rate) / (2 * LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_SECOND) +
+           (current_rate / 20); // not sure where the 20 comes from; see spreadsheet
+}
 
 void ls_stepper_set_maximum_steps_per_second(int steps_per_second)
 {
-    _ls_stepper_steps_per_second_max = steps_per_second;
-    _ls_stepper_steps_fullspeed = _ls_stepper_steps_per_second_max / LS_STEPPER_STEPS_FULLSPEED_DIVISOR;
-    _ls_stepper_acceleration_slope = (double)(_ls_stepper_steps_per_second_max - LS_STEPPER_STEPS_PER_SECOND_MIN) / (double)_ls_stepper_steps_fullspeed;
+    // set and constrain new current speed limit
+    _ls_stepper_steps_per_second_max = _constrain(steps_per_second, LS_STEPPER_STEPS_PER_SECOND_MIN, LS_STEPPER_STEPS_PER_SECOND_MAX);
+    // #ifdef LSDEBUG_STEPPER
+    //     ls_debug_printf("Stepper speed set to %d max steps/s (%d requested); %d steps to decelerate.\n",
+    //                     _ls_stepper_steps_per_second_max, steps_per_second, _ls_stepper_steps_to_decelerate(_ls_stepper_steps_per_second_max));
+    // #endif
 }
 
 static bool IRAM_ATTR ls_stepper_step_isr_callback(void *args)
@@ -124,31 +133,42 @@ void ls_stepper_init(void)
 
 static void _ls_stepper_set_speed(void)
 {
-    if(_ls_stepper_enable_skipping)
+    bool skipping = _ls_stepper_enable_skipping && !ls_map_is_enabled_at(ls_stepper_position); 
+    if (_ls_stepper_enable_skipping)
     {
-        if(ls_map_is_enabled_at(ls_stepper_position))
+        ls_stepper_set_maximum_steps_per_second(skipping ? _ls_stepper_speed_when_skipping : _ls_stepper_speed_not_skipping);
+    }
+    // decelerate?
+    if (ls_stepper_steps_remaining < ls_stepper_steps_taken // accelerate at least halfway
+        && ls_stepper_steps_remaining < _ls_stepper_steps_to_decelerate(_ls_stepper_speed_current_rate))
+    {
+        if(skipping) 
         {
-            ls_stepper_set_maximum_steps_per_second(_ls_stepper_speed_not_skipping);
+            // extend movement by steps taken this tick
+            ls_stepper_steps_remaining += _ls_stepper_speed_current_rate / pdMS_TO_TICKS(1000);
         }
-        else
+        else 
         {
-            ls_stepper_set_maximum_steps_per_second(_ls_stepper_speed_when_skipping);
-            if(ls_stepper_steps_remaining < _ls_stepper_steps_fullspeed)
-            {
-                ls_stepper_steps_remaining = _ls_stepper_steps_fullspeed;
-            }
+            //decelerate
+        _ls_stepper_speed_current_rate -= LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_TICK;
         }
     }
-    // lesser of steps remaining (deceleration) or steps taken (acceleration)
-    int16_t steps = ls_stepper_steps_remaining < ls_stepper_steps_taken ? ls_stepper_steps_remaining : ls_stepper_steps_taken;
-    // but not more than full speed
-    steps = steps < _ls_stepper_steps_fullspeed ? steps : _ls_stepper_steps_fullspeed;
-    uint64_t rate = LS_STEPPER_STEPS_PER_SECOND_MIN + (uint64_t)(_ls_stepper_acceleration_slope * (double)steps);
-    ESP_ERROR_CHECK(timer_set_alarm_value(TIMER_GROUP_0, TIMER_0, APB_CLK_FREQ / LS_STEPPER_TIMER_DIVIDER / rate));
+    // accelerate?
+    else if (_ls_stepper_speed_current_rate < _ls_stepper_steps_per_second_max)
+    {
+        _ls_stepper_speed_current_rate += LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_TICK;
+    }
+    _ls_stepper_speed_current_rate = _constrain(_ls_stepper_speed_current_rate, LS_STEPPER_STEPS_PER_SECOND_MIN, _ls_stepper_steps_per_second_max);
+#ifdef LSDEBUG_STEPPER
+//    ls_debug_printf(" >> Stepper rate: %d  (taken: %d; remaining: %d)\n",
+//    _ls_stepper_speed_current_rate, ls_stepper_steps_taken, ls_stepper_steps_remaining);
+#endif
+    ESP_ERROR_CHECK(timer_set_alarm_value(TIMER_GROUP_0, TIMER_0, APB_CLK_FREQ / LS_STEPPER_TIMER_DIVIDER / _ls_stepper_speed_current_rate));
 }
 
 void ls_stepper_task(void *pvParameter)
 {
+    ls_stepper_set_maximum_steps_per_second(LS_STEPPER_STEPS_PER_SECOND_DEFAULT);
     enum ls_stepper_action current_action = LS_STEPPER_ACTION_IDLE;
     ls_stepper_action_message message;
 
@@ -192,9 +212,7 @@ void ls_stepper_task(void *pvParameter)
             if (ls_stepper_steps_remaining <= 0)
             {
 #ifdef LSDEBUG_STEPPER
-                xSemaphoreTake(print_mux, portMAX_DELAY);
-                printf("Begin forward move of %d step(s)\n", message.steps);
-                xSemaphoreGive(print_mux);
+                ls_debug_printf("Begin forward move of %d step(s)\n", message.steps);
 #endif
                 ls_stepper_direction = LS_STEPPER_DIRECTION_FORWARD;
                 gpio_set_level(LSGPIO_STEPPERDIRECTION, ls_stepper_direction);
@@ -204,9 +222,7 @@ void ls_stepper_task(void *pvParameter)
             else
             {
 #ifdef LSDEBUG_STEPPER
-                xSemaphoreTake(print_mux, portMAX_DELAY);
-                printf("Extending forward move by %d step(s)\n", message.steps);
-                xSemaphoreGive(print_mux);
+                ls_debug_printf("Extending forward move by %d step(s)\n", message.steps);
 #endif
                 ls_stepper_steps_remaining += message.steps;
             }
@@ -218,9 +234,7 @@ void ls_stepper_task(void *pvParameter)
             if (ls_stepper_steps_remaining <= 0)
             {
 #ifdef LSDEBUG_STEPPER
-                xSemaphoreTake(print_mux, portMAX_DELAY);
-                printf("Begin reverse move of %d step(s)\n", message.steps);
-                xSemaphoreGive(print_mux);
+                ls_debug_printf("Begin reverse move of %d step(s)\n", message.steps);
 #endif
                 ls_stepper_direction = LS_STEPPER_DIRECTION_REVERSE;
                 gpio_set_level(LSGPIO_STEPPERDIRECTION, ls_stepper_direction);
@@ -230,9 +244,7 @@ void ls_stepper_task(void *pvParameter)
             else
             {
 #ifdef LSDEBUG_STEPPER
-                xSemaphoreTake(print_mux, portMAX_DELAY);
-                printf("Extending reverse move by %d step(s)\n", message.steps);
-                xSemaphoreGive(print_mux);
+                ls_debug_printf("Extending reverse move by %d step(s)\n", message.steps);
 #endif
                 ls_stepper_steps_remaining += message.steps;
             }
@@ -241,15 +253,10 @@ void ls_stepper_task(void *pvParameter)
             break;
         case LS_STEPPER_ACTION_STOP:
 #ifdef LSDEBUG_STEPPER
-            xSemaphoreTake(print_mux, portMAX_DELAY);
-            printf("Stepper stopping\n");
-            xSemaphoreGive(print_mux);
+            ls_debug_printf("Stepper stopping\n");
 #endif
             gpio_set_level(LSGPIO_STEPPERSLEEP, 1);
-            if (ls_stepper_steps_remaining > _ls_stepper_steps_fullspeed)
-            {
-                ls_stepper_steps_remaining = _ls_stepper_steps_fullspeed;
-            }
+            ls_stepper_steps_remaining = _constrain(ls_stepper_steps_remaining, 0, _ls_stepper_steps_to_decelerate(_ls_stepper_speed_current_rate));
             _ls_stepper_set_speed();
             if (ls_stepper_steps_remaining <= 0)
             {
@@ -266,18 +273,14 @@ void ls_stepper_task(void *pvParameter)
                 gpio_set_level(LSGPIO_STEPPERDIRECTION, ls_stepper_direction ? 1 : 0);
                 ls_stepper_steps_remaining = LS_STEPPER_MOVEMENT_STEPS_MIN + ((random >> 16) * (LS_STEPPER_MOVEMENT_STEPS_MAX - LS_STEPPER_MOVEMENT_STEPS_MIN) / 65536);
 #ifdef LSDEBUG_STEPPER
-                xSemaphoreTake(print_mux, portMAX_DELAY);
-                printf("From %d, moving %d steps %s\n", ls_stepper_position, ls_stepper_steps_remaining, ls_stepper_direction ? "-->" : "<--");
-                xSemaphoreGive(print_mux);
+                ls_debug_printf("From %d, moving %d steps %s\n", ls_stepper_position, ls_stepper_steps_remaining, ls_stepper_direction ? "-->" : "<--");
 #endif
             }
             _ls_stepper_set_speed();
             break;
         case LS_STEPPER_ACTION_SLEEP:
 #ifdef LSDEBUG_STEPPER
-            xSemaphoreTake(print_mux, portMAX_DELAY);
-            printf("Stepper sleeping\n");
-            xSemaphoreGive(print_mux);
+            ls_debug_printf("Stepper sleeping\n");
 #endif
             gpio_set_level(LSGPIO_STEPPERSLEEP, 0);
             current_action = LS_STEPPER_ACTION_IDLE;
@@ -371,9 +374,7 @@ void ls_stepper_debug_task(void *pvParameter)
 {
     while (1)
     {
-        xSemaphoreTake(print_mux, portMAX_DELAY);
-        printf("STEPPER DEBUG: position=%d; remaining=%d; taken=%d; direction=%d, step_phase=%d\n", ls_stepper_position, ls_stepper_steps_remaining, ls_stepper_steps_taken, ls_stepper_direction, _ls_stepperstep_phase);
-        xSemaphoreGive(print_mux);
+        ls_debug_printf("STEPPER DEBUG: position=%d; remaining=%d; taken=%d; direction=%d, step_phase=%d\n", ls_stepper_position, ls_stepper_steps_remaining, ls_stepper_steps_taken, ls_stepper_direction, _ls_stepperstep_phase);
         vTaskDelay(pdMS_TO_TICKS(5000));
     }
 }

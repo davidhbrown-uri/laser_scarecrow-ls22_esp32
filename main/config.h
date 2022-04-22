@@ -61,17 +61,18 @@
 
 // default parameters for the stepper movement
 #define LS_STEPPER_STEPS_PER_ROTATION 3200
-// FULLSPEED_DIVISOR determines how many steps it takes to get to full speed. 16=> 6%, 8=>12% of STEPS_PER_SECOND_MAX
-#define LS_STEPPER_STEPS_FULLSPEED_DIVISOR 8
 #define LS_STEPPER_MOVEMENT_STEPS_MIN 160
 #define LS_STEPPER_MOVEMENT_STEPS_MAX 1200
 #define LS_STEPPER_MOVEMENT_REVERSE_PER255 64
-#define LS_STEPPER_STEPS_PER_SECOND_MIN 128
+#define LS_STEPPER_STEPS_PER_SECOND_MIN 150
 // motor/laser seems to have no trouble at 4800 which is probably too fast
 // is having trouble registering magnet reliably that fast, though.
 #define LS_STEPPER_STEPS_PER_SECOND_MAX 3600
 #define LS_STEPPER_STEPS_PER_SECOND_HOMING 1800
 #define LS_STEPPER_STEPS_PER_SECOND_DEFAULT 2400
+// LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_SECOND will be added or subtracted to the steps per second when accelerating or decelerating
+#define LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_SECOND 4800
+#define LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_TICK ( LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_SECOND / pdMS_TO_TICKS(1000))
 
 // values read by ADC from external controls
 #define LS_CONTROLS_ADC_MAX_DISCONNECT 100
