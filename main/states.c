@@ -428,6 +428,7 @@ ls_State ls_state_map_build(ls_event event)
         _ls_state_map_build_steps_remaining = LS_STEPPER_STEPS_PER_ROTATION / LS_MAP_RESOLUTION;
         _ls_state_map_misread_count = 0;
         ls_tape_sensor_enable();
+        ls_stepper_set_maximum_steps_per_second(LS_STEPPER_STEPS_PER_SECOND_MAPPING);
         ls_stepper_forward(LS_MAP_RESOLUTION);
         break;
     case LSEVT_STEPPER_FINISHED_MOVE:

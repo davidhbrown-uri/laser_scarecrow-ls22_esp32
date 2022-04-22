@@ -64,11 +64,12 @@
 #define LS_STEPPER_MOVEMENT_STEPS_MIN 160
 #define LS_STEPPER_MOVEMENT_STEPS_MAX 1200
 #define LS_STEPPER_MOVEMENT_REVERSE_PER255 96
-#define LS_STEPPER_STEPS_PER_SECOND_MIN 150
+#define LS_STEPPER_STEPS_PER_SECOND_MIN 240
 // motor/laser seems to have no trouble at 4800 which is probably too fast
 // is having trouble registering magnet reliably that fast, though.
 #define LS_STEPPER_STEPS_PER_SECOND_MAX 3600
 #define LS_STEPPER_STEPS_PER_SECOND_HOMING 1800
+#define LS_STEPPER_STEPS_PER_SECOND_MAPPING 1800
 #define LS_STEPPER_STEPS_PER_SECOND_DEFAULT 2400
 // LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_SECOND will be added or subtracted to the steps per second when accelerating or decelerating
 #define LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_SECOND 6000
