@@ -19,6 +19,12 @@ ls_state_funcptr ls_state_active(ls_event);
 */
 void event_handler_state_machine(void *pvParameter);
 
+/**
+ * @brief Initialize timers 
+ * 
+ */
+void ls_state_init(void);
+
 typedef struct ls_State {
     struct ls_State (*func)(ls_event);
 }ls_State;

@@ -42,7 +42,16 @@ volatile static BaseType_t IRAM_ATTR _ls_stepperstep_phase = 0;
 enum ls_stepper_direction IRAM_ATTR ls_stepper_direction = LS_STEPPER_ACTION_FORWARD_STEPS;
 bool ls_stepper_sleep = false;
 
-static double ls_stepper_acceleration_slope = (double)(LS_STEPPER_STEPS_PER_SECOND_MAX - LS_STEPPER_STEPS_PER_SECOND_MIN) / (double)LS_STEPPER_STEPS_FULLSPEED;
+static double _ls_stepper_acceleration_slope;
+static int _ls_stepper_steps_per_second_max;
+static int _ls_stepper_steps_fullspeed;
+
+void ls_stepper_set_maximum_steps_per_second(int steps)
+{
+    _ls_stepper_steps_per_second_max = steps;
+    _ls_stepper_steps_fullspeed = _ls_stepper_steps_per_second_max / LS_STEPPER_STEPS_FULLSPEED_DIVISOR;
+    _ls_stepper_acceleration_slope = (double)(_ls_stepper_steps_per_second_max - LS_STEPPER_STEPS_PER_SECOND_MIN) / (double)_ls_stepper_steps_fullspeed;
+}
 
 static bool IRAM_ATTR ls_stepper_step_isr_callback(void *args)
 {
@@ -117,8 +126,8 @@ static void _ls_stepper_set_speed(void)
     // lesser of steps remaining (deceleration) or steps taken (acceleration)
     int16_t steps = ls_stepper_steps_remaining < ls_stepper_steps_taken ? ls_stepper_steps_remaining : ls_stepper_steps_taken;
     // but not more than full speed
-    steps = steps < LS_STEPPER_STEPS_FULLSPEED ? steps : LS_STEPPER_STEPS_FULLSPEED;
-    uint64_t rate = LS_STEPPER_STEPS_PER_SECOND_MIN + (uint64_t)(ls_stepper_acceleration_slope * (double)steps);
+    steps = steps < _ls_stepper_steps_fullspeed ? steps : _ls_stepper_steps_fullspeed;
+    uint64_t rate = LS_STEPPER_STEPS_PER_SECOND_MIN + (uint64_t)(_ls_stepper_acceleration_slope * (double)steps);
     ESP_ERROR_CHECK(timer_set_alarm_value(TIMER_GROUP_0, TIMER_0, APB_CLK_FREQ / LS_STEPPER_TIMER_DIVIDER / rate));
 }
 
@@ -221,9 +230,9 @@ void ls_stepper_task(void *pvParameter)
             xSemaphoreGive(print_mux);
 #endif
             gpio_set_level(LSGPIO_STEPPERSLEEP, 1);
-            if (ls_stepper_steps_remaining > LS_STEPPER_STEPS_FULLSPEED)
+            if (ls_stepper_steps_remaining > _ls_stepper_steps_fullspeed)
             {
-                ls_stepper_steps_remaining = LS_STEPPER_STEPS_FULLSPEED;
+                ls_stepper_steps_remaining = _ls_stepper_steps_fullspeed;
             }
             _ls_stepper_set_speed();
             if (ls_stepper_steps_remaining <= 0)
@@ -321,6 +330,16 @@ int32_t IRAM_ATTR ls_stepper_get_position(void)
 void IRAM_ATTR ls_stepper_set_home_position(void)
 {
     ls_stepper_position = 0;
+}
+
+bool ls_stepper_is_stopped(void)
+{
+    return 0 == ls_stepper_steps_remaining ? true : false;
+}
+
+BaseType_t ls_stepper_get_steps_taken(void)
+{
+    return ls_stepper_steps_taken;
 }
 
 #ifdef LSDEBUG_STEPPER

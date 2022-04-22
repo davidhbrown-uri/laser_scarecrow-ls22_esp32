@@ -1,6 +1,7 @@
 #include "debug.h"
 #include "states.h"
 #include "freertos/semphr.h"
+#include "freertos/timers.h"
 #include "stepper.h"
 #include "buzzer.h"
 #include "magnet.h"
@@ -12,6 +13,31 @@
 #include "laser.h"
 
 extern SemaphoreHandle_t print_mux;
+
+TimerHandle_t _ls_state_rehome_timer;
+void _ls_state_rehome_timer_callback(TimerHandle_t xTimer)
+{
+    ls_event event;
+    event.type = LSEVT_REHOME_REQUIRED;
+    event.value = NULL;
+    if (xQueueSendToBack(ls_event_queue, (void *)&event, pdMS_TO_TICKS(5000)) != pdPASS)
+    {
+        xSemaphoreTake(print_mux, portMAX_DELAY);
+        printf("WARNING: Could not enqueue LSEVT_REHOME_REQUIRED; will try to try again later\n");
+        xSemaphoreGive(print_mux);
+        xTimerReset(_ls_state_rehome_timer, pdMS_TO_TICKS(5000));
+    }
+}
+
+void ls_state_init(void)
+{
+    _ls_state_rehome_timer = xTimerCreate("rehome_timer",                                 // pcTimerName
+                                          pdMS_TO_TICKS(LS_STATE_REHOME_TIMER_PERIOD_MS), // xTimerPeriodInTicks
+                                          pdFALSE,                                        // uxAutoReload
+                                          0,                                              // pvTimerId not used; only timer for callback
+                                          _ls_state_rehome_timer_callback                 // pxCallbackFunction
+    );
+}
 
 /**
  * @brief
@@ -147,6 +173,7 @@ ls_State ls_state_prelaserwarn_active(ls_event event)
         _ls_state_prelaserwarn_movement_complete = false;
         _ls_state_prelaserwarn_rotation_count = 0;
         ls_buzzer_play(LS_BUZZER_PRE_LASER_WARNING);
+        ls_stepper_set_maximum_steps_per_second(LS_STEPPER_STEPS_PER_SECOND_MAX);
         ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION / 2);
         break;
     case LSEVT_BUZZER_WARNING_COMPLETE:
@@ -193,10 +220,13 @@ ls_State ls_state_active(ls_event event)
         printf("Beginning active state\n");
         xSemaphoreGive(print_mux);
 #endif
+        /** @todo ls_stepper_set_maximum_steps_per_second should take setting, not the absolute max */
+        ls_stepper_set_maximum_steps_per_second(LS_STEPPER_STEPS_PER_SECOND_MAX);
         ls_stepper_random();
         if (ls_map_get_status() == LS_MAP_STATUS_OK)
         {
             ls_laser_set_mode_mapped();
+            xTimerReset(_ls_state_rehome_timer, pdMS_TO_TICKS(5000));
         }
         else
         {
@@ -226,6 +256,14 @@ ls_State ls_state_active(ls_event event)
         xSemaphoreGive(print_mux);
 #endif
         break;
+    case LSEVT_REHOME_REQUIRED:
+#ifdef LSDEBUG_STATES
+        xSemaphoreTake(print_mux, portMAX_DELAY);
+        printf("Rehoming from active state\n");
+        xSemaphoreGive(print_mux);
+#endif
+        successor.func = ls_state_active_substate_home;
+        break;
     default:;
 #ifdef LSDEBUG_STATES
         xSemaphoreTake(print_mux, portMAX_DELAY);
@@ -233,8 +271,11 @@ ls_State ls_state_active(ls_event event)
         xSemaphoreGive(print_mux);
 #endif
     }
+    // /exit behaviors: 
     if (successor.func != ls_state_active)
     {
+        ls_stepper_stop();
+        // servo stop
         ls_laser_set_mode_off();
     }
     return successor;
