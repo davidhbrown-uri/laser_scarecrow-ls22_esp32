@@ -6,12 +6,15 @@
 
 //#define LSDEBUG_STATES
 
-// #define LSDEBUG_CONTROLS
+#define LSDEBUG_CONTROLS
 
-// #define LSDEBUG_TAPEMODE
+//#define LSDEBUG_TAPEMODE
 
 //#define LSDEBUG_BUZZER
 
 //#define LSDEBUG_MAP
 
 //#define LSDEBUG_LIGHTSENSE
+
+#define LSDEBUG_SETTINGS
+
