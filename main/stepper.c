@@ -16,6 +16,7 @@
 #include "debug.h"
 #include "map.h"
 #include "util.h"
+#include "settings.h"
 
 #define LS_STEPPER_TIMER_DIVIDER (20)
 // see https://docs.espressif.com/projects/esp-idf/en/v4.4/esp32/api-reference/peripherals/timer.html
@@ -138,27 +139,23 @@ static void _ls_stepper_set_speed(void)
     {
         ls_stepper_set_maximum_steps_per_second(skipping ? _ls_stepper_speed_when_skipping : _ls_stepper_speed_not_skipping);
     }
-    // decelerate?
-    if (ls_stepper_steps_remaining < ls_stepper_steps_taken // accelerate at least halfway
+    if (skipping)
+    {
+        ls_stepper_steps_remaining = _constrain(ls_stepper_steps_remaining + _ls_stepper_speed_current_rate / pdMS_TO_TICKS(1000), 
+        0, _ls_stepper_steps_to_decelerate(_ls_stepper_speed_not_skipping));
+    }
+    if (!skipping && ls_stepper_steps_remaining < ls_stepper_steps_taken // accelerate at least halfway
         && ls_stepper_steps_remaining < _ls_stepper_steps_to_decelerate(_ls_stepper_speed_current_rate))
     {
-        if(skipping) 
-        {
-            // extend movement by steps taken this tick
-            ls_stepper_steps_remaining += _ls_stepper_speed_current_rate / pdMS_TO_TICKS(1000);
-        }
-        else 
-        {
-            //decelerate
+    //decelerate
         _ls_stepper_speed_current_rate -= LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_TICK;
-        }
     }
     // accelerate?
     else if (_ls_stepper_speed_current_rate < _ls_stepper_steps_per_second_max)
     {
         _ls_stepper_speed_current_rate += LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_TICK;
     }
-    _ls_stepper_speed_current_rate = _constrain(_ls_stepper_speed_current_rate, LS_STEPPER_STEPS_PER_SECOND_MIN, _ls_stepper_steps_per_second_max);
+    _ls_stepper_speed_current_rate = _constrain(_ls_stepper_speed_current_rate, LS_STEPPER_STEPS_PER_SECOND_MIN, LS_STEPPER_STEPS_PER_SECOND_MAX);
 #ifdef LSDEBUG_STEPPER
 //    ls_debug_printf(" >> Stepper rate: %d  (taken: %d; remaining: %d)\n",
 //    _ls_stepper_speed_current_rate, ls_stepper_steps_taken, ls_stepper_steps_remaining);
@@ -271,7 +268,7 @@ void ls_stepper_task(void *pvParameter)
                 ls_stepper_steps_taken = 0;
                 ls_stepper_direction = ((uint8_t)random & 0xFF) > LS_STEPPER_MOVEMENT_REVERSE_PER255 ? false : true;
                 gpio_set_level(LSGPIO_STEPPERDIRECTION, ls_stepper_direction ? 1 : 0);
-                ls_stepper_steps_remaining = LS_STEPPER_MOVEMENT_STEPS_MIN + ((random >> 16) * (LS_STEPPER_MOVEMENT_STEPS_MAX - LS_STEPPER_MOVEMENT_STEPS_MIN) / 65536);
+                ls_stepper_steps_remaining = LS_STEPPER_MOVEMENT_STEPS_MIN + ((random >> 16) * (ls_settings_get_stepper_random_max() - LS_STEPPER_MOVEMENT_STEPS_MIN) / 65536);
 #ifdef LSDEBUG_STEPPER
                 ls_debug_printf("From %d, moving %d steps %s\n", ls_stepper_position, ls_stepper_steps_remaining, ls_stepper_direction ? "-->" : "<--");
 #endif

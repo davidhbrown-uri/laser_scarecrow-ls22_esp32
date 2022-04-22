@@ -494,11 +494,25 @@ ls_State ls_state_map_build(ls_event event)
             } // handle bad map
             else
             {
+                int max_span_enabled = 0;
+                int current_span = 0;
+                for(int i=0; i < LS_STEPPER_STEPS_PER_ROTATION * 2; i++)
+                {
+                    bool enabled = (bool) ls_map_is_enabled_at(i % LS_STEPPER_STEPS_PER_ROTATION);
+                    if(enabled)
+                    {
+                        current_span++;
+                    }
+                    else
+                    {
+                        max_span_enabled = (current_span > max_span_enabled) ? current_span : max_span_enabled;
+                        current_span = 0;
+                    }
+                }
+                ls_settings_set_stepper_random_max(max_span_enabled / 3);
                 ls_map_set_status(LS_MAP_STATUS_OK);
 #ifdef LSDEBUG_MAP
-                xSemaphoreTake(print_mux, portMAX_DELAY);
-                printf("Set LS_MAP_STATUS_OK\n");
-                xSemaphoreGive(print_mux);
+                ls_debug_printf("Set LS_MAP_STATUS_OK; longest enabled span is %d steps.\n", max_span_enabled);
 #endif
             }
         }     // done building map
