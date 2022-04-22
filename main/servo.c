@@ -8,6 +8,7 @@
 #include "bootloader_random.h"
 #include "config.h"
 #include "debug.h"
+#include "settings.h"
 
 #ifdef LSDEBUG_SERVO
 extern SemaphoreHandle_t print_mux; // in ls2022_esp32.c
@@ -126,7 +127,8 @@ void ls_servo_task(void *pvParameter)
     uint16_t current_pulse_width = LS_SERVO_US_MID;
     uint16_t target_pulse_width = LS_SERVO_US_MID;
     
-    enum _ls_servo_motion_modes mode = LS_SERVO_MODE_FIXED;
+    // enum _ls_servo_motion_modes mode = LS_SERVO_MODE_FIXED;
+    enum _ls_servo_motion_modes mode = LS_SERVO_MODE_RANDOM;
 
     // Variable to hold the received event
     struct ls_servo_event received;
@@ -205,18 +207,23 @@ void ls_servo_task(void *pvParameter)
             // and (possibly) change it depending on the mode we're in
             if(mode == LS_SERVO_MODE_RANDOM && current_pulse_width == target_pulse_width)
             {
-                target_pulse_width = esp_random() % (LS_SERVO_US_MAX - LS_SERVO_US_MIN + 1) + LS_SERVO_US_MIN;
+                uint16_t min = (uint16_t) ls_settings_get_servo_top();
+                uint16_t max = (uint16_t) ls_settings_get_servo_bottom();
+                target_pulse_width = esp_random() % (max - min + 1) + min;
             }
             else if(mode == LS_SERVO_MODE_SWEEP && current_pulse_width == target_pulse_width)
             {
                 // Update the target pulse width, depending on its current position
                 // Most of the time, it will be at either end - but possibly not if we just entered sweep mode
-                if(current_pulse_width < LS_SERVO_US_MID)
+                uint16_t min = (uint16_t) ls_settings_get_servo_top();
+                uint16_t max = (uint16_t) ls_settings_get_servo_bottom();
+                uint16_t mid = (min + max) / 2;
+                if(current_pulse_width < mid)
                 {
-                    target_pulse_width = LS_SERVO_US_MAX;
+                    target_pulse_width = max;
                 }
                 else {
-                    target_pulse_width = LS_SERVO_US_MIN;
+                    target_pulse_width = min;
                 }
             }
 
