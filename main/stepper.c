@@ -40,7 +40,6 @@ volatile BaseType_t IRAM_ATTR ls_stepper_steps_taken;
 volatile static BaseType_t IRAM_ATTR _ls_stepperstep_phase = 0;
 
 enum ls_stepper_direction IRAM_ATTR ls_stepper_direction = LS_STEPPER_ACTION_FORWARD_STEPS;
-bool ls_stepper_sleep = false;
 static bool _ls_stepper_enable_skipping = false;
 static int _ls_stepper_steps_per_second_max = LS_STEPPER_STEPS_PER_SECOND_DEFAULT;
 
@@ -144,7 +143,7 @@ static void _ls_stepper_set_speed(void)
         ls_stepper_steps_remaining = _constrain(ls_stepper_steps_remaining + _ls_stepper_speed_current_rate / pdMS_TO_TICKS(1000), 
         0, _ls_stepper_steps_to_decelerate(_ls_stepper_speed_not_skipping));
     }
-    if (!skipping && ls_stepper_steps_remaining < ls_stepper_steps_taken // accelerate at least halfway
+    if (!skipping //&& ls_stepper_steps_remaining < ls_stepper_steps_taken // accelerate at least halfway is too much on short moves
         && ls_stepper_steps_remaining < _ls_stepper_steps_to_decelerate(_ls_stepper_speed_current_rate))
     {
     //decelerate
@@ -346,6 +345,15 @@ void ls_stepper_random(void)
     message.steps = 0;
     xQueueSend(ls_stepper_queue, (void *)&message, 0);
 }
+
+void ls_stepper_sleep(void)
+{
+    ls_stepper_action_message message;
+    message.action = LS_STEPPER_ACTION_SLEEP;
+    message.steps = 0;
+    xQueueSend(ls_stepper_queue, (void *)&message, 0);
+}
+
 
 int32_t IRAM_ATTR ls_stepper_get_position(void)
 {
