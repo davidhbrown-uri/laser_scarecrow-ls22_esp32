@@ -23,3 +23,8 @@ void ls_event_enqueue_noop_if_queue_empty(void)
         ls_event_enqueue_noop();
     }
 }
+
+void ls_event_empty_queue(void)
+{
+    xQueueReset(ls_event_queue);
+}

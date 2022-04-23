@@ -51,3 +51,4 @@ void ls_event_queue_init(void);
 void ls_event_enqueue_noop(void);
 bool ls_event_queue_has_messages(void);
 void ls_event_enqueue_noop_if_queue_empty(void);
+void ls_event_empty_queue(void);

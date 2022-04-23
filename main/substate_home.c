@@ -77,7 +77,7 @@ static void _ls_substate_home_handle_rotate_to_magnet(ls_event event)
 #ifdef LSDEBUG_HOMING
         xSemaphoreTake(print_mux, portMAX_DELAY);
         printf("homing found magnet; stepper stop requested...\n");
-        if(ls_stepper_get_steps_taken() > LS_STEPPER_STEPS_PER_ROTATION)
+        if (ls_stepper_get_steps_taken() > LS_STEPPER_STEPS_PER_ROTATION)
         {
             printf("WARNING: took > 1 rotation to find magnet!\n");
         }
@@ -215,17 +215,14 @@ static void _ls_substate_home_handle_slow_seek_to_magnet(ls_event event)
 static void _ls_substate_home_wait_for_stop(void)
 {
 
-    if (ls_stepper_is_stopped())
-    {
-        // a pending LSEVT_STEPPER_FINISHED_MOVE would confuse homing
-        xQueueReset(ls_event_queue);
-        _ls_substate_home_begin_rotate_to_magnet();
-    }
-    else
+    while (ls_stepper_is_moving())
     {
         vTaskDelay(1);
-        ls_event_enqueue_noop();
     }
+    // a pending LSEVT_STEPPER_FINISHED_MOVE would confuse homing
+    ls_event_empty_queue();
+    _ls_substate_home_begin_rotate_to_magnet();
+    ls_event_enqueue_noop();
 }
 
 void ls_substate_home_handle_event(ls_event event)
