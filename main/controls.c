@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include "freertos/semphr.h"
 #include "esp_adc_cal.h"
+#include "util.h"
 
 extern SemaphoreHandle_t adc2_mux;
 extern SemaphoreHandle_t print_mux;
@@ -21,25 +22,13 @@ extern SemaphoreHandle_t print_mux;
 #define LS_CONTROLS_CONNECTION_KNOB LSADC_KNOB6
 
 static enum ls_controls_status ls_controls_current_status = LS_CONTROLS_STATUS_INVALID;
-static uint32_t ls_controls_current_speed = 0;
-static uint32_t ls_controls_current_angle = 0;
-static uint32_t ls_controls_current_range = 0;
+static BaseType_t _ls_controls_current_speed = 0;
+static BaseType_t _ls_controls_current_topangle = 0;
+static BaseType_t _ls_controls_current_bottomangle = 0;
+#define _ls_controls_connected(adc) (adc > LS_CONTROLS_ADC_MIN_CONNECT && adc < LS_CONTROLS_ADC_MAX_CONNECT)
 enum ls_controls_status ls_controls_get_current_status(void)
 {
     return ls_controls_current_status;
-}
-
-uint32_t ls_controls_get_speed(void)
-{
-    return ls_controls_current_speed;
-}
-uint32_t ls_controls_get_angle(void)
-{
-    return ls_controls_current_angle;
-}
-uint32_t ls_controls_get_range(void)
-{
-    return ls_controls_current_range;
 }
 
 void ls_controls_task(void *pvParameter)
@@ -73,12 +62,12 @@ void ls_controls_task(void *pvParameter)
             vTaskDelay(2); // yield some time to other tasks... we're in no particular hurry
         }
         // update status
-        connection_reading = (connection_reading+1) % LS_CONTROLS_TASK_CONNECTION_READINGS;
+        connection_reading = (connection_reading + 1) % LS_CONTROLS_TASK_CONNECTION_READINGS;
         if (knob_readings[3] < LS_CONTROLS_ADC_MAX_DISCONNECT)
         {
             connection_readings[connection_reading] = LS_CONTROLS_STATUS_DISCONNECTED;
         }
-        else if (knob_readings[3] > LS_CONTROLS_ADC_MIN_CONNECT && knob_readings[3] < LS_CONTROLS_ADC_MAX_CONNECT)
+        else if (_ls_controls_connected(knob_readings[3]))
         {
             connection_readings[connection_reading] = LS_CONTROLS_STATUS_CONNECTED;
         }
@@ -98,25 +87,19 @@ void ls_controls_task(void *pvParameter)
                 case LS_CONTROLS_STATUS_CONNECTED:
                     connection_event.type = LSEVT_CONTROLS_CONNECTED;
 #ifdef LSDEBUG_CONTROLS
-                    xSemaphoreTake(print_mux, portMAX_DELAY);
-                    printf("Controls status CONNECTED\n");
-                    xSemaphoreGive(print_mux);
+                    ls_debug_printf("Controls status CONNECTED\n");
 #endif
                     break;
                 case LS_CONTROLS_STATUS_DISCONNECTED:
                     connection_event.type = LSEVT_CONTROLS_DISCONNECTED;
 #ifdef LSDEBUG_CONTROLS
-                    xSemaphoreTake(print_mux, portMAX_DELAY);
-                    printf("Controls status DISCONNECTED\n");
-                    xSemaphoreGive(print_mux);
+                    ls_debug_printf("Controls status DISCONNECTED\n");
 #endif
                     break;
                 case LS_CONTROLS_STATUS_INVALID:
                     connection_event.type = LSEVT_CONTROLS_DISCONNECTED;
 #ifdef LSDEBUG_CONTROLS
-                    xSemaphoreTake(print_mux, portMAX_DELAY);
-                    printf("Controls status INVALID\n");
-                    xSemaphoreGive(print_mux);
+                    ls_debug_printf("Controls status INVALID\n");
 #endif
                     break;
                 }
@@ -124,15 +107,43 @@ void ls_controls_task(void *pvParameter)
             }
         }
 #ifdef LSDEBUG_CONTROLS
-        xSemaphoreTake(print_mux, portMAX_DELAY);
-        printf("External control knobs: %d\t %d\t %d\t %d\n", knob_readings[0], knob_readings[1], knob_readings[2], knob_readings[3]);
-        xSemaphoreGive(print_mux);
+        ls_debug_printf("External control knobs: %d\t %d\t %d\t %d\n", knob_readings[0], knob_readings[1], knob_readings[2], knob_readings[3]);
 #endif
-        if (ls_controls_get_current_status() == LS_CONTROLS_STATUS_CONNECTED)
+        if (ls_controls_get_current_status() == LS_CONTROLS_STATUS_CONNECTED && _ls_controls_connected(knob_readings[3]))
         {
-            ls_controls_current_speed = knob_readings[0];
-            ls_controls_current_angle = knob_readings[1];
-            ls_controls_current_range = knob_readings[2];
+            if (_difference_exceeds_threshold(_ls_controls_current_speed, knob_readings[0], LS_CONTROLS_READING_HYSTERISIS))
+            {
+                _ls_controls_current_speed = knob_readings[0];
+                ls_event event;
+                event.type = LSEVT_CONTROLS_SPEED;
+                event.value = (void*)&_ls_controls_current_speed;
+                xQueueSendToBack(ls_event_queue, (void *)&event, 0);
+#ifdef LSDEBUG_CONTROLS
+                    ls_debug_printf("Controls new value speed=%d\n", _ls_controls_current_speed);
+#endif
+            }
+            if (_difference_exceeds_threshold(_ls_controls_current_topangle, knob_readings[1], LS_CONTROLS_READING_HYSTERISIS))
+            {
+                _ls_controls_current_topangle = knob_readings[1];
+                ls_event event;
+                event.type = LSEVT_CONTROLS_TOPANGLE;
+                event.value = (void*)&_ls_controls_current_topangle;
+                xQueueSendToBack(ls_event_queue, (void *)&event, 0);
+#ifdef LSDEBUG_CONTROLS
+                    ls_debug_printf("Controls new value topangle=%d\n", _ls_controls_current_topangle);
+#endif
+            }
+            if (_difference_exceeds_threshold(_ls_controls_current_bottomangle, knob_readings[2], LS_CONTROLS_READING_HYSTERISIS))
+            {
+            _ls_controls_current_bottomangle = knob_readings[2];
+                ls_event event;
+                event.type = LSEVT_CONTROLS_BOTTOMANGLE;
+                event.value = (void*)&_ls_controls_current_bottomangle;
+                xQueueSendToBack(ls_event_queue, (void *)&event, 0);
+#ifdef LSDEBUG_CONTROLS
+                    ls_debug_printf("Controls new value bottomangle=%d\n", _ls_controls_current_bottomangle);
+#endif
+            }
         }
         vTaskDelay(ls_controls_current_status == LS_CONTROLS_STATUS_CONNECTED ? pdMS_TO_TICKS(100) : pdMS_TO_TICKS(600));
     }

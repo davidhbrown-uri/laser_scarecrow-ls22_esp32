@@ -184,6 +184,9 @@ void ls_buzzer_handler_task(void *pvParameter)
                 vTaskDelay(pdMS_TO_TICKS(500)); // rest
                 break;
             case LS_BUZZER_PLAY_TILT_FAIL:
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_CC, 100);
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_B, 100);
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_A, 100);
                 _ls_buzzer_play_note(LS_BUZZER_SCALE_G, 100);
                 _ls_buzzer_play_note(LS_BUZZER_SCALE_F, 100);
                 _ls_buzzer_play_note(LS_BUZZER_SCALE_E, 100);
@@ -191,6 +194,20 @@ void ls_buzzer_handler_task(void *pvParameter)
                 _ls_buzzer_play_note(LS_BUZZER_SCALE_C, 100);
                 _ls_buzzer_play_note(LS_BUZZER_SCALE_bb, 400);
                 vTaskDelay(pdMS_TO_TICKS(500)); // rest
+                break;
+            case LS_BUZZER_PLAY_MANUAL_CONTROL_ENTER:
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_F, 100);
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_G, 100);
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_A, 100);
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_B, 100);
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_CC, 100);
+                break;
+            case LS_BUZZER_PLAY_MANUAL_CONTROL_LEAVE:
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_CC, 100);
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_B, 100);
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_A, 100);
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_G, 100);
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_F, 100);
                 break;
             default:;
 #ifdef LSDEBUG_BUZZER

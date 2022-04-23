@@ -12,8 +12,10 @@ enum ls_buzzer_effects {
     LS_BUZZER_PLAY_TAPE_MISREAD, // bad tape read
     LS_BUZZER_PLAY_HOME_SUCCESS, // home success fanfare
     LS_BUZZER_PLAY_HOME_FAIL, //L home failure
-    LS_BUZZER_PLAY_MAP_FAIL, // descending minor cord (map failure)
-    LS_BUZZER_PLAY_TILT_FAIL // descending scale
+    LS_BUZZER_PLAY_MAP_FAIL, // descending minor cord 
+    LS_BUZZER_PLAY_TILT_FAIL, // long descending scale
+    LS_BUZZER_PLAY_MANUAL_CONTROL_ENTER, // short ascending scale
+    LS_BUZZER_PLAY_MANUAL_CONTROL_LEAVE // short descending scale
 }ls_buzzer_effects;
 
 QueueHandle_t ls_buzzer_queue;
