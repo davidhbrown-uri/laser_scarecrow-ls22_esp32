@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include "freertos/semphr.h"
 #include "esp_adc_cal.h"
+#include "settings.h"
 
 extern SemaphoreHandle_t adc1_mux;
 extern SemaphoreHandle_t print_mux;
@@ -19,11 +20,11 @@ enum ls_lightsense_mode_t ls_lightsense_current_mode(void)
 
 static enum ls_lightsense_level_t _ls_lightsense_level_from_adc(uint32_t adc_reading)
 {
-    if (adc_reading >= LS_LIGHTSENSE_DAY_THRESHOLD)
+    if (adc_reading >= ls_settings_get_light_threshold_on())
     {
         return LS_LIGHTSENSE_LEVEL_DAY;
     }
-    if (adc_reading < LS_LIGHTSENSE_NIGHT_THRESHOLD)
+    if (adc_reading < ls_settings_get_light_threshold_off())
     {
         return LS_LIGHTSENSE_LEVEL_NIGHT;
     }
@@ -65,9 +66,7 @@ static void _ls_lightsense_set_mode(enum ls_lightsense_mode_t mode)
         return; // without doing anything
     }
 #ifdef LSDEBUG_LIGHTSENSE
-    xSemaphoreTake(print_mux, portMAX_DELAY);
-    printf("Lightsense attempting to queue event=%d for mode=%d\n", (int)lightsense_event.type, (int)mode);
-    xSemaphoreGive(print_mux);
+    ls_debug_printf("Lightsense queueing event=%d for mode=%d\n", (int)lightsense_event.type, (int)mode);
 #endif
     if (pdTRUE == xQueueSendToBack(ls_event_queue, (void *)&lightsense_event, 0))
     {
@@ -77,9 +76,7 @@ static void _ls_lightsense_set_mode(enum ls_lightsense_mode_t mode)
     {
         ; // avoid syntax error if not def LSDEBUG_LIGHTSENSE
 #ifdef LSDEBUG_LIGHTSENSE
-        xSemaphoreTake(print_mux, portMAX_DELAY);
-        printf("Lightsense could not queue event\n");
-        xSemaphoreGive(print_mux);
+        ls_debug_printf("Lightsense could not queue event\n");
 #endif
     }
 }
@@ -97,9 +94,7 @@ void ls_lightsense_read_task(void *pvParameter)
         int adc_reading = ls_lightsense_read_adc();
         levels[level_index] = _ls_lightsense_level_from_adc(adc_reading);
 #ifdef LSDEBUG_LIGHTSENSE
-        xSemaphoreTake(print_mux, portMAX_DELAY);
-        printf("Light sense adc=%d; level=%d\n", adc_reading, (int)levels[level_index]);
-        xSemaphoreGive(print_mux);
+        ls_debug_printf("Light sense adc=%d; level=%d\n", adc_reading, (int)levels[level_index]);
 #endif
         bool all_agree = true;
         for (int i = 1; all_agree && i < LS_LIGHTSENSE_READINGS_TO_SWITCH; i++)

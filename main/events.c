@@ -9,5 +9,17 @@ void ls_event_enqueue_noop(void)
 {
     ls_event event;
     event.type = LSEVT_NOOP;
-    xQueueSendToFront(ls_event_queue, (void *)&event, 0);
+    xQueueSendToBack(ls_event_queue, (void *)&event, 0);
+}
+
+bool ls_event_queue_has_messages(void)
+{
+    return uxQueueMessagesWaiting(ls_event_queue) > 0;
+}
+void ls_event_enqueue_noop_if_queue_empty(void)
+{
+    if (! ls_event_queue_has_messages()) 
+    {
+        ls_event_enqueue_noop();
+    }
 }
