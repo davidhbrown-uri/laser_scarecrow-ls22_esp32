@@ -173,6 +173,11 @@ ls_State ls_state_prelaserwarn_active(ls_event event)
         _ls_state_prelaserwarn_buzzer_complete = false;
         _ls_state_prelaserwarn_movement_complete = false;
         _ls_state_prelaserwarn_rotation_count = 0;
+        while (ls_buzzer_in_use() || ls_stepper_is_moving())
+        {
+            vTaskDelay(1);
+        }
+        vTaskDelay(pdMS_TO_TICKS(1000)); // 1sec quiet/still before warning
         ls_buzzer_play(LS_BUZZER_PRE_LASER_WARNING);
         ls_stepper_set_maximum_steps_per_second(LS_STEPPER_STEPS_PER_SECOND_MAX);
         ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION / 2);
@@ -200,6 +205,7 @@ ls_State ls_state_prelaserwarn_active(ls_event event)
     if (_ls_state_prelaserwarn_buzzer_complete && _ls_state_prelaserwarn_movement_complete)
     {
         successor.func = ls_state_active;
+        vTaskDelay(pdMS_TO_TICKS(2000)); // 2sec quiet/still after warning
     }
     return successor;
 }

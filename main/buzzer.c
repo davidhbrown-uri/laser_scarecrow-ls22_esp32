@@ -7,14 +7,14 @@
 #include "debug.h"
 #include "events.h"
 
-extern SemaphoreHandle_t print_mux;
-
 #define BUZZER_SPEED (LEDC_HIGH_SPEED_MODE)
 #define BUZZER_TIMER (LEDC_TIMER_0)
 #define BUZZER_CLOCK (LEDC_AUTO_CLK)
 #define BUZZER_RESOLUTION (LEDC_TIMER_1_BIT)
 #define BUZZER_CHANNEL (LEDC_CHANNEL_0)
 #define BUZZER_DUTY (1)
+
+bool _ls_buzzer_in_use = false;
 
 static enum _ls_buzzer_scale {
     LS_BUZZER_SCALE_bb = 967,  // b
@@ -59,12 +59,15 @@ void ls_buzzer_play(enum ls_buzzer_effects effect)
     xQueueSend(ls_buzzer_queue, (void *)&effect, 0); // don't block if queue full
 }
 
+bool ls_buzzer_in_use(void)
+{
+    return (_ls_buzzer_in_use || (uxQueueMessagesWaiting(ls_buzzer_queue) > 0));
+}
+
 static void _ls_buzzer_effect_click(void)
 {
 #ifdef LSDEBUG_BUZZER
-    xSemaphoreTake(print_mux, portMAX_DELAY);
-    printf("Buzzer Click\n");
-    xSemaphoreGive(print_mux);
+    ls_debug_printf("Buzzer Click\n");
 #endif
     _ls_buzzer_frequency(500);
     vTaskDelay(1);
@@ -80,9 +83,7 @@ static void _ls_buzzer_play_note(enum _ls_buzzer_scale note, int ms_duration)
 static void _ls_buzzer_effect_alternate_high(int duration_ms)
 {
 #ifdef LSDEBUG_BUZZER
-    xSemaphoreTake(print_mux, portMAX_DELAY);
-    printf("Buzzer Alternate High\n");
-    xSemaphoreGive(print_mux);
+    ls_debug_printf("Buzzer Alternate High\n");
 #endif
     for (int i = 0; i < pdMS_TO_TICKS(duration_ms); i += 2)
     {
@@ -97,9 +98,7 @@ static void _ls_buzzer_effect_alternate_high(int duration_ms)
 static void _ls_buzzer_pre_laser_warning(void)
 {
 #ifdef LSDEBUG_BUZZER
-    xSemaphoreTake(print_mux, portMAX_DELAY);
-    printf("Begin pre-laser warning\n");
-    xSemaphoreGive(print_mux);
+    ls_debug_printf("Begin pre-laser warning\n");
 #endif
     for (int i = 0; i < 2; i++)
     {
@@ -125,13 +124,12 @@ void ls_buzzer_handler_task(void *pvParameter)
         if (xQueueReceive(ls_buzzer_queue, &received, portMAX_DELAY) != pdTRUE)
         {
 #ifdef LSDEBUG_BUZZER
-            xSemaphoreTake(print_mux, portMAX_DELAY);
-            printf("No buzz requested maximum delay... getting very bored.");
-            xSemaphoreGive(print_mux);
+            ls_debug_printf("No buzz requested maximum delay... getting very bored.");
 #endif
         }
         else
         {
+            _ls_buzzer_in_use = true;
             switch (received)
             {
             case LS_BUZZER_CLICK:
@@ -139,9 +137,7 @@ void ls_buzzer_handler_task(void *pvParameter)
                 break;
             case LS_BUZZER_ALERT_1S:
 #ifdef LSDEBUG_BUZZER
-                xSemaphoreTake(print_mux, portMAX_DELAY);
-                printf("Buzzer Alert 1s\n");
-                xSemaphoreGive(print_mux);
+                ls_debug_printf("Buzzer Alert 1s\n");
 #endif
                 _ls_buzzer_frequency(3100);
                 vTaskDelay(pdMS_TO_TICKS(1000));
@@ -198,12 +194,11 @@ void ls_buzzer_handler_task(void *pvParameter)
                 break;
             default:;
 #ifdef LSDEBUG_BUZZER
-                xSemaphoreTake(print_mux, portMAX_DELAY);
-                printf("Unknown ls_buzzer_effect %d -- I'm confused", received);
-                xSemaphoreGive(print_mux);
+                ls_debug_printf("Unknown ls_buzzer_effect %d -- I'm confused", received);
 #endif
             }
         }
         ESP_ERROR_CHECK(ledc_stop(BUZZER_SPEED, BUZZER_CHANNEL, 0));
+        _ls_buzzer_in_use = false;
     }
 }

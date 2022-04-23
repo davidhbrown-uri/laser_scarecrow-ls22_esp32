@@ -31,6 +31,8 @@ void ls_stepper_init(void);
 void ls_stepper_task(void *pvParameter);
 
 bool ls_stepper_is_stopped(void);
+#define ls_stepper_is_moving() (!ls_stepper_is_stopped())
+
 BaseType_t ls_stepper_get_steps_taken(void);
 
 int32_t ls_stepper_get_position(void);

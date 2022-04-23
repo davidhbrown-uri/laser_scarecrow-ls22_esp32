@@ -23,3 +23,5 @@ void ls_buzzer_init(void);
 void ls_buzzer_play(enum ls_buzzer_effects effect);
 
 void ls_buzzer_handler_task(void *pvParameter);
+
+bool ls_buzzer_in_use(void);

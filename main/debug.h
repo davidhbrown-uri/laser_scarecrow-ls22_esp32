@@ -33,7 +33,7 @@ extern SemaphoreHandle_t print_mux; // in ls2022_esp32.c
 
 //#define LSDEBUG_MAP
 
-//#define LSDEBUG_LIGHTSENSE
+#define LSDEBUG_LIGHTSENSE
 
 #define LSDEBUG_SETTINGS
 
