@@ -62,7 +62,7 @@
 // default parameters for the stepper movement
 #define LS_STEPPER_STEPS_PER_ROTATION 3200
 #define LS_STEPPER_MOVEMENT_STEPS_MIN 160
-#define LS_STEPPER_MOVEMENT_STEPS_MAX 1200
+#define LS_STEPPER_MOVEMENT_STEPS_MAX (LS_STEPPER_STEPS_PER_ROTATION / 2)
 #define LS_STEPPER_MOVEMENT_REVERSE_PER255 96
 // this value must be low enough that changes in direction are reasonably non-jerky
 #define LS_STEPPER_STEPS_PER_SECOND_MIN 240
@@ -73,18 +73,20 @@
 #define LS_STEPPER_STEPS_PER_SECOND_MAPPING 1800
 #define LS_STEPPER_STEPS_PER_SECOND_DEFAULT 2400
 // LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_SECOND will be added or subtracted to the steps per second when accelerating or decelerating
-#define LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_SECOND 6000
+#define LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_SECOND 8000
 #define LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_TICK ( LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_SECOND / pdMS_TO_TICKS(1000))
 
 // values read by ADC from external controls
 #define LS_CONTROLS_ADC_MAX_DISCONNECT 100
-#define LS_CONTROLS_ADC_MIN_CONNECT 1700
+#define LS_CONTROLS_ADC_MIN_CONNECT 1600
 #define LS_CONTROLS_ADC_MAX_CONNECT 1900
 // to ensure the full range of value can be selected,
 // any ADC reading >= LS_CONTROLS_READING_TOP is considered max
 #define LS_CONTROLS_READING_TOP 4040
 // any ADC reading <= LS_CONTROLS_READING_BOTTOM is considered min
 #define LS_CONTROLS_READING_BOTTOM 50
+// any ADC reading must change by this much from its previous value to be registered.
+#define LS_CONTROLS_READING_HYSTERISIS 10
 
 
 // values read by ADC for tape reflectance sensor

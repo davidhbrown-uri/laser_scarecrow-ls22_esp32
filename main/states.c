@@ -131,20 +131,20 @@ ls_State ls_state_poweron(ls_event event)
 #ifdef LSDEBUG_STATES
             ls_debug_printf("During poweron, ls_map_get_status()=> %d\n", ls_map_get_status());
 #endif
-        if(ls_map_get_status()==LS_MAP_STATUS_OK)
-        {
+            if (ls_map_get_status() == LS_MAP_STATUS_OK)
+            {
 #ifdef LSDEBUG_STATES
-            ls_debug_printf("State poweron (LS_MAP_STATUS_OK)=> pre-laser warning\n");
+                ls_debug_printf("State poweron (LS_MAP_STATUS_OK)=> pre-laser warning\n");
 #endif
-            successor.func = ls_state_prelaserwarn_active;
-        }
-        else
-        {
+                successor.func = ls_state_prelaserwarn_active;
+            }
+            else
+            {
 #ifdef LSDEBUG_STATES
-            ls_debug_printf("State poweron => map_build_substate_home\n");
+                ls_debug_printf("State poweron => map_build_substate_home\n");
 #endif
-            successor.func = ls_state_map_build_substate_home;
-        } 
+                successor.func = ls_state_map_build_substate_home;
+            }
 
         } // switch tapemode
         break;
@@ -173,6 +173,12 @@ ls_State ls_state_prelaserwarn_active(ls_event event)
         _ls_state_prelaserwarn_buzzer_complete = false;
         _ls_state_prelaserwarn_movement_complete = false;
         _ls_state_prelaserwarn_rotation_count = 0;
+        while (ls_buzzer_in_use() || ls_stepper_is_moving())
+        {
+            vTaskDelay(1);
+        }
+        ls_event_empty_queue();
+        vTaskDelay(pdMS_TO_TICKS(1000)); // 1sec quiet/still before warning
         ls_buzzer_play(LS_BUZZER_PRE_LASER_WARNING);
         ls_stepper_set_maximum_steps_per_second(LS_STEPPER_STEPS_PER_SECOND_MAX);
         ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION / 2);
@@ -182,15 +188,15 @@ ls_State ls_state_prelaserwarn_active(ls_event event)
         break;
     case LSEVT_STEPPER_FINISHED_MOVE:
         _ls_state_prelaserwarn_rotation_count++;
-        if (2 > _ls_state_prelaserwarn_rotation_count)
+        if (3 > _ls_state_prelaserwarn_rotation_count)
         {
             ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION / 2);
         }
-        if (2 == _ls_state_prelaserwarn_rotation_count)
+        if (3 == _ls_state_prelaserwarn_rotation_count)
         {
             ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION * 3 / 2);
         }
-        if (2 < _ls_state_prelaserwarn_rotation_count)
+        if (3 < _ls_state_prelaserwarn_rotation_count)
         {
             _ls_state_prelaserwarn_movement_complete = true;
         }
@@ -200,6 +206,7 @@ ls_State ls_state_prelaserwarn_active(ls_event event)
     if (_ls_state_prelaserwarn_buzzer_complete && _ls_state_prelaserwarn_movement_complete)
     {
         successor.func = ls_state_active;
+        vTaskDelay(pdMS_TO_TICKS(1000)); // 1sec quiet/still after warning
     }
     return successor;
 }
@@ -258,6 +265,16 @@ ls_State ls_state_active(ls_event event)
 #endif
             successor.func = ls_state_sleep;
         break;
+    case LSEVT_CONTROLS_CONNECTED:
+    case LSEVT_CONTROLS_SPEED:
+    case LSEVT_CONTROLS_TOPANGLE:
+    case LSEVT_CONTROLS_BOTTOMANGLE:
+#ifdef LSDEBUG_STATES
+        ls_debug_printf("Entering manual control\n")
+#endif
+            successor.func = ls_state_manual;
+        break;
+
     default:;
 #ifdef LSDEBUG_STATES
         ls_debug_printf("Unknown event %d", event.type);
@@ -311,6 +328,7 @@ ls_State ls_state_selftest(ls_event event)
     return successor;
 }
 
+int _ls_state_manual_servo_hold_count = 0;
 ls_State ls_state_manual(ls_event event)
 {
 #ifdef LSDEBUG_STATES
@@ -318,7 +336,51 @@ ls_State ls_state_manual(ls_event event)
 #endif
     ls_State successor;
     successor.func = ls_state_manual;
+    BaseType_t control_value;
+    switch (event.type)
+    {
+    case LSEVT_STATE_ENTRY:
+        ls_laser_set_mode((ls_map_get_status() == LS_MAP_STATUS_OK) ? LS_LASER_MAPPED : LS_LASER_ON);
+        ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION * 5 / 4);
+        // ls_servo_sweep();
+        ls_buzzer_play(LS_BUZZER_PLAY_MANUAL_CONTROL_ENTER);
+        break;
+    case LSEVT_STEPPER_FINISHED_MOVE:
+        ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION * 5 / 4);
+        if (_ls_state_manual_servo_hold_count > 0)
+        {
+            _ls_state_manual_servo_hold_count--;
+        } else {
+            // ls_servo_sweep();
+        }
+        break;
+    case LSEVT_CONTROLS_SPEED:
+        control_value = *((BaseType_t *)event.value);
+        ls_settings_set_stepper_speed(ls_settings_map_control_to_stepper_speed(control_value));
+        ls_stepper_set_maximum_steps_per_second(ls_settings_get_stepper_speed());
+        break;
+    case LSEVT_CONTROLS_TOPANGLE:
+        control_value = *((BaseType_t *)event.value);
+        ls_settings_set_servo_top(ls_settings_map_control_to_servo_top(control_value));
+        // ls_servo_moveto(ls_settings_get_servo_top());
+        _ls_state_manual_servo_hold_count = 3;
+        break;
+    case LSEVT_CONTROLS_BOTTOMANGLE:
+        control_value = *((BaseType_t *)event.value);
+        ls_settings_set_servo_bottom(ls_settings_map_control_to_servo_bottom(control_value));
+        // ls_servo_moveto(ls_settings_get_servo_bottom());
+        _ls_state_manual_servo_hold_count = 3;
+        break;
+    case LSEVT_CONTROLS_DISCONNECTED:
+        ls_stepper_stop();
+        successor.func = ls_state_active;
+    default:;
+    } // switch event type
 
+    if (ls_state_manual != successor.func)
+    {
+        ls_buzzer_play(LS_BUZZER_PLAY_MANUAL_CONTROL_LEAVE);
+    }
     return successor;
 }
 
@@ -350,23 +412,23 @@ ls_State ls_state_sleep(ls_event event)
         break;
     case LSEVT_LIGHT_DAY:
 #ifdef LSDEBUG_STATES
-    ls_debug_printf("SLEEP received wake-up event\n");
+        ls_debug_printf("SLEEP received wake-up event\n");
 #endif
         successor.func = ls_state_wakeup;
         break;
     case LSEVT_NOOP:
-        for(int i=0; i < 20; i++)
+        for (int i = 0; i < 20; i++)
         {
             ls_buzzer_play(LS_BUZZER_CLICK);
-            vTaskDelay(1+i/3);
+            vTaskDelay(1 + i / 3);
         }
-        for(int i=0; i < 30; i++)
+        for (int i = 0; i < 30; i++)
         {
-            if(ls_event_queue_has_messages())
+            if (ls_event_queue_has_messages())
             {
                 break;
             }
-        vTaskDelay(pdMS_TO_TICKS(1000));
+            vTaskDelay(pdMS_TO_TICKS(1000));
         }
         ls_event_enqueue_noop_if_queue_empty();
     default:;
@@ -384,10 +446,10 @@ ls_State ls_state_wakeup(ls_event event)
     switch (event.type)
     {
     case LSEVT_STATE_ENTRY:
-        if(ls_map_get_status()==LS_MAP_STATUS_OK)
+        if (ls_map_get_status() == LS_MAP_STATUS_OK)
         {
-        ls_substate_home_init();
-        ls_event_enqueue_noop();
+            ls_substate_home_init();
+            ls_event_enqueue_noop();
         }
         else
         {
@@ -570,7 +632,7 @@ ls_State ls_state_map_build(ls_event event)
                         current_span = 0;
                     }
                 }
-                ls_settings_set_stepper_random_max(max_span_enabled / 3);
+                ls_settings_set_stepper_random_max(max_span_enabled / 2);
                 ls_map_set_status(LS_MAP_STATUS_OK);
 #ifdef LSDEBUG_MAP
                 ls_debug_printf("Set LS_MAP_STATUS_OK; longest enabled span is %d steps.\n", max_span_enabled);

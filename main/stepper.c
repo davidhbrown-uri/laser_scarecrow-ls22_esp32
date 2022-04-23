@@ -141,10 +141,11 @@ static void _ls_stepper_set_speed(void)
     if (skipping)
     {
         ls_stepper_steps_remaining = _constrain(ls_stepper_steps_remaining + _ls_stepper_speed_current_rate / pdMS_TO_TICKS(1000), 
-        0, _ls_stepper_steps_to_decelerate(_ls_stepper_speed_not_skipping));
+        0, _ls_stepper_steps_to_decelerate(_ls_stepper_speed_when_skipping));
     }
     if (!skipping //&& ls_stepper_steps_remaining < ls_stepper_steps_taken // accelerate at least halfway is too much on short moves
-        && ls_stepper_steps_remaining < _ls_stepper_steps_to_decelerate(_ls_stepper_speed_current_rate))
+        && (ls_stepper_steps_remaining < _ls_stepper_steps_to_decelerate(_ls_stepper_speed_current_rate)
+        || _ls_stepper_speed_current_rate > _ls_stepper_steps_per_second_max))
     {
     //decelerate
         _ls_stepper_speed_current_rate -= LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_TICK;
