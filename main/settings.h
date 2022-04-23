@@ -19,3 +19,9 @@ BaseType_t ls_settings_get_servo_bottom(void);
 
 void ls_settings_set_stepper_random_max(BaseType_t steps);
 BaseType_t ls_settings_get_stepper_random_max(void);
+
+void ls_settings_set_light_threshold_on(BaseType_t adc);
+BaseType_t ls_settings_get_light_threshold_on(void);
+
+void ls_settings_set_light_threshold_off(BaseType_t adc);
+BaseType_t ls_settings_get_light_threshold_off(void);

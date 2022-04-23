@@ -3,7 +3,7 @@
 #include "util.h"
 
 static BaseType_t _ls_settings_stepper_speed, _ls_settings_servo_top, _ls_settings_servo_bottom;
-static BaseType_t _ls_settings_stepper_random_max;
+static BaseType_t _ls_settings_stepper_random_max, _ls_settings_light_threshold_on, _ls_settings_light_threshold_off;
 
 void ls_settings_set_defaults(void)
 {
@@ -12,6 +12,8 @@ void ls_settings_set_defaults(void)
     ls_settings_set_servo_bottom(LS_SERVO_US_MAX);
 
     ls_settings_set_stepper_random_max(LS_STEPPER_MOVEMENT_STEPS_MAX);
+    ls_settings_set_light_threshold_on(LS_LIGHTSENSE_DAY_THRESHOLD);
+    ls_settings_set_light_threshold_off(LS_LIGHTSENSE_NIGHT_THRESHOLD);
 }
 
 void ls_settings_read_from_flash(void)
@@ -84,4 +86,24 @@ void ls_settings_set_stepper_random_max(BaseType_t steps)
 BaseType_t ls_settings_get_stepper_random_max(void)
 {
     return _ls_settings_stepper_random_max;
+}
+
+
+void ls_settings_set_light_threshold_on(BaseType_t adc)
+{
+    _ls_settings_light_threshold_on = _constrain(adc, 0, 4095);
+}
+BaseType_t ls_settings_get_light_threshold_on(void)
+{
+    return _ls_settings_light_threshold_on;
+}
+
+void ls_settings_set_light_threshold_off(BaseType_t adc)
+{
+    _ls_settings_light_threshold_off = _constrain(adc, 0, 4095);
+
+}
+BaseType_t ls_settings_get_light_threshold_off(void)
+{
+    return _ls_settings_light_threshold_off;
 }
