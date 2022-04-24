@@ -125,8 +125,8 @@ void ls_servo_task(void *pvParameter)
     uint16_t current_pulse_width = LS_SERVO_US_MID;
     uint16_t target_pulse_width = LS_SERVO_US_MID;
     
-    enum _ls_servo_motion_modes mode = LS_SERVO_MODE_FIXED;
-    // enum _ls_servo_motion_modes mode = LS_SERVO_MODE_SWEEP;
+    // enum _ls_servo_motion_modes mode = LS_SERVO_MODE_FIXED;
+    enum _ls_servo_motion_modes mode = LS_SERVO_MODE_RANDOM;
 
     // Variable to hold the received event
     struct ls_servo_event received;
@@ -152,13 +152,11 @@ void ls_servo_task(void *pvParameter)
                 break;
 
             case LS_SERVO_JUMP_TO:
-                // If the servo is currently off, still update the pulse width but emit a warning
+                // If the servo is currently off, turn it on
                 if (!servo_is_on)
                 {
-                    ; // do nothing
-#ifdef LSDEBUG_SERVO
-                    _ls_servo_emit_message("Warning: Set the servo pulse width while the servo was not on!\n");
-#endif
+                    _ls_servo_on();
+                    servo_is_on = true;
                 }
 
                 // TODO Confirm that using `received.data` works as expected
@@ -168,13 +166,11 @@ void ls_servo_task(void *pvParameter)
                 break;
             
             case LS_SERVO_MOVE_TO:
-                // If the servo is currently off, still update the target pulse width but emit a warning
+                // If the servo is currently off, turn it on
                 if (!servo_is_on)
                 {
-                    ; // do nothing
-#ifdef LSDEBUG_SERVO
-                    _ls_servo_emit_message("Warning: Attempted to move the servo while it was not on!\n");
-#endif
+                    _ls_servo_on();
+                    servo_is_on = true;
                 }
 
                 // TODO Confirm that using `received.data` works as expected
