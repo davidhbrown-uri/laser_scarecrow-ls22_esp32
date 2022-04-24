@@ -138,11 +138,8 @@ void app_main(void)
     ls_event_queue_init();
     ls_buzzer_init();
     ls_stepper_init();
-<<<<<<< HEAD
     ls_state_init();
-=======
     ls_servo_init();
->>>>>>> 8ecdb87 (incorporated servo.* from test-dev-servo)
     /*
     printf("Initializing I2C\n");
     i2c_mux = xSemaphoreCreateMutex();
@@ -185,6 +182,6 @@ void app_main(void)
     ls_magnet_isr_begin();
 
     xSemaphoreTake(print_mux, portMAX_DELAY);
-    printf("app_main()) has finished.\n");
+    printf("app_main() has finished.\n");
     xSemaphoreGive(print_mux);
 }

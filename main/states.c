@@ -3,6 +3,7 @@
 #include "freertos/semphr.h"
 #include "freertos/timers.h"
 #include "stepper.h"
+#include "servo.h"
 #include "buzzer.h"
 #include "magnet.h"
 #include "tapemode.h"
@@ -226,6 +227,7 @@ ls_State ls_state_active(ls_event event)
 #endif
         ls_stepper_set_maximum_steps_per_second(ls_settings_get_stepper_speed());
         ls_stepper_random();
+<<<<<<< HEAD
         if (ls_map_get_status() == LS_MAP_STATUS_OK)
         {
             ls_laser_set_mode_mapped();
@@ -235,6 +237,9 @@ ls_State ls_state_active(ls_event event)
         {
             ls_laser_set_mode_on();
         }
+=======
+        ls_servo_random();
+>>>>>>> 9a7b299 (Added new servo modes, refactored ls_servo_init())
         break;
     case LSEVT_MAGNET_ENTER:
 #ifdef LSDEBUG_STATES
