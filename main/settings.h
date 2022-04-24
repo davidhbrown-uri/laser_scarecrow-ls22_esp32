@@ -2,8 +2,8 @@
 #include "freertos/FreeRTOS.h"
 
 void ls_settings_set_defaults(void);
-void ls_settings_read_from_flash(void);
-void ls_settings_save_to_flash(void);
+void ls_settings_read(void);
+void ls_settings_save(void);
 
 BaseType_t ls_settings_map_control_to_stepper_speed(BaseType_t adc);
 void ls_settings_set_stepper_speed(BaseType_t steps_per_second);
