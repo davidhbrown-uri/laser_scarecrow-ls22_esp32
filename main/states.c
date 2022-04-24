@@ -385,6 +385,7 @@ ls_State ls_state_manual(ls_event event)
     if (ls_state_manual != successor.func)
     {
         ls_buzzer_play(LS_BUZZER_PLAY_MANUAL_CONTROL_LEAVE);
+        ls_settings_save();
     }
     return successor;
 }

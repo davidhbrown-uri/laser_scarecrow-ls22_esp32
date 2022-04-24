@@ -118,6 +118,9 @@ static void print_char_val_type(esp_adc_cal_value_t val_type)
  */
 void app_main(void)
 {
+    adc1_mux = xSemaphoreCreateMutex();
+    adc2_mux = xSemaphoreCreateMutex();
+    print_mux = xSemaphoreCreateMutex();
     printf("Initializing GPIO\n");
     ls_gpio_initialize();
     /** @todo: servo setup */
@@ -128,12 +131,9 @@ void app_main(void)
     check_efuse();
     printf("Initialized Hardware\n");
     ls_settings_set_defaults();
-    ls_settings_read_from_flash();
+    ls_settings_read();
     printf("Loaded settings\n");
     adc_chars = calloc(1, sizeof(esp_adc_cal_characteristics_t));
-    adc1_mux = xSemaphoreCreateMutex();
-    adc2_mux = xSemaphoreCreateMutex();
-    print_mux = xSemaphoreCreateMutex();
     ls_state_current.func = ls_state_poweron;
     // ls_state_current.func = ls_state_active; ls_stepper_random();
     ls_event_queue_init();
@@ -157,7 +157,7 @@ void app_main(void)
 
     printf("Started all test tasks\n");
     */
-    printf("Initialized queues / semaphores / mutexes / IRQs\n");
+    printf("Initialized queues / semaphores / IRQs\n");
 
     // higher priority tasks get higher priority values
 
