@@ -350,7 +350,9 @@ ls_State ls_state_manual(ls_event event)
         if (_ls_state_manual_servo_hold_count > 0)
         {
             _ls_state_manual_servo_hold_count--;
-        } else {
+        }
+        else
+        {
             // ls_servo_sweep();
         }
         break;
@@ -416,13 +418,18 @@ ls_State ls_state_sleep(ls_event event)
 #endif
         successor.func = ls_state_wakeup;
         break;
-    case LSEVT_NOOP:
+    case LSEVT_NOOP: // snore (?)
         for (int i = 0; i < 20; i++)
+        {
+            ls_buzzer_play(LS_BUZZER_CLICK);
+            vTaskDelay(5 - i / 5);
+        }
+        for (int i = 0; i < 40; i++)
         {
             ls_buzzer_play(LS_BUZZER_CLICK);
             vTaskDelay(1 + i / 3);
         }
-        for (int i = 0; i < 30; i++)
+        for (int i = 0; i < 40; i++)
         {
             if (ls_event_queue_has_messages())
             {
@@ -431,6 +438,16 @@ ls_State ls_state_sleep(ls_event event)
             vTaskDelay(pdMS_TO_TICKS(1000));
         }
         ls_event_enqueue_noop_if_queue_empty();
+        break;
+    case LSEVT_CONTROLS_CONNECTED:
+    case LSEVT_CONTROLS_SPEED:
+    case LSEVT_CONTROLS_TOPANGLE:
+    case LSEVT_CONTROLS_BOTTOMANGLE:
+#ifdef LSDEBUG_STATES
+        ls_debug_printf("Entering manual control\n")
+#endif
+            successor.func = ls_state_manual;
+        break;
     default:;
     }
     return successor;
