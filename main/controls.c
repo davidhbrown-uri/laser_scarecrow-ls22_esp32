@@ -89,6 +89,9 @@ void ls_controls_task(void *pvParameter)
 #ifdef LSDEBUG_CONTROLS
                     ls_debug_printf("Controls status CONNECTED\n");
 #endif
+                    _ls_controls_current_speed = knob_readings[0];
+                    _ls_controls_current_topangle = knob_readings[1];
+                    _ls_controls_current_bottomangle = knob_readings[2];
                     break;
                 case LS_CONTROLS_STATUS_DISCONNECTED:
                     connection_event.type = LSEVT_CONTROLS_DISCONNECTED;
@@ -116,10 +119,10 @@ void ls_controls_task(void *pvParameter)
                 _ls_controls_current_speed = knob_readings[0];
                 ls_event event;
                 event.type = LSEVT_CONTROLS_SPEED;
-                event.value = (void*)&_ls_controls_current_speed;
+                event.value = (void *)&_ls_controls_current_speed;
                 xQueueSendToBack(ls_event_queue, (void *)&event, 0);
 #ifdef LSDEBUG_CONTROLS
-                    ls_debug_printf("Controls new value speed=%d\n", _ls_controls_current_speed);
+                ls_debug_printf("Controls new value speed=%d\n", _ls_controls_current_speed);
 #endif
             }
             if (_difference_exceeds_threshold(_ls_controls_current_topangle, knob_readings[1], LS_CONTROLS_READING_HYSTERISIS))
@@ -127,21 +130,21 @@ void ls_controls_task(void *pvParameter)
                 _ls_controls_current_topangle = knob_readings[1];
                 ls_event event;
                 event.type = LSEVT_CONTROLS_TOPANGLE;
-                event.value = (void*)&_ls_controls_current_topangle;
+                event.value = (void *)&_ls_controls_current_topangle;
                 xQueueSendToBack(ls_event_queue, (void *)&event, 0);
 #ifdef LSDEBUG_CONTROLS
-                    ls_debug_printf("Controls new value topangle=%d\n", _ls_controls_current_topangle);
+                ls_debug_printf("Controls new value topangle=%d\n", _ls_controls_current_topangle);
 #endif
             }
             if (_difference_exceeds_threshold(_ls_controls_current_bottomangle, knob_readings[2], LS_CONTROLS_READING_HYSTERISIS))
             {
-            _ls_controls_current_bottomangle = knob_readings[2];
+                _ls_controls_current_bottomangle = knob_readings[2];
                 ls_event event;
                 event.type = LSEVT_CONTROLS_BOTTOMANGLE;
-                event.value = (void*)&_ls_controls_current_bottomangle;
+                event.value = (void *)&_ls_controls_current_bottomangle;
                 xQueueSendToBack(ls_event_queue, (void *)&event, 0);
 #ifdef LSDEBUG_CONTROLS
-                    ls_debug_printf("Controls new value bottomangle=%d\n", _ls_controls_current_bottomangle);
+                ls_debug_printf("Controls new value bottomangle=%d\n", _ls_controls_current_bottomangle);
 #endif
             }
         }
