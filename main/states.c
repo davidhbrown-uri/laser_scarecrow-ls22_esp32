@@ -228,6 +228,11 @@ ls_State ls_state_active(ls_event event)
         ls_stepper_set_maximum_steps_per_second(ls_settings_get_stepper_speed());
         ls_stepper_random();
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+        ls_servo_random();
+
+>>>>>>> f9230faa48774bd45caafdb48339e93c566fb5ce
         if (ls_map_get_status() == LS_MAP_STATUS_OK)
         {
             ls_laser_set_mode_mapped();

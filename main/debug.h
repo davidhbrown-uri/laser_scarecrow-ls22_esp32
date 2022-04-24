@@ -35,8 +35,8 @@ extern SemaphoreHandle_t print_mux; // in ls2022_esp32.c
 
 // #define LSDEBUG_LIGHTSENSE
 
-//#define LSDEBUG_SETTINGS
-
 #define LSDEBUG_SERVO
+
+// #define LSDEBUG_SETTINGS
 
 #endif

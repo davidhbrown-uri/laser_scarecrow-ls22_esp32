@@ -23,6 +23,7 @@
 #include "tape.h"
 #include "map.h"
 #include "lightsense.h"
+#include "servo.h"
 #include "settings.h"
 #include "servo.h"
 
@@ -138,6 +139,7 @@ void app_main(void)
     ls_event_queue_init();
     ls_buzzer_init();
     ls_stepper_init();
+    ls_servo_init();
     ls_state_init();
     ls_servo_init();
     /*
