@@ -25,7 +25,6 @@
 #include "lightsense.h"
 #include "servo.h"
 #include "settings.h"
-#include "servo.h"
 
 SemaphoreHandle_t adc1_mux = NULL;
 SemaphoreHandle_t adc2_mux = NULL;
@@ -141,7 +140,6 @@ void app_main(void)
     ls_stepper_init();
     ls_servo_init();
     ls_state_init();
-    ls_servo_init();
     /*
     printf("Initializing I2C\n");
     i2c_mux = xSemaphoreCreateMutex();

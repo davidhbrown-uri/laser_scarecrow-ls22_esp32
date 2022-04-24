@@ -115,7 +115,6 @@ void ls_servo_task(void *pvParameter)
     #endif
 
     // Turn on the servo
-    // TODO Does it make more sense for the servo to start off or on?
     _ls_servo_on();
     bool servo_is_on = true;
 
@@ -123,8 +122,7 @@ void ls_servo_task(void *pvParameter)
     uint16_t current_pulse_width = LS_SERVO_US_MID;
     uint16_t target_pulse_width = LS_SERVO_US_MID;
     
-    // enum _ls_servo_motion_modes mode = LS_SERVO_MODE_FIXED;
-    enum _ls_servo_motion_modes mode = LS_SERVO_MODE_SWEEP;
+    enum _ls_servo_motion_modes mode = LS_SERVO_MODE_FIXED;
 
     // Variable to hold the received event
     struct ls_servo_event received;
