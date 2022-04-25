@@ -9,6 +9,9 @@
 #include "config.h"
 #include "debug.h"
 #include "settings.h"
+#include "util.h"
+
+static bool _ls_servo_is_on;
 
 // Immediately jumps to the specified pulse_width
 static void _ls_servo_jump_to_pw(uint32_t pulse_width)
@@ -19,20 +22,23 @@ static void _ls_servo_jump_to_pw(uint32_t pulse_width)
 // Turns on the servo
 static void _ls_servo_on()
 {
-    gpio_set_level(LSGPIO_SERVOPOWERENABLE, 1);
-    mcpwm_start(LS_SERVO_MCPWM_UNIT, LS_SERVO_MCPWM_TIMER);
+    if(!_ls_servo_is_on)
+    {
+        _ls_servo_is_on = true;
+        gpio_set_level(LSGPIO_SERVOPOWERENABLE, 1);
+        mcpwm_start(LS_SERVO_MCPWM_UNIT, LS_SERVO_MCPWM_TIMER);
+    }
 }
 
 // Turns off the servo
 static void _ls_servo_off()
 {
-    gpio_set_level(LSGPIO_SERVOPOWERENABLE, 0);
-    mcpwm_stop(LS_SERVO_MCPWM_UNIT, LS_SERVO_MCPWM_TIMER);
-}
-
-// Helper to clamp an int to a fixed range
-static int _ls_clamp(int n, int min, int max) {
-    return n < min ? min : n > max ? max : n;
+    if(_ls_servo_is_on)
+    {
+        _ls_servo_is_on = false;
+        gpio_set_level(LSGPIO_SERVOPOWERENABLE, 0);
+        mcpwm_stop(LS_SERVO_MCPWM_UNIT, LS_SERVO_MCPWM_TIMER);
+    }
 }
 
 // Initializes the servo and servo task queue
@@ -116,7 +122,6 @@ void ls_servo_task(void *pvParameter)
 
     // Turn on the servo
     _ls_servo_on();
-    bool servo_is_on = true;
 
     const uint16_t PW_MAX_DELTA = 1;
     uint16_t current_pulse_width = LS_SERVO_US_MID;
@@ -138,7 +143,11 @@ void ls_servo_task(void *pvParameter)
             switch (received.event_type)
             {
             case LS_SERVO_ON:
-                servo_is_on = true;
+                #ifdef LSDEBUG_SERVO
+                ls_debug_printf("Servo task received on event, powering up!\n");
+                #endif
+
+                _ls_servo_on();
 
                 break;
 
@@ -148,7 +157,6 @@ void ls_servo_task(void *pvParameter)
                 #endif
 
                 _ls_servo_off();
-                servo_is_on = false;
 
                 break;
 
@@ -158,11 +166,7 @@ void ls_servo_task(void *pvParameter)
                 #endif
 
                 // If the servo is currently off, turn it on
-                if (!servo_is_on)
-                {
-                    _ls_servo_on();
-                    servo_is_on = true;
-                }
+                _ls_servo_on();
 
                 mode = LS_SERVO_MODE_FIXED;
                 // TODO Confirm that using `received.data` works as expected
@@ -178,11 +182,7 @@ void ls_servo_task(void *pvParameter)
                 #endif
 
                 // If the servo is currently off, turn it on
-                if (!servo_is_on)
-                {
-                    _ls_servo_on();
-                    servo_is_on = true;
-                }
+                _ls_servo_on();
 
                 mode = LS_SERVO_MODE_FIXED;
                 // TODO Confirm that using `received.data` works as expected
@@ -196,11 +196,7 @@ void ls_servo_task(void *pvParameter)
                 #endif
 
                 // If the servo is currently off, turn it on
-                if (!servo_is_on)
-                {
-                    _ls_servo_on();
-                    servo_is_on = true;
-                }
+                _ls_servo_on();
 
                 mode = LS_SERVO_MODE_RANDOM;
                 target_pulse_width = current_pulse_width;
@@ -213,14 +209,12 @@ void ls_servo_task(void *pvParameter)
                 #endif
 
                 // If the servo is currently off, turn it on
-                if (!servo_is_on)
-                {
-                    _ls_servo_on();
-                    servo_is_on = true;
-                }
+                _ls_servo_on();
 
-                mode = LS_SERVO_MODE_SWEEP;
-                target_pulse_width = current_pulse_width;
+                if(mode != LS_SERVO_MODE_SWEEP) {
+                    target_pulse_width = current_pulse_width;
+                    mode = LS_SERVO_MODE_SWEEP;
+                }
                 
                 break;
 
@@ -265,9 +259,11 @@ void ls_servo_task(void *pvParameter)
             }
 
             // Calculate the updated current pulse width
-            int min_new_pulse_width = current_pulse_width - PW_MAX_DELTA;
-            int max_new_pulse_width = current_pulse_width + PW_MAX_DELTA;
-            current_pulse_width = _ls_clamp(target_pulse_width, min_new_pulse_width, max_new_pulse_width);
+            current_pulse_width = (uint16_t) _constrain(
+                (BaseType_t) target_pulse_width,
+                (BaseType_t) current_pulse_width - PW_MAX_DELTA,
+                (BaseType_t) current_pulse_width + PW_MAX_DELTA
+            );
 
             // Set the servo pulse width
             _ls_servo_jump_to_pw(current_pulse_width);
