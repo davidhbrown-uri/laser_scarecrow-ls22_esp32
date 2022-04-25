@@ -164,6 +164,7 @@ void ls_servo_task(void *pvParameter)
                     servo_is_on = true;
                 }
 
+                mode = LS_SERVO_MODE_FIXED;
                 // TODO Confirm that using `received.data` works as expected
                 target_pulse_width = received.data;
                 _ls_servo_jump_to_pw(target_pulse_width);
@@ -183,6 +184,7 @@ void ls_servo_task(void *pvParameter)
                     servo_is_on = true;
                 }
 
+                mode = LS_SERVO_MODE_FIXED;
                 // TODO Confirm that using `received.data` works as expected
                 target_pulse_width = received.data;
 
@@ -193,6 +195,13 @@ void ls_servo_task(void *pvParameter)
                 ls_debug_printf("Servo task received move_randomly event, entering random motion mode\n");
                 #endif
 
+                // If the servo is currently off, turn it on
+                if (!servo_is_on)
+                {
+                    _ls_servo_on();
+                    servo_is_on = true;
+                }
+
                 mode = LS_SERVO_MODE_RANDOM;
                 target_pulse_width = current_pulse_width;
 
@@ -202,6 +211,13 @@ void ls_servo_task(void *pvParameter)
                 #ifdef LSDEBUG_SERVO
                 ls_debug_printf("Servo task received sweep event, entering sweep mode\n");
                 #endif
+
+                // If the servo is currently off, turn it on
+                if (!servo_is_on)
+                {
+                    _ls_servo_on();
+                    servo_is_on = true;
+                }
 
                 mode = LS_SERVO_MODE_SWEEP;
                 target_pulse_width = current_pulse_width;
@@ -223,15 +239,19 @@ void ls_servo_task(void *pvParameter)
             if(mode == LS_SERVO_MODE_RANDOM && current_pulse_width == target_pulse_width)
             {
                 #ifdef LSDEBUG_SERVO
-                ls_debug_printf("Servo reached target, choosing new random target\n");
+                ls_debug_printf("Servo reached target, choosing new random target...\n");
                 #endif
+
+                // Delay for 500ms
+                vTaskDelay(pdMS_TO_TICKS(500));
 
                 uint16_t min = (uint16_t) ls_settings_get_servo_top();
                 uint16_t max = (uint16_t) ls_settings_get_servo_bottom();
                 target_pulse_width = esp_random() % (max - min + 1) + min;
 
-                // Delay for 500ms
-                vTaskDelay(pdMS_TO_TICKS(500));
+                #ifdef LSDEBUG_SERVO
+                ls_debug_printf("New target: %d\n", target_pulse_width);
+                #endif
             }
             else if(mode == LS_SERVO_MODE_SWEEP && current_pulse_width == target_pulse_width)
             {
