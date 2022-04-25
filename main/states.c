@@ -354,9 +354,10 @@ ls_State ls_state_manual(ls_event event)
         {
             _ls_state_manual_servo_hold_count--;
         }
-        else
+        else if (_ls_state_manual_servo_hold_count == 0)
         {
             ls_servo_sweep();
+            _ls_state_manual_servo_hold_count = -1;
         }
         break;
     case LSEVT_CONTROLS_SPEED:
@@ -367,13 +368,13 @@ ls_State ls_state_manual(ls_event event)
     case LSEVT_CONTROLS_TOPANGLE:
         control_value = *((BaseType_t *)event.value);
         ls_settings_set_servo_top(ls_settings_map_control_to_servo_top(control_value));
-        ls_servo_moveto(ls_settings_get_servo_top());
+        ls_servo_jumpto(ls_settings_get_servo_top());
         _ls_state_manual_servo_hold_count = 3;
         break;
     case LSEVT_CONTROLS_BOTTOMANGLE:
         control_value = *((BaseType_t *)event.value);
         ls_settings_set_servo_bottom(ls_settings_map_control_to_servo_bottom(control_value));
-        ls_servo_moveto(ls_settings_get_servo_bottom());
+        ls_servo_jumpto(ls_settings_get_servo_bottom());
         _ls_state_manual_servo_hold_count = 3;
         break;
     case LSEVT_CONTROLS_DISCONNECTED:
