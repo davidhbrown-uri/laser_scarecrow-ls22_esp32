@@ -31,6 +31,11 @@ enum ls_controls_status ls_controls_get_current_status(void)
     return ls_controls_current_status;
 }
 
+#define _ls_controls_task_knobs_havent_moved()                                    \
+    {                                                                             \
+        for (int i = 0; i < LS_CONTROLS_TASK_KNOB_COUNT; moved_knob[i++] = false) \
+            ;                                                                     \
+    }
 void ls_controls_task(void *pvParameter)
 {
 #define LS_CONTROLS_TASK_KNOB_COUNT 4
@@ -38,6 +43,9 @@ void ls_controls_task(void *pvParameter)
     uint8_t connection_reading = 0;
     adc2_channel_t knob_channels[] = {LSADC2_KNOB3, LSADC2_KNOB4, LSADC2_KNOB5, LSADC2_KNOB6};
     uint32_t knob_readings[LS_CONTROLS_TASK_KNOB_COUNT];
+    bool moved_knob[LS_CONTROLS_TASK_KNOB_COUNT];
+    _ls_controls_task_knobs_havent_moved();
+    int fastreads = 0;
     enum ls_controls_status connection_readings[LS_CONTROLS_TASK_CONNECTION_READINGS];
     for (int i = 0; i < LS_CONTROLS_TASK_CONNECTION_READINGS; i++)
     {
@@ -45,22 +53,23 @@ void ls_controls_task(void *pvParameter)
     }
     while (1)
     {
+        // read knobs
+        xSemaphoreTake(adc2_mux, pdMS_TO_TICKS(1000));
         for (int knob = 0; knob < LS_CONTROLS_TASK_KNOB_COUNT; knob++)
         {
-            xSemaphoreTake(adc2_mux, pdMS_TO_TICKS(1000));
             int adc_reading = 0;
             uint32_t adc_sum = 0;
             // atten 11 by default... shouldn't need to focus on lower voltages?
             ESP_ERROR_CHECK(adc2_config_channel_atten(knob_channels[knob], ADC_ATTEN_11db));
-            for (int i = 0; i < 4; i++)
+            for (int i = 0; i < LS_CONTROLS_READINGS_TO_AVERAGE; i++)
             {
                 ESP_ERROR_CHECK(adc2_get_raw(knob_channels[knob], ADC_WIDTH_12Bit, &adc_reading));
                 adc_sum += adc_reading;
             }
-            knob_readings[knob] = adc_sum / 4;
-            xSemaphoreGive(adc2_mux);
-            vTaskDelay(2); // yield some time to other tasks... we're in no particular hurry
+            knob_readings[knob] = adc_sum / LS_CONTROLS_READINGS_TO_AVERAGE;
         }
+        xSemaphoreGive(adc2_mux);
+
         // update status
         connection_reading = (connection_reading + 1) % LS_CONTROLS_TASK_CONNECTION_READINGS;
         if (knob_readings[3] < LS_CONTROLS_ADC_MAX_DISCONNECT)
@@ -92,6 +101,7 @@ void ls_controls_task(void *pvParameter)
                     _ls_controls_current_speed = knob_readings[0];
                     _ls_controls_current_topangle = knob_readings[1];
                     _ls_controls_current_bottomangle = knob_readings[2];
+                    _ls_controls_task_knobs_havent_moved();
                     break;
                 case LS_CONTROLS_STATUS_DISCONNECTED:
                     connection_event.type = LSEVT_CONTROLS_DISCONNECTED;
@@ -114,8 +124,14 @@ void ls_controls_task(void *pvParameter)
 #endif
         if (ls_controls_get_current_status() == LS_CONTROLS_STATUS_CONNECTED && _ls_controls_connected(knob_readings[3]))
         {
-            if (_difference_exceeds_threshold(_ls_controls_current_speed, knob_readings[0], LS_CONTROLS_READING_HYSTERISIS))
+            if (moved_knob[0] || _difference_exceeds_threshold(_ls_controls_current_speed, knob_readings[0], LS_CONTROLS_READING_MOVE_THRESHOLD))
             {
+                if (!moved_knob[0])
+                {
+                    fastreads = LS_CONTROLS_FASTREADS_AFTER_MOVE;
+                }
+                _ls_controls_task_knobs_havent_moved();
+                moved_knob[0] = (fastreads-- > 0 ? true : false);
                 _ls_controls_current_speed = knob_readings[0];
                 ls_event event;
                 event.type = LSEVT_CONTROLS_SPEED;
@@ -125,8 +141,10 @@ void ls_controls_task(void *pvParameter)
                 ls_debug_printf("Controls new value speed=%d\n", _ls_controls_current_speed);
 #endif
             }
-            if (_difference_exceeds_threshold(_ls_controls_current_topangle, knob_readings[1], LS_CONTROLS_READING_HYSTERISIS))
+            if (moved_knob[1] || _difference_exceeds_threshold(_ls_controls_current_topangle, knob_readings[1], LS_CONTROLS_READING_MOVE_THRESHOLD))
             {
+                _ls_controls_task_knobs_havent_moved();
+                moved_knob[1] = (fastreads-- > 0 ? true : false);
                 _ls_controls_current_topangle = knob_readings[1];
                 ls_event event;
                 event.type = LSEVT_CONTROLS_TOPANGLE;
@@ -136,8 +154,10 @@ void ls_controls_task(void *pvParameter)
                 ls_debug_printf("Controls new value topangle=%d\n", _ls_controls_current_topangle);
 #endif
             }
-            if (_difference_exceeds_threshold(_ls_controls_current_bottomangle, knob_readings[2], LS_CONTROLS_READING_HYSTERISIS))
+            if (moved_knob[2] || _difference_exceeds_threshold(_ls_controls_current_bottomangle, knob_readings[2], LS_CONTROLS_READING_MOVE_THRESHOLD))
             {
+                _ls_controls_task_knobs_havent_moved();
+                moved_knob[2] = (fastreads-- > 0 ? true : false);
                 _ls_controls_current_bottomangle = knob_readings[2];
                 ls_event event;
                 event.type = LSEVT_CONTROLS_BOTTOMANGLE;

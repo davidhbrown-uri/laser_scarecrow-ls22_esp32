@@ -211,7 +211,7 @@ ls_State ls_state_prelaserwarn(ls_event event)
     }
     if (_ls_state_prelaserwarn_buzzer_complete && _ls_state_prelaserwarn_movement_complete)
     {
-        if (NULL == _ls_state_prelaserwarn_successor) 
+        if (NULL == _ls_state_prelaserwarn_successor)
         {
             _ls_state_prelaserwarn_successor = ls_state_active; // default
         }
@@ -322,7 +322,7 @@ ls_State ls_state_home(ls_event event)
         ls_event_enqueue_noop();
         break;
     case LSEVT_HOME_COMPLETED:
-        if(NULL == _ls_state_home_successor)
+        if (NULL == _ls_state_home_successor)
         {
             _ls_state_home_successor = ls_state_active;
         }
@@ -379,6 +379,9 @@ ls_State ls_state_manual(ls_event event)
             ls_servo_sweep();
             _ls_state_manual_servo_hold_count = -1;
         }
+        break;
+    case LSEVT_SERVO_FINISHED_MOVE:
+        ls_buzzer_play(LS_BUZZER_CLICK);
         break;
     case LSEVT_CONTROLS_SPEED:
         control_value = *((BaseType_t *)event.value);
@@ -477,7 +480,7 @@ ls_State ls_state_sleep(ls_event event)
             ls_state_set_home_successor(ls_state_prelaserwarn);
             successor.func = ls_state_home;
         }
-        else 
+        else
         {
             successor.func = ls_state_prelaserwarn;
         }
