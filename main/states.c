@@ -106,7 +106,7 @@ int ls_magnet_homing_tries = 50;
 ls_State ls_state_poweron(ls_event event)
 {
 #ifdef LSDEBUG_STATES
-    ls_debug_printf("POWERON state handling event\n");
+    ls_debug_printf("STATE_POWERON handling event\n");
 #endif
     ls_State successor;
     successor.func = ls_state_prelaserwarn;
@@ -168,7 +168,7 @@ ls_State ls_state_prelaserwarn(ls_event event)
 {
 #ifdef LSDEBUG_STATES
     xSemaphoreTake(print_mux, portMAX_DELAY);
-    printf("PRELASERWARN_ACTIVE state handling event\n");
+    printf("STATE_PRELASERWARN handling event\n");
     xSemaphoreGive(print_mux);
 #endif
     ls_State successor;
@@ -225,7 +225,7 @@ ls_State ls_state_prelaserwarn(ls_event event)
 ls_State ls_state_active(ls_event event)
 {
 #ifdef LSDEBUG_STATES
-    ls_debug_printf("ACTIVE state handling event\n");
+    ls_debug_printf("STATE_ACTIVE handling event\n");
 #endif
     ls_State successor;
     successor.func = ls_state_active;
@@ -311,7 +311,7 @@ void ls_state_set_home_successor(ls_state_funcptr successor)
 ls_State ls_state_home(ls_event event)
 {
 #ifdef LSDEBUG_STATES
-    ls_debug_printf("ACTIVE_SUBSTATE_HOME handling event\n");
+    ls_debug_printf("STATE_HOME handling event\n");
 #endif
     ls_State successor;
     successor.func = ls_state_home;
@@ -331,7 +331,21 @@ ls_State ls_state_home(ls_event event)
         ls_event_enqueue_noop();
         break;
     case LSEVT_HOME_FAILED:
-        successor.func = ls_state_error_home;
+        ls_buzzer_play(LS_BUZZER_PLAY_HOME_FAIL);
+        switch (ls_tapemode())
+        {
+        case LS_TAPEMODE_BLACK_SAFE:
+        case LS_TAPEMODE_REFLECT_SAFE:
+            successor.func = ls_state_error_home;
+            break;
+        default:
+            if (NULL == _ls_state_home_successor)
+            {
+                _ls_state_home_successor = ls_state_active;
+            }
+            ls_state_set_prelaserwarn_successor(ls_state_active);
+            successor.func = ls_state_prelaserwarn;
+        }
         ls_event_enqueue_noop();
         break;
     default:
@@ -343,7 +357,7 @@ ls_State ls_state_home(ls_event event)
 ls_State ls_state_selftest(ls_event event)
 {
 #ifdef LSDEBUG_STATES
-    ls_debug_printf("SELFTEST state handling event\n");
+    ls_debug_printf("STATE_SELFTEST handling event\n");
 #endif
     ls_State successor;
     successor.func = ls_state_selftest;
@@ -355,7 +369,7 @@ int _ls_state_manual_servo_hold_count = 0;
 ls_State ls_state_manual(ls_event event)
 {
 #ifdef LSDEBUG_STATES
-    ls_debug_printf("MANUAL state handling event\n");
+    ls_debug_printf("STATE_MANUAL handling event\n");
 #endif
     ls_State successor;
     successor.func = ls_state_manual;
@@ -417,7 +431,7 @@ ls_State ls_state_manual(ls_event event)
 ls_State ls_state_sleep(ls_event event)
 {
 #ifdef LSDEBUG_STATES
-    ls_debug_printf("SLEEP handling event\n");
+    ls_debug_printf("STATE_SLEEP handling event\n");
 #endif
     ls_State successor;
     successor.func = ls_state_sleep;
@@ -493,7 +507,7 @@ ls_State ls_state_sleep(ls_event event)
 ls_State ls_state_wakeup(ls_event event)
 {
 #ifdef LSDEBUG_STATES
-    ls_debug_printf("WAKEUP handling event\n");
+    ls_debug_printf("STATE_WAKEUP handling event\n");
 #endif
     ls_State successor;
     successor.func = ls_state_wakeup;
@@ -604,7 +618,7 @@ static void _ls_state_map_build_read_and_set_map(void)
 ls_State ls_state_map_build(ls_event event)
 {
 #ifdef LSDEBUG_STATES
-    ls_debug_printf("MAP_BUILD state handling event %d with %d steps remaining\n", event.type, _ls_state_map_build_steps_remaining);
+    ls_debug_printf("STATE_MAP_BUILD handling event %d with %d steps remaining\n", event.type, _ls_state_map_build_steps_remaining);
 #endif
     ls_State successor;
     successor.func = ls_state_map_build;
@@ -699,35 +713,6 @@ ls_State ls_state_map_build(ls_event event)
     return successor;
 }
 
-/*
-ls_State ls_state_map_build_substate_home(ls_event event)
-{
-#ifdef LSDEBUG_STATES
-    xSemaphoreTake(print_mux, portMAX_DELAY);
-    printf("MAP_BUILD_SUBSTATE_HOME handling event\n");
-    xSemaphoreGive(print_mux);
-#endif
-    ls_State successor;
-    successor.func = ls_state_map_build_substate_home;
-    switch (event.type)
-    {
-    case LSEVT_STATE_ENTRY:
-        ls_substate_home_init();
-        ls_event_enqueue_noop();
-        break;
-    case LSEVT_HOME_COMPLETED:
-        successor.func = ls_state_map_build;
-        break;
-    case LSEVT_HOME_FAILED:
-        successor.func = ls_state_error_home;
-        break;
-    default:
-        ls_substate_home_handle_event(event);
-    }
-    return successor;
-}
-*/
-
 ls_State ls_state_error_home(ls_event event)
 {
     ls_gpio_initialize(); // turn things off
@@ -738,9 +723,8 @@ ls_State ls_state_error_home(ls_event event)
     printf(">>>>HOMING FAILED<<<\n");
     xSemaphoreGive(print_mux);
 #endif
-
-    ls_buzzer_play(LS_BUZZER_PLAY_HOME_FAIL);
     vTaskDelay(pdMS_TO_TICKS(30000)); // 30 seconds between alerts
+    ls_buzzer_play(LS_BUZZER_PLAY_HOME_FAIL);
     ls_event_enqueue_noop();
     return successor;
 }
@@ -789,5 +773,8 @@ ls_State ls_state_error_tilt(ls_event event)
     printf(">>>>I'VE FALLEN AND CAN'T GET UP<<<\n");
     xSemaphoreGive(print_mux);
 #endif
+    vTaskDelay(pdMS_TO_TICKS(30000)); // 30 seconds between alerts
+    ls_buzzer_play(LS_BUZZER_PLAY_TILT_FAIL);
+    ls_event_enqueue_noop();
     return successor;
 }
