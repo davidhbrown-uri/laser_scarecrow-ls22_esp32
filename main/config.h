@@ -90,8 +90,10 @@
 // any ADC reading <= LS_CONTROLS_READING_BOTTOM is considered min
 #define LS_CONTROLS_READING_BOTTOM 50
 // any ADC reading must change by this much from its previous value to be registered.
-#define LS_CONTROLS_READING_HYSTERISIS 7
-
+#define LS_CONTROLS_READING_MOVE_THRESHOLD 20
+#define LS_CONTROLS_READINGS_TO_AVERAGE 5
+// when controls are connected, readings are sent every tick, so 50 reads=~5sec
+#define LS_CONTROLS_FASTREADS_AFTER_MOVE 50
 
 // values read by ADC for tape reflectance sensor
 // based on testing conducted March 18 '22
@@ -111,14 +113,14 @@
 #define LS_MAP_RESOLUTION (LS_STEPPER_STEPS_PER_ROTATION / 400)
 #define LS_MAP_ALLOWABLE_MISREAD_PERCENT 4
 
-// how often should we rehome if using the map? 10000=10s debug/test, 3600000=1h production
+// how often should we rehome if using the map? 10000=10s debug/test, 1800000=30min production
 #ifdef LSDEBUG_HOMING
 #define LS_STATE_REHOME_TIMER_PERIOD_MS 10000
 #else
-#define LS_STATE_REHOME_TIMER_PERIOD_MS 3600000
+#define LS_STATE_REHOME_TIMER_PERIOD_MS 1800000
 #endif
 
-// light levels based on sample data recorded in light.h
+// light levels based on sample data recorded in lightsense.h; roughly 40lux on, 20lux off
 #define LS_LIGHTSENSE_DAY_THRESHOLD 1000
 #define LS_LIGHTSENSE_NIGHT_THRESHOLD 500
 #define LS_LIGHTSENSE_READING_INTERVAL_MS 4000
