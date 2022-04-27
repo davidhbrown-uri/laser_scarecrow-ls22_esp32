@@ -11,7 +11,7 @@
 #include "settings.h"
 #include "util.h"
 
-static bool _ls_servo_is_on;
+static bool _ls_servo_is_on = false; // The servo will start off from ls_gpio_initialize()
 
 // Immediately jumps to the specified pulse_width
 static void _ls_servo_jump_to_pw(uint32_t pulse_width)
@@ -120,8 +120,7 @@ void ls_servo_task(void *pvParameter)
     ls_debug_printf("Initializing servo task\n");
     #endif
 
-    // Turn on the servo
-    _ls_servo_on();
+    // No need to turn the servo on/off here, it is already off from ls_gpio_initialize()
 
     const uint16_t PW_MAX_DELTA = 1;
     uint16_t current_pulse_width = LS_SERVO_US_MID;
