@@ -109,7 +109,7 @@ ls_State ls_state_poweron(ls_event event)
     ls_debug_printf("POWERON state handling event\n");
 #endif
     ls_State successor;
-    successor.func = ls_state_prelaserwarn_active;
+    successor.func = ls_state_prelaserwarn;
     switch (event.type)
     {
     case LSEVT_STATE_ENTRY:
@@ -117,7 +117,7 @@ ls_State ls_state_poweron(ls_event event)
         switch (ls_tapemode())
         {
         case LS_TAPEMODE_IGNORE:
-            successor.func = ls_state_prelaserwarn_active;
+            successor.func = ls_state_prelaserwarn;
 #ifdef LSDEBUG_STATES
             ls_debug_printf("State poweron ignoring tape => pre-laser warning\n");
 #endif
@@ -137,14 +137,15 @@ ls_State ls_state_poweron(ls_event event)
 #ifdef LSDEBUG_STATES
                 ls_debug_printf("State poweron (LS_MAP_STATUS_OK)=> pre-laser warning\n");
 #endif
-                successor.func = ls_state_prelaserwarn_active;
+                successor.func = ls_state_prelaserwarn;
             }
             else
             {
 #ifdef LSDEBUG_STATES
                 ls_debug_printf("State poweron => map_build_substate_home\n");
 #endif
-                successor.func = ls_state_map_build_substate_home;
+                ls_state_set_home_successor(ls_state_map_build);
+                successor.func = ls_state_home; // ls_state_map_build_substate_home;
             }
 
         } // switch tapemode
@@ -158,8 +159,12 @@ ls_State ls_state_poweron(ls_event event)
 static bool _ls_state_prelaserwarn_buzzer_complete;
 static bool _ls_state_prelaserwarn_movement_complete;
 static int _ls_state_prelaserwarn_rotation_count;
-
-ls_State ls_state_prelaserwarn_active(ls_event event)
+static ls_state_funcptr _ls_state_prelaserwarn_successor = NULL;
+void ls_state_set_prelaserwarn_successor(ls_state_funcptr successor)
+{
+    _ls_state_prelaserwarn_successor = successor;
+}
+ls_State ls_state_prelaserwarn(ls_event event)
 {
 #ifdef LSDEBUG_STATES
     xSemaphoreTake(print_mux, portMAX_DELAY);
@@ -167,7 +172,7 @@ ls_State ls_state_prelaserwarn_active(ls_event event)
     xSemaphoreGive(print_mux);
 #endif
     ls_State successor;
-    successor.func = ls_state_prelaserwarn_active;
+    successor.func = ls_state_prelaserwarn;
     switch (event.type)
     {
     case LSEVT_STATE_ENTRY:
@@ -206,7 +211,12 @@ ls_State ls_state_prelaserwarn_active(ls_event event)
     }
     if (_ls_state_prelaserwarn_buzzer_complete && _ls_state_prelaserwarn_movement_complete)
     {
-        successor.func = ls_state_active;
+        if (NULL == _ls_state_prelaserwarn_successor) 
+        {
+            _ls_state_prelaserwarn_successor = ls_state_active; // default
+        }
+        successor.func = _ls_state_prelaserwarn_successor;
+        _ls_state_prelaserwarn_successor = NULL;
         vTaskDelay(pdMS_TO_TICKS(1000)); // 1sec quiet/still after warning
     }
     return successor;
@@ -260,7 +270,7 @@ ls_State ls_state_active(ls_event event)
 #ifdef LSDEBUG_STATES
         ls_debug_printf("Rehoming from active state\n");
 #endif
-        successor.func = ls_state_active_substate_home;
+        successor.func = ls_state_home;
         break;
     case LSEVT_LIGHT_NIGHT:
 #ifdef LSDEBUG_STATES
@@ -293,13 +303,18 @@ ls_State ls_state_active(ls_event event)
     return successor;
 }
 
-ls_State ls_state_active_substate_home(ls_event event)
+static ls_state_funcptr _ls_state_home_successor = NULL;
+void ls_state_set_home_successor(ls_state_funcptr successor)
+{
+    _ls_state_home_successor = successor;
+}
+ls_State ls_state_home(ls_event event)
 {
 #ifdef LSDEBUG_STATES
     ls_debug_printf("ACTIVE_SUBSTATE_HOME handling event\n");
 #endif
     ls_State successor;
-    successor.func = ls_state_active_substate_home;
+    successor.func = ls_state_home;
     switch (event.type)
     {
     case LSEVT_STATE_ENTRY:
@@ -307,7 +322,12 @@ ls_State ls_state_active_substate_home(ls_event event)
         ls_event_enqueue_noop();
         break;
     case LSEVT_HOME_COMPLETED:
-        successor.func = ls_state_active;
+        if(NULL == _ls_state_home_successor)
+        {
+            _ls_state_home_successor = ls_state_active;
+        }
+        successor.func = _ls_state_home_successor;
+        _ls_state_home_successor = ls_state_active;
         ls_event_enqueue_noop();
         break;
     case LSEVT_HOME_FAILED:
@@ -449,9 +469,18 @@ ls_State ls_state_sleep(ls_event event)
     case LSEVT_CONTROLS_TOPANGLE:
     case LSEVT_CONTROLS_BOTTOMANGLE:
 #ifdef LSDEBUG_STATES
-        ls_debug_printf("Entering manual control\n")
+        ls_debug_printf("Entering manual control\n");
 #endif
-            successor.func = ls_state_manual;
+        ls_state_set_prelaserwarn_successor(ls_state_manual);
+        if (ls_map_get_status() == LS_MAP_STATUS_OK)
+        {
+            ls_state_set_home_successor(ls_state_prelaserwarn);
+            successor.func = ls_state_home;
+        }
+        else 
+        {
+            successor.func = ls_state_prelaserwarn;
+        }
         break;
     default:;
     }
@@ -475,11 +504,11 @@ ls_State ls_state_wakeup(ls_event event)
         }
         else
         {
-            successor.func = ls_state_prelaserwarn_active;
+            successor.func = ls_state_prelaserwarn;
         }
         break;
     case LSEVT_HOME_COMPLETED:
-        successor.func = ls_state_prelaserwarn_active;
+        successor.func = ls_state_prelaserwarn;
         ls_event_enqueue_noop();
         break;
     case LSEVT_HOME_FAILED:
@@ -604,7 +633,7 @@ ls_State ls_state_map_build(ls_event event)
             ls_debug_printf("\nMapping completed with %d enabled, %d disabled, and %d misreads\n", _ls_state_map_enable_count, _ls_state_map_disable_count, _ls_state_map_misread_count);
 #endif
             bool badmap = false;
-            successor.func = ls_state_prelaserwarn_active;
+            successor.func = ls_state_prelaserwarn;
             if (0 == _ls_state_map_enable_count || 0 == _ls_state_map_disable_count)
             {
                 badmap = true;
@@ -660,12 +689,14 @@ ls_State ls_state_map_build(ls_event event)
                 ls_debug_printf("Set LS_MAP_STATUS_OK; longest enabled span is %d steps.\n", max_span_enabled);
 #endif
             }
+            ls_tape_sensor_disable();
         }     // done building map
     default:; // nothing to do for event of this type
     }         // switch  on event
     return successor;
 }
 
+/*
 ls_State ls_state_map_build_substate_home(ls_event event)
 {
 #ifdef LSDEBUG_STATES
@@ -692,6 +723,7 @@ ls_State ls_state_map_build_substate_home(ls_event event)
     }
     return successor;
 }
+*/
 
 ls_State ls_state_error_home(ls_event event)
 {
