@@ -144,7 +144,8 @@ ls_State ls_state_poweron(ls_event event)
 #ifdef LSDEBUG_STATES
                 ls_debug_printf("State poweron => map_build_substate_home\n");
 #endif
-                successor.func = ls_state_map_build_substate_home;
+                ls_state_set_home_successor(ls_state_map_build);
+                successor.func = ls_state_home; // ls_state_map_build_substate_home;
             }
 
         } // switch tapemode
@@ -269,7 +270,7 @@ ls_State ls_state_active(ls_event event)
 #ifdef LSDEBUG_STATES
         ls_debug_printf("Rehoming from active state\n");
 #endif
-        successor.func = ls_state_active_substate_home;
+        successor.func = ls_state_home;
         break;
     case LSEVT_LIGHT_NIGHT:
 #ifdef LSDEBUG_STATES
@@ -302,13 +303,18 @@ ls_State ls_state_active(ls_event event)
     return successor;
 }
 
-ls_State ls_state_active_substate_home(ls_event event)
+static ls_state_funcptr _ls_state_home_successor = NULL;
+void ls_state_set_home_successor(ls_state_funcptr successor)
+{
+    _ls_state_home_successor = successor;
+}
+ls_State ls_state_home(ls_event event)
 {
 #ifdef LSDEBUG_STATES
     ls_debug_printf("ACTIVE_SUBSTATE_HOME handling event\n");
 #endif
     ls_State successor;
-    successor.func = ls_state_active_substate_home;
+    successor.func = ls_state_home;
     switch (event.type)
     {
     case LSEVT_STATE_ENTRY:
@@ -316,7 +322,12 @@ ls_State ls_state_active_substate_home(ls_event event)
         ls_event_enqueue_noop();
         break;
     case LSEVT_HOME_COMPLETED:
-        successor.func = ls_state_active;
+        if(NULL == _ls_state_home_successor)
+        {
+            _ls_state_home_successor = ls_state_active;
+        }
+        successor.func = _ls_state_home_successor;
+        _ls_state_home_successor = ls_state_active;
         ls_event_enqueue_noop();
         break;
     case LSEVT_HOME_FAILED:
@@ -461,7 +472,15 @@ ls_State ls_state_sleep(ls_event event)
         ls_debug_printf("Entering manual control\n");
 #endif
         ls_state_set_prelaserwarn_successor(ls_state_manual);
-        successor.func = ls_state_prelaserwarn;
+        if (ls_map_get_status() == LS_MAP_STATUS_OK)
+        {
+            ls_state_set_home_successor(ls_state_prelaserwarn);
+            successor.func = ls_state_home;
+        }
+        else 
+        {
+            successor.func = ls_state_prelaserwarn;
+        }
         break;
     default:;
     }
@@ -677,6 +696,7 @@ ls_State ls_state_map_build(ls_event event)
     return successor;
 }
 
+/*
 ls_State ls_state_map_build_substate_home(ls_event event)
 {
 #ifdef LSDEBUG_STATES
@@ -703,6 +723,7 @@ ls_State ls_state_map_build_substate_home(ls_event event)
     }
     return successor;
 }
+*/
 
 ls_State ls_state_error_home(ls_event event)
 {

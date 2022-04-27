@@ -40,7 +40,7 @@ ls_State ls_state_wakeup(ls_event);
 ls_State ls_state_prelaserwarn(ls_event);
 
 /**
- * @brief Default is not called is ls_state_active. 
+ * @brief Default if not called is ls_state_active. 
  * 
  * typical use:
  *         ls_state_set_prelaserwarn_successor(&ls_state_manual);
@@ -49,7 +49,16 @@ ls_State ls_state_prelaserwarn(ls_event);
  */
 void ls_state_set_prelaserwarn_successor(ls_state_funcptr);
 ls_State ls_state_active(ls_event);
-ls_State ls_state_active_substate_home(ls_event);
+/**
+ * @brief Default if not called is ls_state_active. 
+ * 
+ * typical use:
+ *         ls_state_set_home_successor(&ls_state_map_build);
+ *         successor.func = ls_state_home;
+ * 
+ */
+void ls_state_set_home_successor(ls_state_funcptr);
+ls_State ls_state_home(ls_event);
 
 ls_State ls_state_map_build(ls_event);
 ls_State ls_state_map_build_substate_home(ls_event);
