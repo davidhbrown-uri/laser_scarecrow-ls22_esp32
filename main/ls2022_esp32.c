@@ -23,6 +23,7 @@
 #include "tape.h"
 #include "map.h"
 #include "lightsense.h"
+#include "servo.h"
 #include "settings.h"
 
 SemaphoreHandle_t adc1_mux = NULL;
@@ -137,6 +138,7 @@ void app_main(void)
     ls_event_queue_init();
     ls_buzzer_init();
     ls_stepper_init();
+    ls_servo_init();
     ls_state_init();
     /*
     printf("Initializing I2C\n");
@@ -168,6 +170,8 @@ void app_main(void)
 
     // lowest priority (1-9)
     xTaskCreate(&ls_buzzer_handler_task, "buzzer_handler", configMINIMAL_STACK_SIZE * 2, NULL, 5, NULL);
+    xTaskCreate(&ls_servo_task, "servo_task", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
+
 #ifdef LSDEBUG_TAPEMODE
     xTaskCreate(&ls_tapemode_debug_task, "tapemode_debug_task", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
 #endif
@@ -178,6 +182,6 @@ void app_main(void)
     ls_magnet_isr_begin();
 
     xSemaphoreTake(print_mux, portMAX_DELAY);
-    printf("app_main()) has finished.\n");
+    printf("app_main() has finished.\n");
     xSemaphoreGive(print_mux);
 }

@@ -3,6 +3,7 @@
 #include "freertos/semphr.h"
 #include "freertos/timers.h"
 #include "stepper.h"
+#include "servo.h"
 #include "buzzer.h"
 #include "magnet.h"
 #include "tapemode.h"
@@ -226,6 +227,8 @@ ls_State ls_state_active(ls_event event)
 #endif
         ls_stepper_set_maximum_steps_per_second(ls_settings_get_stepper_speed());
         ls_stepper_random();
+        ls_servo_random();
+
         if (ls_map_get_status() == LS_MAP_STATUS_OK)
         {
             ls_laser_set_mode_mapped();
@@ -284,7 +287,7 @@ ls_State ls_state_active(ls_event event)
     if (successor.func != ls_state_active)
     {
         ls_stepper_stop();
-        // servo stop
+        ls_servo_off();
         ls_laser_set_mode_off();
     }
     return successor;
@@ -342,7 +345,7 @@ ls_State ls_state_manual(ls_event event)
     case LSEVT_STATE_ENTRY:
         ls_laser_set_mode((ls_map_get_status() == LS_MAP_STATUS_OK) ? LS_LASER_MAPPED : LS_LASER_ON);
         ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION * 5 / 4);
-        // ls_servo_sweep();
+        ls_servo_sweep();
         ls_buzzer_play(LS_BUZZER_PLAY_MANUAL_CONTROL_ENTER);
         break;
     case LSEVT_STEPPER_FINISHED_MOVE:
@@ -351,9 +354,10 @@ ls_State ls_state_manual(ls_event event)
         {
             _ls_state_manual_servo_hold_count--;
         }
-        else
+        else if (_ls_state_manual_servo_hold_count == 0)
         {
-            // ls_servo_sweep();
+            ls_servo_sweep();
+            _ls_state_manual_servo_hold_count = -1;
         }
         break;
     case LSEVT_CONTROLS_SPEED:
@@ -364,13 +368,13 @@ ls_State ls_state_manual(ls_event event)
     case LSEVT_CONTROLS_TOPANGLE:
         control_value = *((BaseType_t *)event.value);
         ls_settings_set_servo_top(ls_settings_map_control_to_servo_top(control_value));
-        // ls_servo_moveto(ls_settings_get_servo_top());
+        ls_servo_jumpto(ls_settings_get_servo_top());
         _ls_state_manual_servo_hold_count = 3;
         break;
     case LSEVT_CONTROLS_BOTTOMANGLE:
         control_value = *((BaseType_t *)event.value);
         ls_settings_set_servo_bottom(ls_settings_map_control_to_servo_bottom(control_value));
-        // ls_servo_moveto(ls_settings_get_servo_bottom());
+        ls_servo_jumpto(ls_settings_get_servo_bottom());
         _ls_state_manual_servo_hold_count = 3;
         break;
     case LSEVT_CONTROLS_DISCONNECTED:
@@ -398,7 +402,7 @@ ls_State ls_state_sleep(ls_event event)
     {
     case LSEVT_STATE_ENTRY:
         ls_laser_set_mode_off();
-        // ls_servo_off();
+        ls_servo_off();
         ls_stepper_forward(1);
         break;
     case LSEVT_STEPPER_FINISHED_MOVE:
