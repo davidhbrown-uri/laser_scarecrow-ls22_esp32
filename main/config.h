@@ -54,6 +54,10 @@
 #define LS_SERVO_US_MIN 750
 #define LS_SERVO_US_MAX 2250
 #define LS_SERVO_US_MID 1500
+#define LS_SERVO_DELTA_PER_TICK_DEFAULT 2
+#define LS_SERVO_DELTA_PER_TICK_MAX 1000
+#define LS_SERVO_RANDOM_PAUSE_MS 300
+#define LS_SERVO_SWEEP_PAUSE_MS 4000
 #define LS_SERVO_MCPWM_UNIT MCPWM_UNIT_0
 #define LS_SERVO_MCPWM_IO_SIGNALS MCPWM0A
 #define LS_SERVO_MCPWM_TIMER MCPWM_TIMER_0
@@ -86,7 +90,7 @@
 // any ADC reading <= LS_CONTROLS_READING_BOTTOM is considered min
 #define LS_CONTROLS_READING_BOTTOM 50
 // any ADC reading must change by this much from its previous value to be registered.
-#define LS_CONTROLS_READING_HYSTERISIS 10
+#define LS_CONTROLS_READING_HYSTERISIS 7
 
 
 // values read by ADC for tape reflectance sensor

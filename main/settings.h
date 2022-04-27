@@ -13,9 +13,18 @@ BaseType_t ls_settings_map_control_to_servo_top(BaseType_t adc);
 void ls_settings_set_servo_top(BaseType_t microseconds);
 BaseType_t ls_settings_get_servo_top(void);
 
+void ls_settings_set_servo_random_pause_ms(BaseType_t);
+BaseType_t ls_settings_get_servo_random_pause_ms(void);
+
+void ls_settings_set_servo_sweep_pause_ms(BaseType_t);
+BaseType_t ls_settings_get_servo_sweep_pause_ms(void);
+
 BaseType_t ls_settings_map_control_to_servo_bottom(BaseType_t adc);
 void ls_settings_set_servo_bottom(BaseType_t microseconds);
 BaseType_t ls_settings_get_servo_bottom(void);
+
+void ls_settings_set_servo_pulse_delta(BaseType_t);
+BaseType_t ls_settings_get_servo_pulse_delta(void);
 
 void ls_settings_set_stepper_random_max(BaseType_t steps);
 BaseType_t ls_settings_get_stepper_random_max(void);

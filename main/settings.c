@@ -7,6 +7,7 @@
 
 static BaseType_t _ls_settings_stepper_speed, _ls_settings_servo_top, _ls_settings_servo_bottom;
 static BaseType_t _ls_settings_stepper_random_max, _ls_settings_light_threshold_on, _ls_settings_light_threshold_off;
+static BaseType_t _ls_settings_servo_pulse_delta, _ls_settings_servo_random_pause_ms, _ls_settings_servo_sweep_pause_ms;
 
 static nvs_handle_t _ls_settings_nvs_handle;
 // caution: NVS keys and namespaces are restricted to 15 characters
@@ -24,6 +25,10 @@ void ls_settings_set_defaults(void)
     ls_settings_set_stepper_random_max(LS_STEPPER_MOVEMENT_STEPS_MAX);
     ls_settings_set_light_threshold_on(LS_LIGHTSENSE_DAY_THRESHOLD);
     ls_settings_set_light_threshold_off(LS_LIGHTSENSE_NIGHT_THRESHOLD);
+
+    ls_settings_set_servo_random_pause_ms(LS_SERVO_RANDOM_PAUSE_MS);
+    ls_settings_set_servo_sweep_pause_ms(LS_SERVO_SWEEP_PAUSE_MS);
+    ls_settings_set_servo_pulse_delta(LS_SERVO_DELTA_PER_TICK_DEFAULT);
 }
 
 static void _ls_settings_open_nvs(void)
@@ -248,4 +253,29 @@ void ls_settings_set_light_threshold_off(BaseType_t adc)
 BaseType_t ls_settings_get_light_threshold_off(void)
 {
     return _ls_settings_light_threshold_off;
+}
+
+void ls_settings_set_servo_pulse_delta(BaseType_t microseconds_per_tick)
+{
+    _ls_settings_servo_pulse_delta = _constrain(microseconds_per_tick, 0, LS_SERVO_DELTA_PER_TICK_MAX);
+}
+BaseType_t ls_settings_get_servo_pulse_delta(void)
+{
+    return _ls_settings_servo_pulse_delta;
+}
+void ls_settings_set_servo_random_pause_ms(BaseType_t duration_ms)
+{
+    _ls_settings_servo_random_pause_ms = _constrain(duration_ms, 0, 10000);
+}
+BaseType_t ls_settings_get_servo_random_pause_ms(void)
+{
+    return _ls_settings_servo_random_pause_ms;
+}
+void ls_settings_set_servo_sweep_pause_ms(BaseType_t duration_ms)
+{
+    _ls_settings_servo_sweep_pause_ms = _constrain(duration_ms, 0, 10000);
+}
+BaseType_t ls_settings_get_servo_sweep_pause_ms(void)
+{
+    return _ls_settings_servo_sweep_pause_ms;
 }
