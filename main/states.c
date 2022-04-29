@@ -92,7 +92,7 @@ void event_handler_state_machine(void *pvParameter)
             else
             {
 #ifdef LSDEBUG_STATES
-                ls_debug_printf("Event lost; no state function to handle it");
+                ls_debug_printf("Event lost; no state function to handle it\n");
 #endif
                 ; // do nothing; no state
             }
@@ -266,6 +266,11 @@ ls_State ls_state_active(ls_event event)
         ls_debug_printf("Stepper finished %s move @%d \n", ls_stepper_direction ? "-->" : "<--", ls_stepper_get_position());
 #endif
         break;
+    case LSEVT_SERVO_FINISHED_MOVE:
+#ifdef LSDEBUG_STATES
+        ls_debug_printf("Servo finished move\n");
+#endif
+        break;
     case LSEVT_REHOME_REQUIRED:
 #ifdef LSDEBUG_STATES
         ls_debug_printf("Rehoming from active state\n");
@@ -290,7 +295,7 @@ ls_State ls_state_active(ls_event event)
 
     default:;
 #ifdef LSDEBUG_STATES
-        ls_debug_printf("Unknown event %d", event.type);
+        ls_debug_printf("Unknown event %d\n", event.type);
 #endif
     }
     // /exit behaviors:

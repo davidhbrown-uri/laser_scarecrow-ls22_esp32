@@ -10,6 +10,7 @@
 #include "debug.h"
 #include "settings.h"
 #include "util.h"
+#include "events.h"
 
 static bool _ls_servo_is_on = false; // The servo will start off from ls_gpio_initialize()
 
@@ -234,7 +235,16 @@ void ls_servo_task(void *pvParameter)
 #ifdef LSDEBUG_SERVO
                 ls_debug_printf("Servo reached target, choosing new random target...\n");
 #endif
-                /** @todo queue LSEVT_SERVO_FINISHED_MOVE */
+                // Queue LSEVT_SERVO_FINISHED_MOVE
+                ls_event event;
+                event.type = LSEVT_SERVO_FINISHED_MOVE;
+                // TODO event.value should be a void* to whatever current_pulse_width was at this moment, but I don't see
+                // how to do that without either 1. using the address of a local variable which may be freed before the
+                // pointer is used or 2. allocating memory on the heap, which would put the responsibility of freeing that
+                // on the receiver of the event. How should this be handled?
+                event.value = NULL;
+                xQueueSendToFrontFromISR(ls_event_queue, (void *)&event, NULL);
+
                 // pause when target reached
                 vTaskDelay(pdMS_TO_TICKS(ls_settings_get_servo_random_pause_ms()));
 
@@ -248,7 +258,16 @@ void ls_servo_task(void *pvParameter)
             }
             else if (mode == LS_SERVO_MODE_SWEEP && current_pulse_width == target_pulse_width)
             {
-                /** @todo queue LSEVT_SERVO_FINISHED_MOVE */
+                // Queue LSEVT_SERVO_FINISHED_MOVE
+                ls_event event;
+                event.type = LSEVT_SERVO_FINISHED_MOVE;
+                // TODO event.value should be a void* to whatever current_pulse_width was at this moment, but I don't see
+                // how to do that without either 1. using the address of a local variable which may be freed before the
+                // pointer is used or 2. allocating memory on the heap, which would put the responsibility of freeing that
+                // on the receiver of the event. How should this be handled?
+                event.value = NULL;
+                xQueueSendToFrontFromISR(ls_event_queue, (void *)&event, NULL);
+
                 // pause when target reached
                 vTaskDelay(pdMS_TO_TICKS(ls_settings_get_servo_sweep_pause_ms()));
 

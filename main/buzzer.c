@@ -124,7 +124,7 @@ void ls_buzzer_handler_task(void *pvParameter)
         if (xQueueReceive(ls_buzzer_queue, &received, portMAX_DELAY) != pdTRUE)
         {
 #ifdef LSDEBUG_BUZZER
-            ls_debug_printf("No buzz requested maximum delay... getting very bored.");
+            ls_debug_printf("No buzz requested maximum delay... getting very bored.\n");
 #endif
         }
         else
