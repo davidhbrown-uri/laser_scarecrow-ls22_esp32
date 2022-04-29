@@ -235,15 +235,6 @@ void ls_servo_task(void *pvParameter)
 #ifdef LSDEBUG_SERVO
                 ls_debug_printf("Servo reached target, choosing new random target...\n");
 #endif
-                // Queue LSEVT_SERVO_FINISHED_MOVE
-                ls_event event;
-                event.type = LSEVT_SERVO_FINISHED_MOVE;
-                // TODO event.value should be a void* to whatever current_pulse_width was at this moment, but I don't see
-                // how to do that without either 1. using the address of a local variable which may be freed before the
-                // pointer is used or 2. allocating memory on the heap, which would put the responsibility of freeing that
-                // on the receiver of the event. How should this be handled?
-                event.value = NULL;
-                xQueueSendToFrontFromISR(ls_event_queue, (void *)&event, NULL);
 
                 // pause when target reached
                 vTaskDelay(pdMS_TO_TICKS(ls_settings_get_servo_random_pause_ms()));
@@ -258,15 +249,24 @@ void ls_servo_task(void *pvParameter)
             }
             else if (mode == LS_SERVO_MODE_SWEEP && current_pulse_width == target_pulse_width)
             {
-                // Queue LSEVT_SERVO_FINISHED_MOVE
-                ls_event event;
-                event.type = LSEVT_SERVO_FINISHED_MOVE;
-                // TODO event.value should be a void* to whatever current_pulse_width was at this moment, but I don't see
-                // how to do that without either 1. using the address of a local variable which may be freed before the
-                // pointer is used or 2. allocating memory on the heap, which would put the responsibility of freeing that
-                // on the receiver of the event. How should this be handled?
-                event.value = NULL;
-                xQueueSendToFrontFromISR(ls_event_queue, (void *)&event, NULL);
+                uint16_t min = (uint16_t)ls_settings_get_servo_top();
+                uint16_t max = (uint16_t)ls_settings_get_servo_bottom();
+                uint16_t mid = (min + max) / 2;
+
+                // If the current pulse width is at the top, queue a LSEVT_SERVO_SWEEP_TOP event
+                if(current_pulse_width == min) {
+                    ls_event event;
+                    event.type = LSEVT_SERVO_SWEEP_TOP;
+                    event.value = NULL;
+                    xQueueSendToFrontFromISR(ls_event_queue, (void *)&event, NULL);
+                }
+                // If the current pulse width is at the bottom, queue a LSEVT_SERVO_SWEEP_BOTTOM event
+                else if(current_pulse_width == max) {
+                    ls_event event;
+                    event.type = LSEVT_SERVO_SWEEP_BOTTOM;
+                    event.value = NULL;
+                    xQueueSendToFrontFromISR(ls_event_queue, (void *)&event, NULL);
+                }
 
                 // pause when target reached
                 vTaskDelay(pdMS_TO_TICKS(ls_settings_get_servo_sweep_pause_ms()));
@@ -274,9 +274,6 @@ void ls_servo_task(void *pvParameter)
                 // Update the target pulse width, depending on its current position
                 // Most of the time, it will be at either end - but possibly not if we just entered sweep mode from another
                 // In that case, move towards whichever end is currently further away
-                uint16_t min = (uint16_t)ls_settings_get_servo_top();
-                uint16_t max = (uint16_t)ls_settings_get_servo_bottom();
-                uint16_t mid = (min + max) / 2;
                 target_pulse_width = current_pulse_width < mid ? max : min;
             }
 
