@@ -133,7 +133,7 @@ void ls_servo_task(void *pvParameter)
     while (true)
     {
         // Adjust the delay based on whether or not the servo should be moving
-        bool servo_should_move = current_pulse_width != target_pulse_width || mode != LS_SERVO_MODE_FIXED;
+        bool servo_should_move = _ls_servo_is_on && (current_pulse_width != target_pulse_width || mode != LS_SERVO_MODE_FIXED);
         TickType_t delay = servo_should_move ? 1 : portMAX_DELAY;
 
         if (xQueueReceive(ls_servo_queue, &received, delay) == pdTRUE)
