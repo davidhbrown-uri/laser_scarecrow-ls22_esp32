@@ -258,14 +258,14 @@ void ls_servo_task(void *pvParameter)
                     ls_event event;
                     event.type = LSEVT_SERVO_SWEEP_TOP;
                     event.value = NULL;
-                    xQueueSendToFrontFromISR(ls_event_queue, (void *)&event, NULL);
+                    xQueueSendToBack(ls_event_queue, (void *)&event, NULL);
                 }
                 // If the current pulse width is at the bottom, queue a LSEVT_SERVO_SWEEP_BOTTOM event
                 else if(current_pulse_width == max) {
                     ls_event event;
                     event.type = LSEVT_SERVO_SWEEP_BOTTOM;
                     event.value = NULL;
-                    xQueueSendToFrontFromISR(ls_event_queue, (void *)&event, NULL);
+                    xQueueSendToBack(ls_event_queue, (void *)&event, NULL);
                 }
 
                 // pause when target reached
