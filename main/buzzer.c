@@ -209,6 +209,12 @@ void ls_buzzer_handler_task(void *pvParameter)
                 _ls_buzzer_play_note(LS_BUZZER_SCALE_G, 100);
                 _ls_buzzer_play_note(LS_BUZZER_SCALE_F, 100);
                 break;
+                case LS_BUZZER_PLAY_ROOT:
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_C, 200);
+                break;
+                case LS_BUZZER_PLAY_OCTAVE:
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_CC, 200);
+                break;
             default:;
 #ifdef LSDEBUG_BUZZER
                 ls_debug_printf("Unknown ls_buzzer_effect %d -- I'm confused", received);

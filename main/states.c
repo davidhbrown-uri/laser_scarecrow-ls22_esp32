@@ -405,8 +405,12 @@ ls_State ls_state_manual(ls_event event)
         }
         break;
     case LSEVT_SERVO_SWEEP_TOP:
+        ls_buzzer_play(LS_BUZZER_PLAY_OCTAVE);
+    break;
+
     case LSEVT_SERVO_SWEEP_BOTTOM:
-        ls_buzzer_play(LS_BUZZER_CLICK);
+        ls_buzzer_play(LS_BUZZER_PLAY_ROOT);
+    break;
         break;
     case LSEVT_CONTROLS_SPEED:
         control_value = *((BaseType_t *)event.value);
