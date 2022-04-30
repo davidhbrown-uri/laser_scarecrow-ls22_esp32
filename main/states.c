@@ -266,9 +266,14 @@ ls_State ls_state_active(ls_event event)
         ls_debug_printf("Stepper finished %s move @%d \n", ls_stepper_direction ? "-->" : "<--", ls_stepper_get_position());
 #endif
         break;
-    case LSEVT_SERVO_FINISHED_MOVE:
+    case LSEVT_SERVO_SWEEP_TOP:
 #ifdef LSDEBUG_STATES
-        ls_debug_printf("Servo finished move\n");
+        ls_debug_printf("Servo finished move (reached top)\n");
+#endif
+        break;
+    case LSEVT_SERVO_SWEEP_BOTTOM:
+#ifdef LSDEBUG_STATES
+        ls_debug_printf("Servo finished move (reached bottom)\n");
 #endif
         break;
     case LSEVT_REHOME_REQUIRED:
@@ -399,8 +404,13 @@ ls_State ls_state_manual(ls_event event)
             _ls_state_manual_servo_hold_count = -1;
         }
         break;
-    case LSEVT_SERVO_FINISHED_MOVE:
-        ls_buzzer_play(LS_BUZZER_CLICK);
+    case LSEVT_SERVO_SWEEP_TOP:
+        ls_buzzer_play(LS_BUZZER_PLAY_OCTAVE);
+    break;
+
+    case LSEVT_SERVO_SWEEP_BOTTOM:
+        ls_buzzer_play(LS_BUZZER_PLAY_ROOT);
+    break;
         break;
     case LSEVT_CONTROLS_SPEED:
         control_value = *((BaseType_t *)event.value);

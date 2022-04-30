@@ -15,7 +15,9 @@ enum ls_buzzer_effects {
     LS_BUZZER_PLAY_MAP_FAIL, // descending minor cord 
     LS_BUZZER_PLAY_TILT_FAIL, // long descending scale
     LS_BUZZER_PLAY_MANUAL_CONTROL_ENTER, // short ascending scale
-    LS_BUZZER_PLAY_MANUAL_CONTROL_LEAVE // short descending scale
+    LS_BUZZER_PLAY_MANUAL_CONTROL_LEAVE, // short descending scale
+    LS_BUZZER_PLAY_ROOT, // C, 200ms
+    LS_BUZZER_PLAY_OCTAVE, // C', 200ms
 }ls_buzzer_effects;
 
 QueueHandle_t ls_buzzer_queue;

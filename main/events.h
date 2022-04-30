@@ -13,7 +13,8 @@ enum ls_event_t
 
     LSEVT_STEPPER_FINISHED_MOVE = 30, // rotating arm finishes movement
 
-    LSEVT_SERVO_FINISHED_MOVE = 40, // servo tilt reaches target position
+    LSEVT_SERVO_SWEEP_TOP = 40, // servo tilt reaches top of sweep range
+    LSEVT_SERVO_SWEEP_BOTTOM = 41, // servo tilt reaches bottom of sweep range
 
     LSEVT_LIGHT_DAY = 50, // ambient light level moves above daytime light level threshold 
     LSEVT_LIGHT_NIGHT, // ambient light level moves below nighttime light level threshold 
