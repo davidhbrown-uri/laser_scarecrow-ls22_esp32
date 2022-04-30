@@ -8,6 +8,7 @@
 static BaseType_t _ls_settings_stepper_speed, _ls_settings_servo_top, _ls_settings_servo_bottom;
 static BaseType_t _ls_settings_stepper_random_max, _ls_settings_light_threshold_on, _ls_settings_light_threshold_off;
 static BaseType_t _ls_settings_servo_pulse_delta, _ls_settings_servo_random_pause_ms, _ls_settings_servo_sweep_pause_ms;
+static BaseType_t _ls_settings_tilt_threshold_detected, _ls_settings_tilt_threshold_ok;
 
 static nvs_handle_t _ls_settings_nvs_handle;
 // caution: NVS keys and namespaces are restricted to 15 characters
@@ -29,6 +30,9 @@ void ls_settings_set_defaults(void)
     ls_settings_set_servo_random_pause_ms(LS_SERVO_RANDOM_PAUSE_MS);
     ls_settings_set_servo_sweep_pause_ms(LS_SERVO_SWEEP_PAUSE_MS);
     ls_settings_set_servo_pulse_delta(LS_SERVO_DELTA_PER_TICK_DEFAULT);
+
+    ls_settings_set_tilt_threshold_mg_detected(LS_TILT_THRESHOLD_DETECTED_MG);
+    ls_settings_set_tilt_threshold_mg_ok(LS_TILT_THRESHOLD_OK_MG);
 }
 
 static void _ls_settings_open_nvs(void)
@@ -278,4 +282,22 @@ void ls_settings_set_servo_sweep_pause_ms(BaseType_t duration_ms)
 BaseType_t ls_settings_get_servo_sweep_pause_ms(void)
 {
     return _ls_settings_servo_sweep_pause_ms;
+}
+
+void ls_settings_set_tilt_threshold_mg_detected(BaseType_t milli_gs)
+{
+    _ls_settings_tilt_threshold_detected = milli_gs;
+}
+BaseType_t ls_settings_get_tilt_threshold_mg_detected(void)
+{
+    return _ls_settings_tilt_threshold_detected;
+}
+
+void ls_settings_set_tilt_threshold_mg_ok(BaseType_t milli_gs)
+{
+    _ls_settings_tilt_threshold_ok = milli_gs;
+}
+BaseType_t ls_settings_get_tilt_threshold_mg_ok(void)
+{
+    return _ls_settings_tilt_threshold_ok;
 }

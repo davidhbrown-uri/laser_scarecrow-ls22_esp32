@@ -34,3 +34,9 @@ BaseType_t ls_settings_get_light_threshold_on(void);
 
 void ls_settings_set_light_threshold_off(BaseType_t adc);
 BaseType_t ls_settings_get_light_threshold_off(void);
+
+void ls_settings_set_tilt_threshold_mg_detected(BaseType_t milli_gs);
+BaseType_t ls_settings_get_tilt_threshold_mg_detected(void);
+
+void ls_settings_set_tilt_threshold_mg_ok(BaseType_t milli_gs);
+BaseType_t ls_settings_get_tilt_threshold_mg_ok(void);

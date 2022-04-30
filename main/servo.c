@@ -218,7 +218,7 @@ void ls_servo_task(void *pvParameter)
 
                 break;
 
-            default:
+            default:;
 #ifdef LSDEBUG_SERVO
                 ls_debug_printf("Warning: Received unknown ls_servo_event_type\n");
 #endif
