@@ -9,6 +9,7 @@
 #include "math.h"
 #include "events.h"
 #include "freertos/semphr.h"
+#include "settings.h"
 
 // https://github.com/espressif/esp-idf/blob/a82e6e63d98bb051d4c59cb3d440c537ab9f74b0/examples/peripherals/i2c/i2c_tools/main/cmd_i2ctools.c
 #define I2C_MASTER_TX_BUF_DISABLE 0 /*!< I2C master doesn't need buffer */
@@ -165,18 +166,87 @@ float ls_i2c_read_temp(void)
 }
 */
 
+enum _ls_tilt_task_tilt_status_t {
+    LS_TILT_TASK_TILT_STATUS_OK,
+    LS_TILT_TASK_TILT_STATUS_DETECTED,
+    LS_TILT_TASK_TILT_STATUS_UNDEFINED
+};
+
+static enum _ls_tilt_task_tilt_status_t _ls_tilt_task_raw_to_status(float raw)
+{
+    BaseType_t milli_gs = (BaseType_t) (raw * 1000);
+#ifdef LSDEBUG_I2C
+//        ls_debug_printf("milli-g's=%d\n", milli_gs);
+#endif
+    if (milli_gs < ls_settings_get_tilt_threshold_mg_detected())
+    {
+        return LS_TILT_TASK_TILT_STATUS_DETECTED;
+    }
+    if (milli_gs > ls_settings_get_tilt_threshold_mg_ok())
+    {
+        return LS_TILT_TASK_TILT_STATUS_OK;
+    }
+    return LS_TILT_TASK_TILT_STATUS_UNDEFINED;
+}
+#define LS_TILT_TASK_TILT_STATUS_READINGS_COUNT 5
 void ls_tilt_task(void *pvParameter)
 {
     ls_event event;
     event.type = LSEVT_NOOP;
     event.value = NULL;
+    enum _ls_tilt_task_tilt_status_t readings[LS_TILT_TASK_TILT_STATUS_READINGS_COUNT];
+    enum _ls_tilt_task_tilt_status_t current_status = LS_TILT_TASK_TILT_STATUS_UNDEFINED;
+    ls_i2c_init();
+    ls_i2c_accelerometer_device();
+    // the MPU6050, in particular, can take a while to initialize
+    vTaskDelay(pdMS_TO_TICKS(5000));
+    // and the produces a few reading of bogus data
+    for(int i=0; i < 5; i++)
+    {
+        ls_i2c_read_accel_z(); // throw it away
+    }
+    for(int i=0; i < LS_TILT_TASK_TILT_STATUS_READINGS_COUNT; i++)
+    {
+        readings[i] = _ls_tilt_task_raw_to_status(ls_i2c_read_accel_z());
+    }
+    int readings_index = 0;
     while (1)
     {
         float raw = ls_i2c_read_accel_z();
+        enum _ls_tilt_task_tilt_status_t status = _ls_tilt_task_raw_to_status(raw);
 //        xQueueSendToBack(ls_event_queue, (void *)&event, 0);
 #ifdef LSDEBUG_I2C
-        ls_debug_printf("I2C Z-acceleration=%0.2f\n", raw);
+        ls_debug_printf("I2C Z-acceleration=%0.2f [%d]\n", raw, status);
 #endif
+        readings[readings_index++] = status;
+        readings_index = readings_index % LS_TILT_TASK_TILT_STATUS_READINGS_COUNT;
+        bool all_agree = true;
+        for (int i=1; i < LS_TILT_TASK_TILT_STATUS_READINGS_COUNT; i++)
+        {
+            all_agree = all_agree && (readings[i]==readings[i-1]);
+        }
+        if (all_agree)
+        {
+            if (readings[0] != current_status)
+            {
+                switch(readings[0])
+                {
+                    case LS_TILT_TASK_TILT_STATUS_OK:
+                    event.type = LSEVT_TILT_OK;
+                    xQueueSendToBack(ls_event_queue, (void *)&event, 0);
+                    break;
+                    case LS_TILT_TASK_TILT_STATUS_DETECTED:
+                    event.type = LSEVT_TILT_DETECTED;
+                    xQueueSendToBack(ls_event_queue, (void *)&event, 0);
+                    break;
+                    default:;                    
+                }
+#ifdef LSDEBUG_I2C
+        ls_debug_printf("I2C tilt status now = %d\n", current_status);
+#endif
+            }
+            current_status = readings[0];
+        }
         vTaskDelay(pdMS_TO_TICKS(LS_TILT_REPORT_RATE_MS));
     }
 }

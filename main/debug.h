@@ -23,7 +23,7 @@ extern SemaphoreHandle_t print_mux; // in ls2022_esp32.c
 
 //#define LSDEBUG_HOMING
 
-//#define LSDEBUG_STATES
+#define LSDEBUG_STATES
 
 //#define LSDEBUG_CONTROLS
 
@@ -39,6 +39,6 @@ extern SemaphoreHandle_t print_mux; // in ls2022_esp32.c
 
 //#define LSDEBUG_SETTINGS
 
-#define LSDEBUG_I2C
+//#define LSDEBUG_I2C
 
 #endif
