@@ -73,14 +73,14 @@ static esp_err_t kxtj3_software_reset_sequence(void)
     // SEE TN017 Power-On Procedure, especially section 3.1
     // 3.1.3 Software Reset Timing Diagram says to wait for power-on time before attempting reset
     // 30ms maximum power-on time... 
-    vTaskDelay(pdMS_TO_TICKS(30));
+    vTaskDelay(1);
     // 3.1.2 (a)
     esp_err_t response = kxtj3_write_reg_byte(KXTJ3_FLIP_CHECK, 0);
     if(ESP_FAIL == response) { //"slave hasn't ACK the transfer"
     // attempt to reset using "flipped" address
     // 3.1.3 says to wait for reset time before flipped reset
     // 2ms maximum software reset time... 
-    vTaskDelay(pdMS_TO_TICKS(2));
+    vTaskDelay(1);
         kxtj3_addr = KSTJ3_ADDR_FLIPPED;
         response = kxtj3_write_reg_byte(KXTJ3_FLIP_CHECK, 0);
         if(ESP_FAIL==response)
@@ -92,7 +92,7 @@ static esp_err_t kxtj3_software_reset_sequence(void)
     }
     // 3.1.3 says to wait for reset time before commands are acceptable
     // 2ms maximum software reset time... 
-    vTaskDelay(pdMS_TO_TICKS(2));
+    vTaskDelay(1);
     // 3.1.2 (b)
     response = kxtj3_write_reg_byte(KXTJ3_CTRL_REG2, 0);
     if(ESP_FAIL==response)
@@ -110,7 +110,7 @@ static esp_err_t kxtj3_software_reset_sequence(void)
         return ESP_FAIL;
     }
     // 2ms maximum software reset time... 
-    vTaskDelay(pdMS_TO_TICKS(2));
+    vTaskDelay(1);
     // 3.1.2 (d) 
     // Read WHO_AM_I using Primary address
     kxtj3_addr = KSTJ3_ADDR;
