@@ -34,9 +34,8 @@ enum ls_event_t
     LSEVT_MAP_COMPLETED = 110, // the locations where the laser can't be on has successfully been read
     LSEVT_MAP_FAILED, // the locations where the laser can't be on could not be read
 
-    LSEVT_TILT_INVALID = 120, // the tilt sensor cannot be read
-    LSEVT_TILT_OK, // the tilt sensor indicates the device orientation is in bounds
-    LSEVT_TILT_DETECTED // the tilt sensor indicates the device orientation is out of bounds
+    LSEVT_TILT_OK = 120, // the tilt sensor indicates the device orientation is in bounds
+    LSEVT_TILT_DETECTED, // the tilt sensor indicates the device orientation is out of bounds
 }; 
 
 typedef struct ls_event

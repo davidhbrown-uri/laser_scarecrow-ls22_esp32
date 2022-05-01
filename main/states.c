@@ -15,6 +15,7 @@
 #include "settings.h"
 
 extern SemaphoreHandle_t print_mux;
+extern QueueHandle_t ls_event_queue;
 
 TimerHandle_t _ls_state_rehome_timer;
 void _ls_state_rehome_timer_callback(TimerHandle_t xTimer)
@@ -150,6 +151,9 @@ ls_State ls_state_poweron(ls_event event)
 
         } // switch tapemode
         break;
+    case LSEVT_TILT_DETECTED:
+        successor.func = ls_state_error_tilt;
+        break;
     default: // switch event.type
         ;
     }
@@ -206,6 +210,9 @@ ls_State ls_state_prelaserwarn(ls_event event)
         {
             _ls_state_prelaserwarn_movement_complete = true;
         }
+        break;
+    case LSEVT_TILT_DETECTED:
+        successor.func = ls_state_error_tilt;
         break;
     default:; // does not handle other events
     }
@@ -297,7 +304,9 @@ ls_State ls_state_active(ls_event event)
 #endif
             successor.func = ls_state_manual;
         break;
-
+    case LSEVT_TILT_DETECTED:
+        successor.func = ls_state_error_tilt;
+        break;
     default:;
 #ifdef LSDEBUG_STATES
         ls_debug_printf("Unknown event %d\n", event.type);
@@ -358,6 +367,9 @@ ls_State ls_state_home(ls_event event)
         }
         ls_event_enqueue_noop();
         break;
+    case LSEVT_TILT_DETECTED:
+        successor.func = ls_state_error_tilt;
+        break;
     default:
         ls_substate_home_handle_event(event);
     }
@@ -406,11 +418,11 @@ ls_State ls_state_manual(ls_event event)
         break;
     case LSEVT_SERVO_SWEEP_TOP:
         ls_buzzer_play(LS_BUZZER_PLAY_OCTAVE);
-    break;
+        break;
 
     case LSEVT_SERVO_SWEEP_BOTTOM:
         ls_buzzer_play(LS_BUZZER_PLAY_ROOT);
-    break;
+        break;
         break;
     case LSEVT_CONTROLS_SPEED:
         control_value = *((BaseType_t *)event.value);
@@ -432,6 +444,10 @@ ls_State ls_state_manual(ls_event event)
     case LSEVT_CONTROLS_DISCONNECTED:
         ls_stepper_stop();
         successor.func = ls_state_active;
+        break;
+    case LSEVT_TILT_DETECTED:
+        successor.func = ls_state_error_tilt;
+        break;
     default:;
     } // switch event type
 
@@ -514,6 +530,9 @@ ls_State ls_state_sleep(ls_event event)
             successor.func = ls_state_prelaserwarn;
         }
         break;
+    case LSEVT_TILT_DETECTED:
+        successor.func = ls_state_error_tilt;
+        break;
     default:;
     }
     return successor;
@@ -546,6 +565,9 @@ ls_State ls_state_wakeup(ls_event event)
     case LSEVT_HOME_FAILED:
         successor.func = ls_state_error_home;
         ls_event_enqueue_noop();
+        break;
+    case LSEVT_TILT_DETECTED:
+        successor.func = ls_state_error_tilt;
         break;
     default:
         ls_substate_home_handle_event(event);
@@ -722,7 +744,11 @@ ls_State ls_state_map_build(ls_event event)
 #endif
             }
             ls_tape_sensor_disable();
-        }     // done building map
+        } // done building map
+        break;
+    case LSEVT_TILT_DETECTED:
+        successor.func = ls_state_error_tilt;
+        break;
     default:; // nothing to do for event of this type
     }         // switch  on event
     return successor;
@@ -780,16 +806,46 @@ ls_State ls_state_error_map(ls_event event)
 
 ls_State ls_state_error_tilt(ls_event event)
 {
-    ls_gpio_initialize(); // turn things off
-    ls_State successor;
-    successor.func = ls_state_error_tilt;
 #ifdef LSDEBUG_TILT
     xSemaphoreTake(print_mux, portMAX_DELAY);
-    printf(">>>>I'VE FALLEN AND CAN'T GET UP<<<\n");
+    printf("ERROR_TILT<\n");
     xSemaphoreGive(print_mux);
 #endif
-    vTaskDelay(pdMS_TO_TICKS(30000)); // 30 seconds between alerts
-    ls_buzzer_play(LS_BUZZER_PLAY_TILT_FAIL);
-    ls_event_enqueue_noop();
+    ls_State successor;
+    successor.func = ls_state_error_tilt;
+    switch (event.type)
+    {
+    case LSEVT_STATE_ENTRY:
+        ls_gpio_initialize(); // turn things off
+        ls_servo_off();
+        ls_stepper_sleep();
+        ls_event_enqueue_noop();
+        break;
+    case LSEVT_TILT_OK:
+        switch (ls_tapemode())
+        {
+        case LS_TAPEMODE_BLACK_SAFE:
+        case LS_TAPEMODE_REFLECT_SAFE:
+#ifdef LSDEBUG_TILT
+            xSemaphoreTake(print_mux, portMAX_DELAY);
+            printf("TILT_OK but safe mode requires power cycle to resume\n");
+            xSemaphoreGive(print_mux);
+#endif
+            ls_buzzer_play(LS_BUZZER_PLAY_TILT_FAIL);
+            ls_buzzer_play(LS_BUZZER_ALERT_1S);
+            ls_event_enqueue_noop();
+            break;
+        default:
+            successor.func = ls_state_poweron;
+        } // switch on tapemode if TILT_OK
+        break;
+    default:
+        ls_buzzer_play(LS_BUZZER_PLAY_TILT_FAIL);
+        // 30 seconds between alerts unless an event is pending
+        if (pdFALSE == xQueuePeek(ls_event_queue, &event, pdMS_TO_TICKS(30000)))
+        {
+            ls_event_enqueue_noop();
+        }
+    }
     return successor;
 }

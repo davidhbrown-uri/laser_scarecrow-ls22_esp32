@@ -21,6 +21,13 @@
 #define ACK_VAL 0x0                 /*!< I2C ack value */
 #define NACK_VAL 0x1                /*!< I2C nack value */
 
+enum _ls_tilt_task_tilt_status_t
+{
+    LS_TILT_TASK_TILT_STATUS_OK,
+    LS_TILT_TASK_TILT_STATUS_DETECTED,
+    LS_TILT_TASK_TILT_STATUS_UNDEFINED
+};
+
 static bool _ls_i2c_initialized = false;
 static enum ls_i2c_accelerometer_device_t _ls_i2c_accelerometer_device = LS_I2C_ACCELEROMETER_NONE;
 
@@ -166,15 +173,9 @@ float ls_i2c_read_temp(void)
 }
 */
 
-enum _ls_tilt_task_tilt_status_t {
-    LS_TILT_TASK_TILT_STATUS_OK,
-    LS_TILT_TASK_TILT_STATUS_DETECTED,
-    LS_TILT_TASK_TILT_STATUS_UNDEFINED
-};
-
 static enum _ls_tilt_task_tilt_status_t _ls_tilt_task_raw_to_status(float raw)
 {
-    BaseType_t milli_gs = (BaseType_t) (raw * 1000);
+    BaseType_t milli_gs = (BaseType_t)(raw * 1000);
 #ifdef LSDEBUG_I2C
 //        ls_debug_printf("milli-g's=%d\n", milli_gs);
 #endif
@@ -201,11 +202,11 @@ void ls_tilt_task(void *pvParameter)
     // the MPU6050, in particular, can take a while to initialize
     vTaskDelay(pdMS_TO_TICKS(5000));
     // and the produces a few reading of bogus data
-    for(int i=0; i < 5; i++)
+    for (int i = 0; i < 5; i++)
     {
         ls_i2c_read_accel_z(); // throw it away
     }
-    for(int i=0; i < LS_TILT_TASK_TILT_STATUS_READINGS_COUNT; i++)
+    for (int i = 0; i < LS_TILT_TASK_TILT_STATUS_READINGS_COUNT; i++)
     {
         readings[i] = _ls_tilt_task_raw_to_status(ls_i2c_read_accel_z());
     }
@@ -215,38 +216,38 @@ void ls_tilt_task(void *pvParameter)
         float raw = ls_i2c_read_accel_z();
         enum _ls_tilt_task_tilt_status_t status = _ls_tilt_task_raw_to_status(raw);
 //        xQueueSendToBack(ls_event_queue, (void *)&event, 0);
-#ifdef LSDEBUG_I2C
+#ifdef LSDEBUG_TILT
         ls_debug_printf("I2C Z-acceleration=%0.2f [%d]\n", raw, status);
 #endif
         readings[readings_index++] = status;
         readings_index = readings_index % LS_TILT_TASK_TILT_STATUS_READINGS_COUNT;
         bool all_agree = true;
-        for (int i=1; i < LS_TILT_TASK_TILT_STATUS_READINGS_COUNT; i++)
+        for (int i = 1; i < LS_TILT_TASK_TILT_STATUS_READINGS_COUNT; i++)
         {
-            all_agree = all_agree && (readings[i]==readings[i-1]);
+            all_agree = all_agree && (readings[i] == readings[i - 1]);
         }
         if (all_agree)
         {
             if (readings[0] != current_status)
             {
-                switch(readings[0])
+                switch (readings[0])
                 {
-                    case LS_TILT_TASK_TILT_STATUS_OK:
+                case LS_TILT_TASK_TILT_STATUS_OK:
                     event.type = LSEVT_TILT_OK;
                     xQueueSendToBack(ls_event_queue, (void *)&event, 0);
                     break;
-                    case LS_TILT_TASK_TILT_STATUS_DETECTED:
+                case LS_TILT_TASK_TILT_STATUS_DETECTED:
                     event.type = LSEVT_TILT_DETECTED;
                     xQueueSendToBack(ls_event_queue, (void *)&event, 0);
                     break;
-                    default:;                    
+                default:;
                 }
-#ifdef LSDEBUG_I2C
-        ls_debug_printf("I2C tilt status now = %d\n", current_status);
-#endif
-            }
             current_status = readings[0];
-        }
+#ifdef LSDEBUG_TILT
+            ls_debug_printf("I2C tilt status now = %d\n", current_status);
+#endif
+            } // new status
+        } // all agree
         vTaskDelay(pdMS_TO_TICKS(LS_TILT_REPORT_RATE_MS));
     }
 }
