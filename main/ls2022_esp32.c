@@ -25,6 +25,7 @@
 #include "lightsense.h"
 #include "servo.h"
 #include "settings.h"
+#include "i2c.h"
 
 SemaphoreHandle_t adc1_mux = NULL;
 SemaphoreHandle_t adc2_mux = NULL;
@@ -120,6 +121,11 @@ void app_main(void)
     adc1_mux = xSemaphoreCreateMutex();
     adc2_mux = xSemaphoreCreateMutex();
     print_mux = xSemaphoreCreateMutex();
+#ifdef LSDEBUG_I2C
+ls_debug_printf("I2C LIS2DH: %d\n", ls_i2c_has_lis2dh12());
+ls_debug_printf("I2C KXTJ3: %d\n", ls_i2c_has_kxtj3());
+ls_debug_printf("I2C MPU6050: %d\n", ls_i2c_has_mpu6050());
+#endif
     printf("Initializing GPIO\n");
     ls_gpio_initialize();
     /** @todo: servo setup */
@@ -169,6 +175,7 @@ void app_main(void)
     xTaskCreate(&ls_controls_task, "controls_task", configMINIMAL_STACK_SIZE * 3, NULL, 10, NULL);
 
     // lowest priority (1-9)
+    xTaskCreate(&ls_tilt_task, "tilt_task", configMINIMAL_STACK_SIZE * 3, NULL, 7, NULL);
     xTaskCreate(&ls_buzzer_handler_task, "buzzer_handler", configMINIMAL_STACK_SIZE * 2, NULL, 5, NULL);
     xTaskCreate(&ls_servo_task, "servo_task", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
 
