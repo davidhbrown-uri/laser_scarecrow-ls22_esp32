@@ -90,21 +90,7 @@ ls_debug_printf("I2C MPU6050: %d\n", ls_i2c_has_mpu6050());
     ls_stepper_init();
     ls_servo_init();
     ls_state_init();
-    /*
-    printf("Initializing I2C\n");
-    i2c_mux = xSemaphoreCreateMutex();
-    ESP_ERROR_CHECK(lsi2c_master_init());
-    printf("Initialized I2C\n");
-    printf("Initializing MPU6050\n");
-    mpu6050_begin();
-    printf("Initialized MPU6050 i2c device\n");
-    // so, do you just have to figure out the usStackDepth parameter (here, configMINIMAL_STACK_SIZE*2) by trial and error?
-    xTaskCreate(&adc_read_light_sensor_task, "adcr_light", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
-    xTaskCreate(&i2c_read_tilt_task, "i2c_tilt", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
-    xTaskCreate(&i2c_read_temp_task, "i2c_temp", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
 
-    printf("Started all test tasks\n");
-    */
     printf("Initialized queues / semaphores / IRQs\n");
 
     // higher priority tasks get higher priority values
