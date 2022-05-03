@@ -249,32 +249,37 @@ void ls_servo_task(void *pvParameter)
             }
             else if (mode == LS_SERVO_MODE_SWEEP && current_pulse_width == target_pulse_width)
             {
-                uint16_t min = (uint16_t)ls_settings_get_servo_top();
-                uint16_t max = (uint16_t)ls_settings_get_servo_bottom();
-                uint16_t mid = (min + max) / 2;
-
+                uint16_t top = (uint16_t)ls_settings_get_servo_top();
+                uint16_t bottom = (uint16_t)ls_settings_get_servo_bottom();
+                uint16_t mid = (top + bottom) / 2;
+#ifdef LSDEBUG_SERVO
+                ls_debug_printf("Servo sweep from top = %d to bottom = %d\n", top, bottom);
+#endif
                 // If the current pulse width is at the top, queue a LSEVT_SERVO_SWEEP_TOP event
-                if(current_pulse_width == min) {
+                if (current_pulse_width == top)
+                {
                     ls_event event;
                     event.type = LSEVT_SERVO_SWEEP_TOP;
                     event.value = NULL;
                     xQueueSendToBack(ls_event_queue, (void *)&event, NULL);
                 }
                 // If the current pulse width is at the bottom, queue a LSEVT_SERVO_SWEEP_BOTTOM event
-                else if(current_pulse_width == max) {
+                else if (current_pulse_width == bottom)
+                {
                     ls_event event;
                     event.type = LSEVT_SERVO_SWEEP_BOTTOM;
                     event.value = NULL;
                     xQueueSendToBack(ls_event_queue, (void *)&event, NULL);
                 }
-
-                // pause when target reached
-                vTaskDelay(pdMS_TO_TICKS(ls_settings_get_servo_sweep_pause_ms()));
-
                 // Update the target pulse width, depending on its current position
                 // Most of the time, it will be at either end - but possibly not if we just entered sweep mode from another
                 // In that case, move towards whichever end is currently further away
-                target_pulse_width = current_pulse_width < mid ? max : min;
+                target_pulse_width = current_pulse_width < mid ? bottom : top;
+                // pause when target reached
+#ifdef LSDEBUG_SERVO
+                ls_debug_printf("New servo target: %d after %dms pause\n", target_pulse_width, ls_settings_get_servo_sweep_pause_ms());
+#endif
+                vTaskDelay(pdMS_TO_TICKS(ls_settings_get_servo_sweep_pause_ms()));
             }
 
             // Calculate the updated current pulse width
@@ -285,6 +290,9 @@ void ls_servo_task(void *pvParameter)
 
             // Set the servo pulse width
             _ls_servo_jump_to_pw(current_pulse_width);
+#ifdef LSDEBUG_SERVO
+            ls_debug_printf("Servo move to %d\n", current_pulse_width);
+#endif
         }
     }
 }

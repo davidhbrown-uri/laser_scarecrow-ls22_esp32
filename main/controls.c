@@ -143,6 +143,10 @@ void ls_controls_task(void *pvParameter)
             }
             if (moved_knob[1] || _difference_exceeds_threshold(_ls_controls_current_topangle, knob_readings[1], LS_CONTROLS_READING_MOVE_THRESHOLD))
             {
+                if (!moved_knob[1])
+                {
+                    fastreads = LS_CONTROLS_FASTREADS_AFTER_MOVE;
+                }
                 _ls_controls_task_knobs_havent_moved();
                 moved_knob[1] = (fastreads-- > 0 ? true : false);
                 _ls_controls_current_topangle = knob_readings[1];
@@ -156,6 +160,10 @@ void ls_controls_task(void *pvParameter)
             }
             if (moved_knob[2] || _difference_exceeds_threshold(_ls_controls_current_bottomangle, knob_readings[2], LS_CONTROLS_READING_MOVE_THRESHOLD))
             {
+                if (!moved_knob[2])
+                {
+                    fastreads = LS_CONTROLS_FASTREADS_AFTER_MOVE;
+                }
                 _ls_controls_task_knobs_havent_moved();
                 moved_knob[2] = (fastreads-- > 0 ? true : false);
                 _ls_controls_current_bottomangle = knob_readings[2];

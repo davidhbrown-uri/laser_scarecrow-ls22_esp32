@@ -62,6 +62,8 @@
 #define LS_SERVO_MCPWM_IO_SIGNALS MCPWM0A
 #define LS_SERVO_MCPWM_TIMER MCPWM_TIMER_0
 #define LS_SERVO_MCPWM_GENERATOR MCPWM_OPR_A
+// selftest holds the servo at midpoint this long to allow adjustment
+#define LS_SERVO_SELFTEST_HOLD_MS 5000
 
 // default parameters for the stepper movement
 #define LS_STEPPER_STEPS_PER_ROTATION 3200

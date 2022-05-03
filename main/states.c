@@ -13,6 +13,8 @@
 #include "substate_home.h"
 #include "laser.h"
 #include "settings.h"
+#include "selftest.h"
+#include "util.h"
 
 extern SemaphoreHandle_t print_mux;
 extern QueueHandle_t ls_event_queue;
@@ -163,8 +165,8 @@ ls_State ls_state_poweron(ls_event event)
 static bool _ls_state_prelaserwarn_buzzer_complete;
 static bool _ls_state_prelaserwarn_movement_complete;
 static int _ls_state_prelaserwarn_rotation_count;
-static ls_state_funcptr _ls_state_prelaserwarn_successor = NULL;
-void ls_state_set_prelaserwarn_successor(ls_state_funcptr successor)
+static void *_ls_state_prelaserwarn_successor = NULL;
+void ls_state_set_prelaserwarn_successor(void *successor)
 {
     _ls_state_prelaserwarn_successor = successor;
 }
@@ -322,8 +324,8 @@ ls_State ls_state_active(ls_event event)
     return successor;
 }
 
-static ls_state_funcptr _ls_state_home_successor = NULL;
-void ls_state_set_home_successor(ls_state_funcptr successor)
+static void *_ls_state_home_successor = NULL;
+void ls_state_set_home_successor(void *successor)
 {
     _ls_state_home_successor = successor;
 }
@@ -383,7 +385,7 @@ ls_State ls_state_selftest(ls_event event)
 #endif
     ls_State successor;
     successor.func = ls_state_selftest;
-
+    selftest_event_handler(event);
     return successor;
 }
 
@@ -419,10 +421,8 @@ ls_State ls_state_manual(ls_event event)
     case LSEVT_SERVO_SWEEP_TOP:
         ls_buzzer_play(LS_BUZZER_PLAY_OCTAVE);
         break;
-
     case LSEVT_SERVO_SWEEP_BOTTOM:
         ls_buzzer_play(LS_BUZZER_PLAY_ROOT);
-        break;
         break;
     case LSEVT_CONTROLS_SPEED:
         control_value = *((BaseType_t *)event.value);

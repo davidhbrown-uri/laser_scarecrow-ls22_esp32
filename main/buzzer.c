@@ -6,6 +6,7 @@
 #include "buzzer.h"
 #include "debug.h"
 #include "events.h"
+#include "util.h"
 
 #define BUZZER_SPEED (LEDC_HIGH_SPEED_MODE)
 #define BUZZER_TIMER (LEDC_TIMER_0)
@@ -15,6 +16,7 @@
 #define BUZZER_DUTY (1)
 
 bool _ls_buzzer_in_use = false;
+uint32_t _tone_frequency = 1000;
 
 static enum _ls_buzzer_scale {
     LS_BUZZER_SCALE_bb = 967,  // b
@@ -25,7 +27,7 @@ static enum _ls_buzzer_scale {
     LS_BUZZER_SCALE_G = 1534,  // G
     LS_BUZZER_SCALE_A = 1722,  // A
     LS_BUZZER_SCALE_B = 1933,  // B
-    LS_BUZZER_SCALE_CC = 2048, // C'
+    LS_BUZZER_SCALE_CC = 2048 // C'
 };
 
 static void _ls_buzzer_frequency(uint32_t freq)
@@ -142,6 +144,10 @@ void ls_buzzer_handler_task(void *pvParameter)
                 _ls_buzzer_frequency(3100);
                 vTaskDelay(pdMS_TO_TICKS(1000));
                 break;
+            case LS_BUZZER_PLAY_TONE:
+            _ls_buzzer_frequency(_tone_frequency);
+            vTaskDelay(1);
+            break;
             case LS_BUZZER_ALTERNATE_HIGH:
                 _ls_buzzer_effect_alternate_high(1000);
                 break;
@@ -209,11 +215,43 @@ void ls_buzzer_handler_task(void *pvParameter)
                 _ls_buzzer_play_note(LS_BUZZER_SCALE_G, 100);
                 _ls_buzzer_play_note(LS_BUZZER_SCALE_F, 100);
                 break;
-                case LS_BUZZER_PLAY_ROOT:
+            case LS_BUZZER_PLAY_ROOT:
                 _ls_buzzer_play_note(LS_BUZZER_SCALE_C, 200);
                 break;
-                case LS_BUZZER_PLAY_OCTAVE:
+            case LS_BUZZER_PLAY_OCTAVE:
                 _ls_buzzer_play_note(LS_BUZZER_SCALE_CC, 200);
+                break;
+            case LS_BUZZER_PLAY_WAKE:
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_C, 100);
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_D, 100);
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_C, 100);
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_E, 100);
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_C, 100);
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_F, 100);
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_C, 100);
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_G, 100);
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_C, 100);
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_A, 100);
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_C, 100);
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_B, 100);
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_C, 100);
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_CC, 100);
+                break;
+            case LS_BUZZER_PLAY_SLEEP:
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_CC, 100);
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_B, 100);
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_CC, 100);
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_A, 100);
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_CC, 100);
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_G, 100);
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_CC, 100);
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_F, 100);
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_CC, 100);
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_E, 100);
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_CC, 100);
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_D, 100);
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_CC, 100);
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_C, 100);
                 break;
             default:;
 #ifdef LSDEBUG_BUZZER
@@ -224,4 +262,10 @@ void ls_buzzer_handler_task(void *pvParameter)
         ESP_ERROR_CHECK(ledc_stop(BUZZER_SPEED, BUZZER_CHANNEL, 0));
         _ls_buzzer_in_use = false;
     }
+}
+
+void ls_buzzer_tone(BaseType_t frequency_hz)
+{
+    _tone_frequency = (uint32_t) _constrain(frequency_hz, 500, 22000);
+    ls_buzzer_play(LS_BUZZER_PLAY_TONE);
 }
