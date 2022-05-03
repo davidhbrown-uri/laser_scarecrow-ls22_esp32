@@ -98,21 +98,3 @@ void check_efuse(void)
 #error "This example is configured for ESP32/ESP32S2."
 #endif
 }
-
-esp_err_t lsi_2c_master_init(void)
-{
-    i2c_config_t conf = {
-        .mode = I2C_MODE_MASTER,
-        .sda_io_num = LSI2C_SDA,
-        .sda_pullup_en = GPIO_PULLUP_ENABLE,
-        .scl_io_num = LSI2C_SCL,
-        .scl_pullup_en = GPIO_PULLUP_ENABLE,
-        .master.clk_speed = LSI2C_FREQ_HZ,
-        // .clk_flags = 0,          /*!< Optional, you can use I2C_SCLK_SRC_FLAG_* flags to choose i2c source clock here. */
-    };
-    esp_err_t err = i2c_param_config(I2C_NUM_0, &conf);
-    if (err != ESP_OK) {
-        return err;
-    }
-    return i2c_driver_install(I2C_NUM_0, conf.mode, 0, 0, 0);
-}

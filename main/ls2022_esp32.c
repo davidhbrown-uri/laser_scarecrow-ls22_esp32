@@ -65,15 +65,16 @@ void app_main(void)
     adc1_mux = xSemaphoreCreateMutex();
     adc2_mux = xSemaphoreCreateMutex();
     print_mux = xSemaphoreCreateMutex();
-#ifdef LSDEBUG_I2C
-ls_debug_printf("I2C LIS2DH: %d\n", ls_i2c_has_lis2dh12());
-ls_debug_printf("I2C KXTJ3: %d\n", ls_i2c_has_kxtj3());
-ls_debug_printf("I2C MPU6050: %d\n", ls_i2c_has_mpu6050());
-#endif
-    printf("Initializing GPIO\n");
+    printf("Initializing I2C...\n");
+    ls_i2c_init();
+    if(ls_i2c_accelerometer_device() == LS_I2C_ACCELEROMETER_MPU6050)
+    {
+        printf("November '21 test board detected via MPU6050 accelerometer\n");
+
+        ls_config_set_gpio_nov21();
+    }
+    printf("Initializing GPIO...\n");
     ls_gpio_initialize();
-    /** @todo: servo setup */
-    // Characterize ADC
     adc_chars = calloc(1, sizeof(esp_adc_cal_characteristics_t));
     esp_adc_cal_value_t val_type = esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_11db, ADC_WIDTH_12Bit, 1100, adc_chars);
     print_char_val_type(val_type);
@@ -83,13 +84,20 @@ ls_debug_printf("I2C MPU6050: %d\n", ls_i2c_has_mpu6050());
     ls_settings_read();
     printf("Loaded settings\n");
     adc_chars = calloc(1, sizeof(esp_adc_cal_characteristics_t));
-    ls_state_current.func = ls_state_poweron;
-    // ls_state_current.func = ls_state_active; ls_stepper_random();
+    ls_state_current.func = ls_state_poweron; // default
+    if(ls_i2c_accelerometer_device()==LS_I2C_ACCELEROMETER_NONE)
+    {
+        printf("No accelerometer detected!\n");
+        ls_state_current.func = ls_state_error_noaccel;
+    }
     ls_event_queue_init();
     ls_buzzer_init();
     ls_stepper_init();
     ls_servo_init();
     ls_state_init();
+
+    // do not set magnet ISR up before event queue
+    ls_magnet_isr_begin();
 
     printf("Initialized queues / semaphores / IRQs\n");
 
@@ -116,7 +124,7 @@ ls_debug_printf("I2C MPU6050: %d\n", ls_i2c_has_mpu6050());
     xTaskCreate(&ls_stepper_debug_task, "stepper_debug", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
 #endif
     xTaskCreate(&ls_lightsense_read_task, "lightsense_read", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
-    ls_magnet_isr_begin();
+
 
     xSemaphoreTake(print_mux, portMAX_DELAY);
     printf("app_main() has finished.\n");

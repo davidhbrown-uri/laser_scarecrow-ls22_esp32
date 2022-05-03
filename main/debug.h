@@ -15,7 +15,7 @@
 extern SemaphoreHandle_t print_mux; // in ls2022_esp32.c
 
 //variadic macro help from https://gcc.gnu.org/onlinedocs/cpp/Variadic-Macros.html
-#define ls_debug_printf(args...) { xSemaphoreTake(print_mux, portMAX_DELAY); printf(args); xSemaphoreGive(print_mux); }
+#define ls_debug_printf(args...) { xSemaphoreTake(print_mux, 1); printf(args); xSemaphoreGive(print_mux); }
 
 // Uncomment any desired classes of debug output to enable output via ls_debug_printf
 

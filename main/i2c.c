@@ -37,6 +37,9 @@ static enum ls_i2c_accelerometer_device_t _ls_i2c_accelerometer_device = LS_I2C_
  */
 static esp_err_t i2c_master_init(void)
 {
+#ifdef LSDEBUG_I2C
+    ls_debug_printf("I2C bus master initializing...\n");
+#endif
     int i2c_master_port = LSIC2_PORT;
 
     i2c_config_t conf = {
@@ -87,6 +90,11 @@ bool ls_i2c_init(void)
     if (!_ls_i2c_initialized && i2c_master_init() == ESP_OK)
     {
         _ls_i2c_initialized = true;
+#ifdef LSDEBUG_I2C
+        ls_debug_printf("I2C LIS2DH: %d\n", ls_i2c_has_lis2dh12());
+        ls_debug_printf("I2C KXTJ3: %d\n", ls_i2c_has_kxtj3());
+        ls_debug_printf("I2C MPU6050: %d\n", ls_i2c_has_mpu6050());
+#endif
     }
     return _ls_i2c_initialized;
 }
@@ -242,12 +250,12 @@ void ls_tilt_task(void *pvParameter)
                     break;
                 default:;
                 }
-            current_status = readings[0];
+                current_status = readings[0];
 #ifdef LSDEBUG_TILT
-            ls_debug_printf("I2C tilt status now = %d\n", current_status);
+                ls_debug_printf("I2C tilt status now = %d\n", current_status);
 #endif
             } // new status
-        } // all agree
+        }     // all agree
         vTaskDelay(pdMS_TO_TICKS(LS_TILT_REPORT_RATE_MS));
     }
 }
