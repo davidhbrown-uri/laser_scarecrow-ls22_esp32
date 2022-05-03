@@ -849,3 +849,20 @@ ls_State ls_state_error_tilt(ls_event event)
     }
     return successor;
 }
+
+ls_State ls_state_error_noaccel(ls_event event)
+{
+    ls_State successor;
+    successor.func = ls_state_error_noaccel;
+    //we're never really going to return
+    for(int i=0; i < 5; i++)
+    {
+        vTaskDelay(pdMS_TO_TICKS(10000));
+        ls_buzzer_play(LS_BUZZER_PLAY_TILT_FAIL);
+        vTaskDelay(pdMS_TO_TICKS(10000));
+        ls_buzzer_play(LS_BUZZER_ALTERNATE_HIGH);
+    }
+    esp_restart(); // software reset of the chip; starts execution again
+    // will not be reached
+    return successor;
+}

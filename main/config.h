@@ -1,5 +1,17 @@
 #pragma once
 #include "debug.h"
+#include "driver/gpio.h"
+
+// these GPIO assignments changed from the Nov '21 test board (rectangular)
+// to the January/April '22 kit boards. On detecting the MPU6050 accelerometer
+// that was on only the Nov '21 boards, these can be return different values.
+void ls_config_set_gpio_nov21(void);
+gpio_num_t IRAM_ATTR lsgpio_laserpowerenable(void);
+gpio_num_t lsgpio_laserheaterenable(void);
+gpio_num_t lsgpio_stepperdirection(void);
+gpio_num_t lsgpio_steppersleep(void);
+gpio_num_t lsgpio_servopowerenable(void);
+gpio_num_t lsgpio_servopulse(void);
 
 // assignments of our devices to ESP32 peripherals
 #define LSBUZZER_HS_LEDC_CHANNEL 0
@@ -30,15 +42,15 @@
 // MAGNETSENSE is digital input (ISR), not ADC
 #define LSGPIO_MAGNETSENSE 4
 // Binary output
-#define LSGPIO_LASERPOWERENABLE 32
-#define LSGPIO_SERVOPOWERENABLE 25
-#define LSGPIO_LASERHEATERENABLE 26
+#define LSGPIO_LASERPOWERENABLE (lsgpio_laserpowerenable())
+#define LSGPIO_SERVOPOWERENABLE (lsgpio_servopowerenable())
+#define LSGPIO_LASERHEATERENABLE (lsgpio_laserheaterenable())
 #define LSGPIO_REFLECTANCEENABLE 27
-#define LSGPIO_STEPPERDIRECTION 19
+#define LSGPIO_STEPPERDIRECTION (lsgpio_stepperdirection())
 #define LSGPIO_STEPPERSTEP 18
-#define LSGPIO_STEPPERSLEEP 5
+#define LSGPIO_STEPPERSLEEP (lsgpio_steppersleep())
 // PWM output (LEDC)
-#define LSGPIO_SERVOPULSE 33
+#define LSGPIO_SERVOPULSE (lsgpio_servopulse())
 #define LSGPIO_BUZZERENABLE 2
 // I2C (using controller 0; pins selected to match Arduino usage; maybe they have a reason?)
 #define LSIC2_PORT I2C_NUM_0
