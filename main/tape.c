@@ -4,6 +4,7 @@
 #include "freertos/semphr.h"
 #include "driver/gpio.h"
 #include "esp_adc_cal.h"
+#include "buzzer.h"
 
 extern SemaphoreHandle_t adc1_mux;
 static bool _ls_tape_sensor_enabled = false;
@@ -46,4 +47,24 @@ void ls_tape_sensor_disable(void)
 {
     gpio_set_level(LSGPIO_REFLECTANCEENABLE, 0);
     _ls_tape_sensor_enabled = false;
+}
+
+void ls_tape_sensor_selftest_task(void *pvParameter)
+{
+    ls_tape_sensor_enable();
+    uint32_t last_tape_reading = ls_tape_sensor_read();
+    while (1)
+    {
+        int tape_reading = ls_tape_sensor_read();
+        if(tape_reading < LS_REFLECTANCE_ADC_MAX_WHITE_BUCKET && last_tape_reading >= LS_REFLECTANCE_ADC_MAX_WHITE_BUCKET)
+        {
+            ls_buzzer_play(LS_BUZZER_PLAY_ROOT);
+        }
+        if(tape_reading > LS_REFLECTANCE_ADC_MIN_BLACK_BUCKET && last_tape_reading <= LS_REFLECTANCE_ADC_MIN_BLACK_BUCKET)
+        {
+            ls_buzzer_play(LS_BUZZER_PLAY_OCTAVE);
+        }
+        last_tape_reading = tape_reading;
+        vTaskDelay(1);
+    }
 }

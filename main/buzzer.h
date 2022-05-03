@@ -18,6 +18,9 @@ enum ls_buzzer_effects {
     LS_BUZZER_PLAY_MANUAL_CONTROL_LEAVE, // short descending scale
     LS_BUZZER_PLAY_ROOT, // C, 200ms
     LS_BUZZER_PLAY_OCTAVE, // C', 200ms
+    LS_BUZZER_PLAY_WAKE, // ascending scale alternating with root
+    LS_BUZZER_PLAY_SLEEP, // descending scale alternating with octave
+    LS_BUZZER_PLAY_TONE,
 }ls_buzzer_effects;
 
 QueueHandle_t ls_buzzer_queue;
@@ -25,6 +28,8 @@ QueueHandle_t ls_buzzer_queue;
 void ls_buzzer_init(void);
 
 void ls_buzzer_play(enum ls_buzzer_effects effect);
+
+void ls_buzzer_tone(BaseType_t frequency_hz);
 
 void ls_buzzer_handler_task(void *pvParameter);
 

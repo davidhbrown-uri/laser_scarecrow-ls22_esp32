@@ -47,7 +47,7 @@ ls_State ls_state_prelaserwarn(ls_event);
  *         successor.func = ls_state_prelaserwarn;
  * 
  */
-void ls_state_set_prelaserwarn_successor(ls_state_funcptr);
+void ls_state_set_prelaserwarn_successor(void*);
 ls_State ls_state_active(ls_event);
 /**
  * @brief Default if not called is ls_state_active. 
@@ -57,7 +57,7 @@ ls_State ls_state_active(ls_event);
  *         successor.func = ls_state_home;
  * 
  */
-void ls_state_set_home_successor(ls_state_funcptr);
+void ls_state_set_home_successor(void*);
 ls_State ls_state_home(ls_event);
 
 ls_State ls_state_map_build(ls_event);
