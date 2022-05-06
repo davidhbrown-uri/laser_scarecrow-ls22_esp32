@@ -62,6 +62,7 @@ static void print_char_val_type(esp_adc_cal_value_t val_type)
  */
 void app_main(void)
 {
+    vTaskDelay(pdMS_TO_TICKS(2000)); // let voltages settle, USB connect
     adc1_mux = xSemaphoreCreateMutex();
     adc2_mux = xSemaphoreCreateMutex();
     print_mux = xSemaphoreCreateMutex();

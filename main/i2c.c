@@ -90,6 +90,7 @@ bool ls_i2c_init(void)
     if (!_ls_i2c_initialized && i2c_master_init() == ESP_OK)
     {
         _ls_i2c_initialized = true;
+        vTaskDelay(1); // allow bus to settle down
 #ifdef LSDEBUG_I2C
         ls_debug_printf("I2C LIS2DH: %d\n", ls_i2c_has_lis2dh12());
         ls_debug_printf("I2C KXTJ3: %d\n", ls_i2c_has_kxtj3());
