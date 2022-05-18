@@ -590,11 +590,15 @@ static void _ls_state_map_build_read_and_set_map(void)
 {
     enum _ls_state_map_reading reading = LS_STATE_MAP_READING_MISREAD;
     BaseType_t raw_adc = ls_tape_sensor_read();
+    BaseType_t pitch = 1000;
     BaseType_t position = ls_stepper_get_position();
     switch (ls_tapemode())
     {
     case LS_TAPEMODE_BLACK:
     case LS_TAPEMODE_BLACK_SAFE:
+        pitch = _map(_constrain(raw_adc, LS_REFLECTANCE_ADC_MAX_WHITE_BUCKET, LS_REFLECTANCE_ADC_MIN_BLACK_TAPE),
+        LS_REFLECTANCE_ADC_MAX_WHITE_BUCKET, LS_REFLECTANCE_ADC_MIN_BLACK_TAPE, 1024, 2048);
+        ;
         if (raw_adc <= LS_REFLECTANCE_ADC_MAX_WHITE_BUCKET)
         {
             reading = LS_STATE_MAP_READING_ENABLE;
@@ -606,6 +610,8 @@ static void _ls_state_map_build_read_and_set_map(void)
         break;
     case LS_TAPEMODE_REFLECT:
     case LS_TAPEMODE_REFLECT_SAFE:
+        pitch = _map(_constrain(raw_adc, LS_REFLECTANCE_ADC_MAX_SILVER_TAPE, LS_REFLECTANCE_ADC_MIN_BLACK_BUCKET),
+        LS_REFLECTANCE_ADC_MIN_BLACK_BUCKET, LS_REFLECTANCE_ADC_MAX_SILVER_TAPE, 1024, 2048);
         if (raw_adc >= LS_REFLECTANCE_ADC_MIN_BLACK_BUCKET)
         {
             reading = LS_STATE_MAP_READING_ENABLE;
@@ -619,6 +625,7 @@ static void _ls_state_map_build_read_and_set_map(void)
         // we are ignoring the map, so why are we building a map?
         reading = LS_STATE_MAP_READING_ENABLE;
     }
+    ls_buzzer_tone(pitch);
     switch (reading)
     {
     case LS_STATE_MAP_READING_ENABLE:
@@ -626,7 +633,7 @@ static void _ls_state_map_build_read_and_set_map(void)
         ls_map_enable_at(position);
         if (reading != _ls_state_map_previous_read)
         {
-            ls_buzzer_play(LS_BUZZER_PLAY_TAPE_ENABLE);
+          //  ls_buzzer_play(LS_BUZZER_PLAY_TAPE_ENABLE);
         }
         break;
     case LS_STATE_MAP_READING_DISABLE:
@@ -634,13 +641,13 @@ static void _ls_state_map_build_read_and_set_map(void)
         ls_map_disable_at(position);
         if (reading != _ls_state_map_previous_read)
         {
-            ls_buzzer_play(LS_BUZZER_PLAY_TAPE_DISABLE);
+          //  ls_buzzer_play(LS_BUZZER_PLAY_TAPE_DISABLE);
         }
         break;
     case LS_STATE_MAP_READING_MISREAD:
         _ls_state_map_misread_count++;
         ls_map_disable_at(position);
-        ls_buzzer_play(LS_BUZZER_PLAY_TAPE_MISREAD);
+        //ls_buzzer_play(LS_BUZZER_PLAY_TAPE_MISREAD);
         break;
     default:; // init case only for previous
     }
