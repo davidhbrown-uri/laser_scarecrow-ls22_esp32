@@ -1,5 +1,6 @@
 #include "util.h"
 
+// https://github.com/arduino/ArduinoCore-API/issues/51#issuecomment-69873889
 BaseType_t _map(BaseType_t x, BaseType_t in_min, BaseType_t in_max, BaseType_t out_min, BaseType_t out_max)
 {
   if ((in_max - in_min) > (out_max - out_min)) {

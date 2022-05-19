@@ -19,14 +19,14 @@ bool _ls_buzzer_in_use = false;
 uint32_t _tone_frequency = 1000;
 
 static enum _ls_buzzer_scale {
-    LS_BUZZER_SCALE_bb = 967,  // b
-    LS_BUZZER_SCALE_C = 1024,  // C
-    LS_BUZZER_SCALE_D = 1149,  // D
-    LS_BUZZER_SCALE_E = 1289,  // E
-    LS_BUZZER_SCALE_F = 1367,  // F
-    LS_BUZZER_SCALE_G = 1534,  // G
-    LS_BUZZER_SCALE_A = 1722,  // A
-    LS_BUZZER_SCALE_B = 1933,  // B
+    LS_BUZZER_SCALE_bb = 967, // b
+    LS_BUZZER_SCALE_C = 1024, // C
+    LS_BUZZER_SCALE_D = 1149, // D
+    LS_BUZZER_SCALE_E = 1289, // E
+    LS_BUZZER_SCALE_F = 1367, // F
+    LS_BUZZER_SCALE_G = 1534, // G
+    LS_BUZZER_SCALE_A = 1722, // A
+    LS_BUZZER_SCALE_B = 1933, // B
     LS_BUZZER_SCALE_CC = 2048 // C'
 };
 
@@ -145,9 +145,9 @@ void ls_buzzer_handler_task(void *pvParameter)
                 vTaskDelay(pdMS_TO_TICKS(1000));
                 break;
             case LS_BUZZER_PLAY_TONE:
-            _ls_buzzer_frequency(_tone_frequency);
-            vTaskDelay(1);
-            break;
+                _ls_buzzer_frequency(_tone_frequency);
+                vTaskDelay(1);
+                break;
             case LS_BUZZER_ALTERNATE_HIGH:
                 _ls_buzzer_effect_alternate_high(1000);
                 break;
@@ -253,6 +253,10 @@ void ls_buzzer_handler_task(void *pvParameter)
                 _ls_buzzer_play_note(LS_BUZZER_SCALE_CC, 100);
                 _ls_buzzer_play_note(LS_BUZZER_SCALE_C, 100);
                 break;
+            case LS_BUZZER_PLAY_NOTHING:
+                ESP_ERROR_CHECK(ledc_stop(BUZZER_SPEED, BUZZER_CHANNEL, 0));
+                vTaskDelay(1);
+                break;
             default:;
 #ifdef LSDEBUG_BUZZER
                 ls_debug_printf("Unknown ls_buzzer_effect %d -- I'm confused", received);
@@ -266,6 +270,6 @@ void ls_buzzer_handler_task(void *pvParameter)
 
 void ls_buzzer_tone(BaseType_t frequency_hz)
 {
-    _tone_frequency = (uint32_t) _constrain(frequency_hz, 500, 22000);
+    _tone_frequency = (uint32_t)_constrain(frequency_hz, 500, 22000);
     ls_buzzer_play(LS_BUZZER_PLAY_TONE);
 }

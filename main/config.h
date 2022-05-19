@@ -125,7 +125,8 @@ gpio_num_t lsgpio_servopulse(void);
 
 // map resolution: read tape sensor every n steps
 #define LS_MAP_RESOLUTION (LS_STEPPER_STEPS_PER_ROTATION / 400)
-#define LS_MAP_ALLOWABLE_MISREAD_PERCENT 4
+#define LS_MAP_ALLOWABLE_MISREAD_PERCENT 12
+#define LS_MAP_HISTOGRAM_BINCOUNT 32
 
 // how often should we rehome if using the map? 10000=10s debug/test, 1800000=30min production
 #ifdef LSDEBUG_HOMING
@@ -143,7 +144,9 @@ gpio_num_t lsgpio_servopulse(void);
 #define LS_TILT_THRESHOLD_DETECTED_MG 890
 #define LS_TILT_THRESHOLD_OK_MG 920
 #ifdef LSDEBUG_I2C
+// the accelerometer will check this frequently if I2C debug is active
 #define LS_TILT_REPORT_RATE_MS 200
 #else
+// the accelerometer will check this frequently during normal operation
 #define LS_TILT_REPORT_RATE_MS 400
 #endif
