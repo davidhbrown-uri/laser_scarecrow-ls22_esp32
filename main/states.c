@@ -20,6 +20,15 @@ extern SemaphoreHandle_t print_mux;
 extern QueueHandle_t ls_event_queue;
 
 TimerHandle_t _ls_state_rehome_timer;
+
+#define _ls_state_everything_off() \
+    {                              \
+        ls_servo_off();            \
+        ls_stepper_off();          \
+        ls_laser_set_mode_off();   \
+        ls_tape_sensor_disable();  \
+    }
+
 void _ls_state_rehome_timer_callback(TimerHandle_t xTimer)
 {
     ls_event event;
@@ -28,7 +37,7 @@ void _ls_state_rehome_timer_callback(TimerHandle_t xTimer)
     if (xQueueSendToBack(ls_event_queue, (void *)&event, pdMS_TO_TICKS(5000)) != pdPASS)
     {
 #ifdef LSDEBUG_STATES
-        printf("WARNING: Could not enqueue LSEVT_REHOME_REQUIRED; will try to try again later\n");
+        ls_debug_printf("WARNING: Could not enqueue LSEVT_REHOME_REQUIRED; will try to try again later\n");
 #endif
         xTimerReset(_ls_state_rehome_timer, pdMS_TO_TICKS(5000));
     }
@@ -174,7 +183,7 @@ ls_State ls_state_prelaserwarn(ls_event event)
 {
 #ifdef LSDEBUG_STATES
     xSemaphoreTake(print_mux, portMAX_DELAY);
-    printf("STATE_PRELASERWARN handling event\n");
+    ls_debug_printf("STATE_PRELASERWARN handling event\n");
     xSemaphoreGive(print_mux);
 #endif
     ls_State successor;
@@ -576,176 +585,7 @@ ls_State ls_state_wakeup(ls_event event)
 }
 
 static int _ls_state_map_build_steps_remaining;
-static int _ls_state_map_misread_count;
-static int _ls_state_map_enable_count;
-static int _ls_state_map_disable_count;
-static enum _ls_state_map_reading {
-    LS_STATE_MAP_READING_DISABLE,
-    LS_STATE_MAP_READING_ENABLE,
-    LS_STATE_MAP_READING_MISREAD,
-    LS_STATE_MAP_READING_INIT
-} _ls_state_map_previous_read = LS_STATE_MAP_READING_INIT;
-
-#define LS_MAP_HISTOGRAM_BINCOUNT 32
-static uint16_t _ls_map_raw_adc[LS_STEPPER_STEPS_PER_ROTATION / LS_MAP_RESOLUTION];
-static uint16_t _ls_map_histo_bins[LS_MAP_HISTOGRAM_BINCOUNT];
-static uint16_t _ls_map_min_adc = 4095;
-static uint16_t _ls_map_max_adc = 0;
-static uint16_t _ls_map_low_threshold = 4095;
-static uint16_t _ls_map_high_threshold = 0;
-
-static void _ls_state_map_build_histogram(void)
-{
-#ifdef LSDEBUG_MAP
-    for (int i = 0; i < LS_MAP_HISTOGRAM_BINCOUNT; i++)
-    {
-        printf("Raw ADC tape readings from %d to %d\n", _ls_map_min_adc, _ls_map_max_adc);
-    }
-#endif
-    for (int i = 0; i < LS_MAP_HISTOGRAM_BINCOUNT; i++)
-    {
-        _ls_map_histo_bins[i] = 0;
-    }
-    for (int i = 0; i < LS_STEPPER_STEPS_PER_ROTATION / LS_MAP_RESOLUTION; i++)
-    {
-        int bin = _map(_ls_map_raw_adc[i], _ls_map_min_adc, _ls_map_max_adc, 0, LS_MAP_HISTOGRAM_BINCOUNT - 1);
-        _ls_map_histo_bins[bin] += 2;
-        if (bin > 0)
-        {
-            _ls_map_histo_bins[bin - 1]++;
-        }
-        if (bin + 1 < LS_MAP_HISTOGRAM_BINCOUNT)
-        {
-            _ls_map_histo_bins[bin + 1]++;
-        }
-    }
-#ifdef LSDEBUG_MAP
-    for (int i = 0; i < LS_MAP_HISTOGRAM_BINCOUNT; i++)
-    {
-        printf("%d [%d]: %d\n", i, _map(i, 0, LS_MAP_HISTOGRAM_BINCOUNT - 1, _ls_map_min_adc, _ls_map_max_adc), _ls_map_histo_bins[i]);
-    }
-#endif
-    int low_peak_bin = 0;
-    for (int i = 1; i < LS_MAP_HISTOGRAM_BINCOUNT; i++)
-    {
-        if (_ls_map_histo_bins[i] > _ls_map_histo_bins[i - 1])
-        {
-            low_peak_bin = i;
-        }
-        if (_ls_map_histo_bins[i] <= _ls_map_histo_bins[low_peak_bin] / 10)
-        {
-            _ls_map_low_threshold = _map(i, 0, LS_MAP_HISTOGRAM_BINCOUNT - 1, _ls_map_min_adc, _ls_map_max_adc);
-            break;
-        }
-    }
-    int high_peak_bin = 0;
-    for (int i = LS_MAP_HISTOGRAM_BINCOUNT - 2; i >= 0; i--)
-    {
-        if (_ls_map_histo_bins[i] > _ls_map_histo_bins[i + 1])
-        {
-            high_peak_bin = i;
-        }
-        if (_ls_map_histo_bins[i] <= _ls_map_histo_bins[high_peak_bin] / 10)
-        {
-            _ls_map_high_threshold = _map(i, 0, LS_MAP_HISTOGRAM_BINCOUNT - 1, _ls_map_min_adc, _ls_map_max_adc);
-            break;
-        }
-    }
-#ifdef LSDEBUG_MAP
-    printf("Low peak in bin %d; low threshold = %d\n", low_peak_bin, _ls_map_low_threshold);
-    printf("High peak in bin %d; high threshold = %d\n", high_peak_bin, _ls_map_high_threshold);
-#endif
-}
-static void _ls_state_map_build_read_and_set_map(void)
-{
-    enum _ls_state_map_reading reading = LS_STATE_MAP_READING_MISREAD;
-    BaseType_t raw_adc = ls_tape_sensor_read();
-    BaseType_t pitch = 1000;
-    BaseType_t position = ls_stepper_get_position();
-    BaseType_t map_index = position / LS_MAP_RESOLUTION;
-    if (map_index >= 0 && map_index < LS_STEPPER_STEPS_PER_ROTATION / LS_MAP_RESOLUTION)
-    {
-        _ls_map_raw_adc[position / LS_MAP_RESOLUTION] = raw_adc;
-    }
-    else
-    {
-        printf("Map index out of range for position %d => %d out of %d\n",
-               position, map_index, LS_STEPPER_STEPS_PER_ROTATION / LS_MAP_RESOLUTION);
-    }
-    if (raw_adc > _ls_map_max_adc)
-    {
-        _ls_map_max_adc = raw_adc;
-    }
-    if (raw_adc < _ls_map_min_adc)
-    {
-        _ls_map_min_adc = raw_adc;
-    }
-    switch (ls_tapemode())
-    {
-    case LS_TAPEMODE_BLACK:
-    case LS_TAPEMODE_BLACK_SAFE:
-        pitch = _map(_constrain(raw_adc, LS_REFLECTANCE_ADC_MAX_WHITE_BUCKET, LS_REFLECTANCE_ADC_MIN_BLACK_TAPE),
-                     LS_REFLECTANCE_ADC_MAX_WHITE_BUCKET, LS_REFLECTANCE_ADC_MIN_BLACK_TAPE, 1024, 2048);
-        ;
-        if (raw_adc <= LS_REFLECTANCE_ADC_MAX_WHITE_BUCKET)
-        {
-            reading = LS_STATE_MAP_READING_ENABLE;
-        }
-        if (raw_adc >= LS_REFLECTANCE_ADC_MIN_BLACK_TAPE)
-        {
-            reading = LS_STATE_MAP_READING_DISABLE;
-        }
-        break;
-    case LS_TAPEMODE_REFLECT:
-    case LS_TAPEMODE_REFLECT_SAFE:
-        pitch = _map(_constrain(raw_adc, LS_REFLECTANCE_ADC_MAX_SILVER_TAPE, LS_REFLECTANCE_ADC_MIN_BLACK_BUCKET),
-                     LS_REFLECTANCE_ADC_MIN_BLACK_BUCKET, LS_REFLECTANCE_ADC_MAX_SILVER_TAPE, 1024, 2048);
-        if (raw_adc >= LS_REFLECTANCE_ADC_MIN_BLACK_BUCKET)
-        {
-            reading = LS_STATE_MAP_READING_ENABLE;
-        }
-        if (raw_adc <= LS_REFLECTANCE_ADC_MAX_SILVER_TAPE)
-        {
-            reading = LS_STATE_MAP_READING_DISABLE;
-        }
-        break;
-    default:
-        // we are ignoring the map, so why are we building a map?
-        reading = LS_STATE_MAP_READING_ENABLE;
-    }
-    ls_buzzer_tone(pitch);
-    switch (reading)
-    {
-    case LS_STATE_MAP_READING_ENABLE:
-        _ls_state_map_enable_count++;
-        ls_map_enable_at(position);
-        if (reading != _ls_state_map_previous_read)
-        {
-            //  ls_buzzer_play(LS_BUZZER_PLAY_TAPE_ENABLE);
-        }
-        break;
-    case LS_STATE_MAP_READING_DISABLE:
-        _ls_state_map_disable_count++;
-        ls_map_disable_at(position);
-        if (reading != _ls_state_map_previous_read)
-        {
-            //  ls_buzzer_play(LS_BUZZER_PLAY_TAPE_DISABLE);
-        }
-        break;
-    case LS_STATE_MAP_READING_MISREAD:
-        _ls_state_map_misread_count++;
-        ls_map_disable_at(position);
-        // ls_buzzer_play(LS_BUZZER_PLAY_TAPE_MISREAD);
-        break;
-    default:; // init case only for previous
-    }
-    _ls_state_map_previous_read = reading;
-#ifdef LSDEBUG_MAP
-    xSemaphoreTake(print_mux, portMAX_DELAY);
-    printf("map @%d: %d [%d]=>%c\n", position, raw_adc, reading, ls_map_is_enabled_at(position) ? 'O' : '.');
-    xSemaphoreGive(print_mux);
-#endif
-}
+static int _ls_state_map_enable_count = 0, _ls_state_map_disable_count = 0, _ls_state_map_misread_count = 0;
 
 ls_State ls_state_map_build(ls_event event)
 {
@@ -758,13 +598,14 @@ ls_State ls_state_map_build(ls_event event)
     {
     case LSEVT_STATE_ENTRY:
         _ls_state_map_build_steps_remaining = LS_STEPPER_STEPS_PER_ROTATION / LS_MAP_RESOLUTION;
-        _ls_state_map_misread_count = 0;
         ls_tape_sensor_enable();
-        while (ls_buzzer_in_use())
+        while (ls_buzzer_in_use() || ls_stepper_is_moving())
         {
-            // if we start moving while the buzzer is still indicating successfull homing, we get a bunch of pitches queued that play faster than the others
+            // if we start moving while the buzzer is still indicating successfull homing,
+            // we get a bunch of pitches queued that play faster than the others
             vTaskDelay(1);
         }
+        ls_event_empty_queue(); // in case of a trailing LSEVT_STEPPER_FINISHED_MOVE
         ls_stepper_set_maximum_steps_per_second(LS_STEPPER_STEPS_PER_SECOND_MAPPING);
         ls_stepper_forward(LS_MAP_RESOLUTION);
         break;
@@ -772,9 +613,9 @@ ls_State ls_state_map_build(ls_event event)
 #ifdef LSDEBUG_STATES
         ls_debug_printf("case LSEVT_STEPPER_FINISHED_MOVE...\n");
 #endif
-        if (_ls_state_map_build_steps_remaining >= 0)
+        if (_ls_state_map_build_steps_remaining > 0)
         {
-            _ls_state_map_build_read_and_set_map();
+            _ls_state_map_build_read_and_set_map(&_ls_state_map_enable_count, &_ls_state_map_disable_count, &_ls_state_map_misread_count);
 #ifdef LSDEBUG_STATES
             ls_debug_printf("continuing to next position...\n");
 #endif
@@ -783,11 +624,30 @@ ls_State ls_state_map_build(ls_event event)
         }
         else
         { // we're done building the map
-            _ls_state_map_build_histogram();
+            bool badmap = false;
+            int low_peak_bin, high_peak_bin, low_edge_bin, high_edge_bin;
+            _ls_state_map_build_histogram(ls_map_min_adc(), ls_map_max_adc());
+            _ls_state_map_build_histogram_get_peaks_edges(&low_peak_bin, &low_edge_bin, &high_peak_bin, &high_edge_bin);
+            if (low_edge_bin >= high_edge_bin) // mapping failed; insufficient contrast (probably no tape)
+            {
+                badmap = true;
+            }
+            else // reset the map based on customized histogram
+            {
+                // rebuild the histogram just between the peaks
+                uint16_t low_peak_adc = _map(low_peak_bin, 0, LS_MAP_HISTOGRAM_BINCOUNT - 1, ls_map_min_adc(), ls_map_max_adc());
+                uint16_t high_peak_adc = _map(high_peak_bin, 0, LS_MAP_HISTOGRAM_BINCOUNT - 1, ls_map_min_adc(), ls_map_max_adc());
+                _ls_state_map_build_histogram(low_peak_adc, high_peak_adc);
+                _ls_state_map_build_histogram_get_peaks_edges(&low_peak_bin, &low_edge_bin, &high_peak_bin, &high_edge_bin);
+                // remap to custom thresholds
+                _ls_state_map_build_set_map(&_ls_state_map_enable_count, &_ls_state_map_disable_count, &_ls_state_map_misread_count,
+                                            _map(low_edge_bin, 0, LS_MAP_HISTOGRAM_BINCOUNT - 1, low_peak_adc, high_peak_adc), // low threshold
+                                            _map(high_edge_bin, 0, LS_MAP_HISTOGRAM_BINCOUNT - 1, low_peak_adc, high_peak_adc) // high threshold
+                );
+            }
 #ifdef LSDEBUG_MAP
             ls_debug_printf("\nMapping completed with %d enabled, %d disabled, and %d misreads\n", _ls_state_map_enable_count, _ls_state_map_disable_count, _ls_state_map_misread_count);
 #endif
-            bool badmap = false;
             successor.func = ls_state_prelaserwarn;
             if (0 == _ls_state_map_enable_count || 0 == _ls_state_map_disable_count)
             {
@@ -806,6 +666,7 @@ ls_State ls_state_map_build(ls_event event)
             if (badmap)
             {
                 ls_map_set_status(LS_MAP_STATUS_FAILED);
+                ls_buzzer_play(LS_BUZZER_PLAY_NOTHING);
                 ls_buzzer_play(LS_BUZZER_PLAY_MAP_FAIL);
                 switch (ls_tapemode())
                 {
@@ -857,12 +718,12 @@ ls_State ls_state_map_build(ls_event event)
 
 ls_State ls_state_error_home(ls_event event)
 {
-    ls_gpio_initialize(); // turn things off
+    _ls_state_everything_off();
     ls_State successor;
     successor.func = ls_state_error_home;
 #ifdef LSDEBUG_HOMING
     xSemaphoreTake(print_mux, portMAX_DELAY);
-    printf(">>>>HOMING FAILED<<<\n");
+    ls_debug_printf(">>>>HOMING FAILED<<<\n");
     xSemaphoreGive(print_mux);
 #endif
     vTaskDelay(pdMS_TO_TICKS(30000)); // 30 seconds between alerts
@@ -873,15 +734,12 @@ ls_State ls_state_error_home(ls_event event)
 
 ls_State ls_state_error_map(ls_event event)
 {
-    if (LSEVT_STATE_ENTRY == event.type)
-    {
-        ls_gpio_initialize(); // turn things off
-    }
+        _ls_state_everything_off();
     ls_State successor;
     successor.func = ls_state_error_map;
 #ifdef LSDEBUG_MAP
     xSemaphoreTake(print_mux, portMAX_DELAY);
-    printf(">>>>MAPPING FAILED<<<\n");
+    ls_debug_printf(">>>>MAPPING FAILED<<<\n");
     xSemaphoreGive(print_mux);
 #endif
     vTaskDelay(pdMS_TO_TICKS(30000)); // 30 seconds between alerts
@@ -909,7 +767,7 @@ ls_State ls_state_error_tilt(ls_event event)
 {
 #ifdef LSDEBUG_TILT
     xSemaphoreTake(print_mux, portMAX_DELAY);
-    printf("ERROR_TILT<\n");
+    ls_debug_printf("ERROR_TILT\n");
     xSemaphoreGive(print_mux);
 #endif
     ls_State successor;
@@ -917,9 +775,7 @@ ls_State ls_state_error_tilt(ls_event event)
     switch (event.type)
     {
     case LSEVT_STATE_ENTRY:
-        ls_gpio_initialize(); // turn things off
-        ls_servo_off();
-        ls_stepper_sleep();
+        _ls_state_everything_off();
         ls_event_enqueue_noop();
         break;
     case LSEVT_TILT_OK:
@@ -929,7 +785,7 @@ ls_State ls_state_error_tilt(ls_event event)
         case LS_TAPEMODE_REFLECT_SAFE:
 #ifdef LSDEBUG_TILT
             xSemaphoreTake(print_mux, portMAX_DELAY);
-            printf("TILT_OK but safe mode requires power cycle to resume\n");
+            ls_debug_printf("TILT_OK but safe mode requires power cycle to resume\n");
             xSemaphoreGive(print_mux);
 #endif
             ls_buzzer_play(LS_BUZZER_PLAY_TILT_FAIL);

@@ -112,7 +112,7 @@ gpio_num_t lsgpio_servopulse(void);
 // values read by ADC for tape reflectance sensor
 // based on testing conducted March 18 '22
 #define LS_REFLECTANCE_ADC_MAX_WHITE_BUCKET 1750
-#define LS_REFLECTANCE_ADC_MIN_BLACK_TAPE 2600
+#define LS_REFLECTANCE_ADC_MIN_BLACK_TAPE 2750
 #define LS_REFLECTANCE_ADC_MIN_BLACK_BUCKET 2000
 #define LS_REFLECTANCE_ADC_MAX_SILVER_TAPE 500
 
@@ -125,7 +125,8 @@ gpio_num_t lsgpio_servopulse(void);
 
 // map resolution: read tape sensor every n steps
 #define LS_MAP_RESOLUTION (LS_STEPPER_STEPS_PER_ROTATION / 400)
-#define LS_MAP_ALLOWABLE_MISREAD_PERCENT 4
+#define LS_MAP_ALLOWABLE_MISREAD_PERCENT 12
+#define LS_MAP_HISTOGRAM_BINCOUNT 32
 
 // how often should we rehome if using the map? 10000=10s debug/test, 1800000=30min production
 #ifdef LSDEBUG_HOMING

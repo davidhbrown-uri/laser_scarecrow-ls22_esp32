@@ -43,6 +43,7 @@ void ls_stepper_forward(uint16_t steps);
 void ls_stepper_reverse(uint16_t steps);
 void ls_stepper_random(void);
 void ls_stepper_sleep(void);
+#define ls_stepper_off() ls_stepper_sleep()
 
 void ls_stepper_set_maximum_steps_per_second(int);
 
