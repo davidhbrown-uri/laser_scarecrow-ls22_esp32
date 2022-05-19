@@ -143,7 +143,9 @@ gpio_num_t lsgpio_servopulse(void);
 #define LS_TILT_THRESHOLD_DETECTED_MG 890
 #define LS_TILT_THRESHOLD_OK_MG 920
 #ifdef LSDEBUG_I2C
+// the accelerometer will check this frequently if I2C debug is active
 #define LS_TILT_REPORT_RATE_MS 200
 #else
+// the accelerometer will check this frequently during normal operation
 #define LS_TILT_REPORT_RATE_MS 400
 #endif

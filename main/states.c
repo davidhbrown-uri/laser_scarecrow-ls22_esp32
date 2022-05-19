@@ -586,18 +586,106 @@ static enum _ls_state_map_reading {
     LS_STATE_MAP_READING_INIT
 } _ls_state_map_previous_read = LS_STATE_MAP_READING_INIT;
 
+#define LS_MAP_HISTOGRAM_BINCOUNT 32
+static uint16_t _ls_map_raw_adc[LS_STEPPER_STEPS_PER_ROTATION / LS_MAP_RESOLUTION];
+static uint16_t _ls_map_histo_bins[LS_MAP_HISTOGRAM_BINCOUNT];
+static uint16_t _ls_map_min_adc = 4095;
+static uint16_t _ls_map_max_adc = 0;
+static uint16_t _ls_map_low_threshold = 4095;
+static uint16_t _ls_map_high_threshold = 0;
+
+static void _ls_state_map_build_histogram(void)
+{
+#ifdef LSDEBUG_MAP
+    for (int i = 0; i < LS_MAP_HISTOGRAM_BINCOUNT; i++)
+    {
+        printf("Raw ADC tape readings from %d to %d\n", _ls_map_min_adc, _ls_map_max_adc);
+    }
+#endif
+    for (int i = 0; i < LS_MAP_HISTOGRAM_BINCOUNT; i++)
+    {
+        _ls_map_histo_bins[i] = 0;
+    }
+    for (int i = 0; i < LS_STEPPER_STEPS_PER_ROTATION / LS_MAP_RESOLUTION; i++)
+    {
+        int bin = _map(_ls_map_raw_adc[i], _ls_map_min_adc, _ls_map_max_adc, 0, LS_MAP_HISTOGRAM_BINCOUNT - 1);
+        _ls_map_histo_bins[bin] += 2;
+        if (bin > 0)
+        {
+            _ls_map_histo_bins[bin - 1]++;
+        }
+        if (bin + 1 < LS_MAP_HISTOGRAM_BINCOUNT)
+        {
+            _ls_map_histo_bins[bin + 1]++;
+        }
+    }
+#ifdef LSDEBUG_MAP
+    for (int i = 0; i < LS_MAP_HISTOGRAM_BINCOUNT; i++)
+    {
+        printf("%d [%d]: %d\n", i, _map(i, 0, LS_MAP_HISTOGRAM_BINCOUNT - 1, _ls_map_min_adc, _ls_map_max_adc), _ls_map_histo_bins[i]);
+    }
+#endif
+    int low_peak_bin = 0;
+    for (int i = 1; i < LS_MAP_HISTOGRAM_BINCOUNT; i++)
+    {
+        if (_ls_map_histo_bins[i] > _ls_map_histo_bins[i - 1])
+        {
+            low_peak_bin = i;
+        }
+        if (_ls_map_histo_bins[i] <= _ls_map_histo_bins[low_peak_bin] / 10)
+        {
+            _ls_map_low_threshold = _map(i, 0, LS_MAP_HISTOGRAM_BINCOUNT - 1, _ls_map_min_adc, _ls_map_max_adc);
+            break;
+        }
+    }
+    int high_peak_bin = 0;
+    for (int i = LS_MAP_HISTOGRAM_BINCOUNT - 2; i >= 0; i--)
+    {
+        if (_ls_map_histo_bins[i] > _ls_map_histo_bins[i + 1])
+        {
+            high_peak_bin = i;
+        }
+        if (_ls_map_histo_bins[i] <= _ls_map_histo_bins[high_peak_bin] / 10)
+        {
+            _ls_map_high_threshold = _map(i, 0, LS_MAP_HISTOGRAM_BINCOUNT - 1, _ls_map_min_adc, _ls_map_max_adc);
+            break;
+        }
+    }
+#ifdef LSDEBUG_MAP
+    printf("Low peak in bin %d; low threshold = %d\n", low_peak_bin, _ls_map_low_threshold);
+    printf("High peak in bin %d; high threshold = %d\n", high_peak_bin, _ls_map_high_threshold);
+#endif
+}
 static void _ls_state_map_build_read_and_set_map(void)
 {
     enum _ls_state_map_reading reading = LS_STATE_MAP_READING_MISREAD;
     BaseType_t raw_adc = ls_tape_sensor_read();
     BaseType_t pitch = 1000;
     BaseType_t position = ls_stepper_get_position();
+    BaseType_t map_index = position / LS_MAP_RESOLUTION;
+    if (map_index >= 0 && map_index < LS_STEPPER_STEPS_PER_ROTATION / LS_MAP_RESOLUTION)
+    {
+        _ls_map_raw_adc[position / LS_MAP_RESOLUTION] = raw_adc;
+    }
+    else
+    {
+        printf("Map index out of range for position %d => %d out of %d\n",
+               position, map_index, LS_STEPPER_STEPS_PER_ROTATION / LS_MAP_RESOLUTION);
+    }
+    if (raw_adc > _ls_map_max_adc)
+    {
+        _ls_map_max_adc = raw_adc;
+    }
+    if (raw_adc < _ls_map_min_adc)
+    {
+        _ls_map_min_adc = raw_adc;
+    }
     switch (ls_tapemode())
     {
     case LS_TAPEMODE_BLACK:
     case LS_TAPEMODE_BLACK_SAFE:
         pitch = _map(_constrain(raw_adc, LS_REFLECTANCE_ADC_MAX_WHITE_BUCKET, LS_REFLECTANCE_ADC_MIN_BLACK_TAPE),
-        LS_REFLECTANCE_ADC_MAX_WHITE_BUCKET, LS_REFLECTANCE_ADC_MIN_BLACK_TAPE, 1024, 2048);
+                     LS_REFLECTANCE_ADC_MAX_WHITE_BUCKET, LS_REFLECTANCE_ADC_MIN_BLACK_TAPE, 1024, 2048);
         ;
         if (raw_adc <= LS_REFLECTANCE_ADC_MAX_WHITE_BUCKET)
         {
@@ -611,7 +699,7 @@ static void _ls_state_map_build_read_and_set_map(void)
     case LS_TAPEMODE_REFLECT:
     case LS_TAPEMODE_REFLECT_SAFE:
         pitch = _map(_constrain(raw_adc, LS_REFLECTANCE_ADC_MAX_SILVER_TAPE, LS_REFLECTANCE_ADC_MIN_BLACK_BUCKET),
-        LS_REFLECTANCE_ADC_MIN_BLACK_BUCKET, LS_REFLECTANCE_ADC_MAX_SILVER_TAPE, 1024, 2048);
+                     LS_REFLECTANCE_ADC_MIN_BLACK_BUCKET, LS_REFLECTANCE_ADC_MAX_SILVER_TAPE, 1024, 2048);
         if (raw_adc >= LS_REFLECTANCE_ADC_MIN_BLACK_BUCKET)
         {
             reading = LS_STATE_MAP_READING_ENABLE;
@@ -633,7 +721,7 @@ static void _ls_state_map_build_read_and_set_map(void)
         ls_map_enable_at(position);
         if (reading != _ls_state_map_previous_read)
         {
-          //  ls_buzzer_play(LS_BUZZER_PLAY_TAPE_ENABLE);
+            //  ls_buzzer_play(LS_BUZZER_PLAY_TAPE_ENABLE);
         }
         break;
     case LS_STATE_MAP_READING_DISABLE:
@@ -641,13 +729,13 @@ static void _ls_state_map_build_read_and_set_map(void)
         ls_map_disable_at(position);
         if (reading != _ls_state_map_previous_read)
         {
-          //  ls_buzzer_play(LS_BUZZER_PLAY_TAPE_DISABLE);
+            //  ls_buzzer_play(LS_BUZZER_PLAY_TAPE_DISABLE);
         }
         break;
     case LS_STATE_MAP_READING_MISREAD:
         _ls_state_map_misread_count++;
         ls_map_disable_at(position);
-        //ls_buzzer_play(LS_BUZZER_PLAY_TAPE_MISREAD);
+        // ls_buzzer_play(LS_BUZZER_PLAY_TAPE_MISREAD);
         break;
     default:; // init case only for previous
     }
@@ -672,6 +760,11 @@ ls_State ls_state_map_build(ls_event event)
         _ls_state_map_build_steps_remaining = LS_STEPPER_STEPS_PER_ROTATION / LS_MAP_RESOLUTION;
         _ls_state_map_misread_count = 0;
         ls_tape_sensor_enable();
+        while (ls_buzzer_in_use())
+        {
+            // if we start moving while the buzzer is still indicating successfull homing, we get a bunch of pitches queued that play faster than the others
+            vTaskDelay(1);
+        }
         ls_stepper_set_maximum_steps_per_second(LS_STEPPER_STEPS_PER_SECOND_MAPPING);
         ls_stepper_forward(LS_MAP_RESOLUTION);
         break;
@@ -690,6 +783,7 @@ ls_State ls_state_map_build(ls_event event)
         }
         else
         { // we're done building the map
+            _ls_state_map_build_histogram();
 #ifdef LSDEBUG_MAP
             ls_debug_printf("\nMapping completed with %d enabled, %d disabled, and %d misreads\n", _ls_state_map_enable_count, _ls_state_map_disable_count, _ls_state_map_misread_count);
 #endif
