@@ -1,3 +1,4 @@
+#define VERSION_MESSAGE "URI Laser Scarecrow 2022 version 1.0.0 (May 19, 2022)\n"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -129,5 +130,6 @@ void app_main(void)
 
     xSemaphoreTake(print_mux, portMAX_DELAY);
     printf("app_main() has finished.\n");
+    printf(VERSION_MESSAGE);
     xSemaphoreGive(print_mux);
 }
