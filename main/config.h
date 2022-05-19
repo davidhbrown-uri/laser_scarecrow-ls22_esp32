@@ -112,7 +112,7 @@ gpio_num_t lsgpio_servopulse(void);
 // values read by ADC for tape reflectance sensor
 // based on testing conducted March 18 '22
 #define LS_REFLECTANCE_ADC_MAX_WHITE_BUCKET 1750
-#define LS_REFLECTANCE_ADC_MIN_BLACK_TAPE 2750
+#define LS_REFLECTANCE_ADC_MIN_BLACK_TAPE 2600
 #define LS_REFLECTANCE_ADC_MIN_BLACK_BUCKET 2000
 #define LS_REFLECTANCE_ADC_MAX_SILVER_TAPE 500
 
