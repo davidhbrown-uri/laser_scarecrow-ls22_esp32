@@ -50,18 +50,29 @@ static int _ls_stepper_speed_current_rate;
 // how many steps it will take to decelerate from full speed
 static int _ls_stepper_steps_to_decelerate(int current_rate)
 {
-    return (current_rate * current_rate) / (2 * LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_SECOND) +
-           (current_rate / 20); // not sure where the 20 comes from; see spreadsheet
+    // used Excel to fit a quadratic curve (y=ax^2+bx+c) the the calculated deceleration steps
+    // the constant term might want to change if the speed limit is changed
+    return (current_rate * current_rate) / (2 * LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_SECOND) + // 'a' coefficient on x^2 is the reciprocal of 2x the steps delta
+           (current_rate / 20) +  // the 'b' coefficient is consistently 0.05... not sure exactly why
+           10; // 'c' constant term for steps left over after steps delta has been removed each time (3600 is not divisible by 800)
+    
 }
 
 void ls_stepper_set_maximum_steps_per_second(int steps_per_second)
 {
+#ifdef LSDEBUG_STEPPER
+    bool changed = steps_per_second != _ls_stepper_steps_per_second_max;
+#endif
     // set and constrain new current speed limit
     _ls_stepper_steps_per_second_max = _constrain(steps_per_second, LS_STEPPER_STEPS_PER_SECOND_MIN, LS_STEPPER_STEPS_PER_SECOND_MAX);
-    // #ifdef LSDEBUG_STEPPER
-    //     ls_debug_printf("Stepper speed set to %d max steps/s (%d requested); %d steps to decelerate.\n",
-    //                     _ls_stepper_steps_per_second_max, steps_per_second, _ls_stepper_steps_to_decelerate(_ls_stepper_steps_per_second_max));
-    // #endif
+#ifdef LSDEBUG_STEPPER
+    // might be called before print mutex is set up
+    if (changed)
+    {
+        printf("Stepper speed set to %d max steps/s (%d requested); %d steps to decelerate.\n",
+               _ls_stepper_steps_per_second_max, steps_per_second, _ls_stepper_steps_to_decelerate(_ls_stepper_steps_per_second_max));
+    }
+#endif
 }
 
 static bool IRAM_ATTR ls_stepper_step_isr_callback(void *args)
@@ -73,7 +84,6 @@ static bool IRAM_ATTR ls_stepper_step_isr_callback(void *args)
         gpio_set_level(LSGPIO_STEPPERSTEP, 1 - _ls_stepperstep_phase);
         if (0 == _ls_stepperstep_phase)
         { // beginning a step pulse (high)
-            // LS_STEPPER_DIRECTION_REVERSE == 0; LS_STEPPER_DIRECTION_REVERSE == 1
             ls_stepper_position += ls_stepper_direction * 2 - 1;
             while (ls_stepper_position < 0)
             {
@@ -133,21 +143,20 @@ void ls_stepper_init(void)
 
 static void _ls_stepper_set_speed(void)
 {
-    bool skipping = _ls_stepper_enable_skipping && !ls_map_is_enabled_at(ls_stepper_position); 
+    bool skipping = _ls_stepper_enable_skipping && !ls_map_is_enabled_at(ls_stepper_position);
     if (_ls_stepper_enable_skipping)
     {
         ls_stepper_set_maximum_steps_per_second(skipping ? _ls_stepper_speed_when_skipping : _ls_stepper_speed_not_skipping);
     }
     if (skipping)
     {
-        ls_stepper_steps_remaining = _constrain(ls_stepper_steps_remaining + _ls_stepper_speed_current_rate / pdMS_TO_TICKS(1000), 
-        0, _ls_stepper_steps_to_decelerate(_ls_stepper_speed_when_skipping));
+        ls_stepper_steps_remaining = _constrain(ls_stepper_steps_remaining + _ls_stepper_speed_current_rate / pdMS_TO_TICKS(1000),
+                                                0, _ls_stepper_steps_to_decelerate(_ls_stepper_speed_when_skipping));
     }
     if (!skipping //&& ls_stepper_steps_remaining < ls_stepper_steps_taken // accelerate at least halfway is too much on short moves
-        && (ls_stepper_steps_remaining < _ls_stepper_steps_to_decelerate(_ls_stepper_speed_current_rate)
-        || _ls_stepper_speed_current_rate > _ls_stepper_steps_per_second_max))
+        && (ls_stepper_steps_remaining < _ls_stepper_steps_to_decelerate(_ls_stepper_speed_current_rate) || _ls_stepper_speed_current_rate > _ls_stepper_steps_per_second_max))
     {
-    //decelerate
+        // decelerate
         _ls_stepper_speed_current_rate -= LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_TICK;
     }
     // accelerate?
@@ -156,10 +165,7 @@ static void _ls_stepper_set_speed(void)
         _ls_stepper_speed_current_rate += LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_TICK;
     }
     _ls_stepper_speed_current_rate = _constrain(_ls_stepper_speed_current_rate, LS_STEPPER_STEPS_PER_SECOND_MIN, LS_STEPPER_STEPS_PER_SECOND_MAX);
-#ifdef LSDEBUG_STEPPER
-//    ls_debug_printf(" >> Stepper rate: %d  (taken: %d; remaining: %d)\n",
-//    _ls_stepper_speed_current_rate, ls_stepper_steps_taken, ls_stepper_steps_remaining);
-#endif
+
     ESP_ERROR_CHECK(timer_set_alarm_value(TIMER_GROUP_0, TIMER_0, APB_CLK_FREQ / LS_STEPPER_TIMER_DIVIDER / _ls_stepper_speed_current_rate));
 }
 
@@ -283,12 +289,6 @@ void ls_stepper_task(void *pvParameter)
             current_action = LS_STEPPER_ACTION_IDLE;
             break;
         }
-#ifdef LSDEBUG_STEPPER
-// TMI
-// xSemaphoreTake(print_mux, portMAX_DELAY);
-// printf("Stepper action=%d; steps_remaining=%d; steps_taken=%d\n", current_action, ls_stepper_steps_remaining, ls_stepper_steps_taken);
-// xSemaphoreGive(print_mux);
-#endif
         vTaskDelay(1);
     }
 }
@@ -355,7 +355,6 @@ void ls_stepper_sleep(void)
     xQueueSend(ls_stepper_queue, (void *)&message, 0);
 }
 
-
 int32_t IRAM_ATTR ls_stepper_get_position(void)
 {
     return ls_stepper_position;
@@ -367,7 +366,7 @@ void IRAM_ATTR ls_stepper_set_home_position(void)
 
 bool ls_stepper_is_stopped(void)
 {
-    return 0 == ls_stepper_steps_remaining ? true : false;
+    return 0 == ls_stepper_steps_remaining;
 }
 
 BaseType_t ls_stepper_get_steps_taken(void)
@@ -380,7 +379,9 @@ void ls_stepper_debug_task(void *pvParameter)
 {
     while (1)
     {
-        ls_debug_printf("STEPPER DEBUG: position=%d; remaining=%d; taken=%d; direction=%d, step_phase=%d\n", ls_stepper_position, ls_stepper_steps_remaining, ls_stepper_steps_taken, ls_stepper_direction, _ls_stepperstep_phase);
+        ls_debug_printf("STEPPER DEBUG: position=%d; remaining=%d; taken=%d; direction=%d, step_phase=%d\n",
+                        ls_stepper_position, ls_stepper_steps_remaining, ls_stepper_steps_taken,
+                        ls_stepper_direction, _ls_stepperstep_phase);
         vTaskDelay(pdMS_TO_TICKS(5000));
     }
 }

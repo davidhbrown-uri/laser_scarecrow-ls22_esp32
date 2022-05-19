@@ -91,7 +91,7 @@ static void _ls_buzzer_effect_alternate_high(int duration_ms)
     {
         _ls_buzzer_frequency(3100); // resonant frequency of bucket piezo
         vTaskDelay(1);
-        _ls_buzzer_frequency(4000); // resonant frequency of knobs pizo
+        _ls_buzzer_frequency(4000); // resonant frequency of external control piezo
         vTaskDelay(1);
     }
     ESP_ERROR_CHECK(ledc_stop(BUZZER_SPEED, BUZZER_CHANNEL, 0));

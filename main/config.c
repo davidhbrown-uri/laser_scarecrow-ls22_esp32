@@ -4,7 +4,7 @@ gpio_num_t IRAM_ATTR _lsgpio_laserpowerenable = 32; // Nov '21 = 33
 gpio_num_t _lsgpio_laserheaterenable = 26;          // Nov '21 = 32
 gpio_num_t _lsgpio_stepperdirection = 19;           // Nov '21 = 5
 gpio_num_t _lsgpio_steppersleep = 5;                // Nov '21 = 19
-gpio_num_t _lsgpio_servopowerenable = 25;           // Nob '21 = 26
+gpio_num_t _lsgpio_servopowerenable = 25;           // Nov '21 = 26
 gpio_num_t _lsgpio_servopulse = 33;                 // Nov '21 = 25
 
 gpio_num_t IRAM_ATTR lsgpio_laserpowerenable()

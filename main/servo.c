@@ -131,7 +131,7 @@ void ls_servo_task(void *pvParameter)
     // Variable to hold the received event
     struct ls_servo_event received;
 
-    while (true)
+    while (1)
     {
         // Adjust the delay based on whether or not the servo should be moving
         bool servo_should_move = _ls_servo_is_on && (current_pulse_width != target_pulse_width || mode != LS_SERVO_MODE_FIXED);
@@ -145,7 +145,6 @@ void ls_servo_task(void *pvParameter)
 #ifdef LSDEBUG_SERVO
                 ls_debug_printf("Servo task received on event, powering up!\n");
 #endif
-
                 _ls_servo_on();
 
                 break;
@@ -154,70 +153,49 @@ void ls_servo_task(void *pvParameter)
 #ifdef LSDEBUG_SERVO
                 ls_debug_printf("Servo task received off event, feeling... sleepy.....\n");
 #endif
-
                 _ls_servo_off();
-
                 break;
-
             case LS_SERVO_JUMP_TO:
 #ifdef LSDEBUG_SERVO
                 ls_debug_printf("Servo task received jump_to event with pulse width %d\n", received.data);
 #endif
-
                 // If the servo is currently off, turn it on
                 _ls_servo_on();
-
                 mode = LS_SERVO_MODE_FIXED;
-                // TODO Confirm that using `received.data` works as expected
                 target_pulse_width = received.data;
                 _ls_servo_jump_to_pw(target_pulse_width);
                 current_pulse_width = target_pulse_width;
-
                 break;
-
             case LS_SERVO_MOVE_TO:
 #ifdef LSDEBUG_SERVO
                 ls_debug_printf("Servo task received move_to event with pulse width %d\n", received.data);
 #endif
-
                 // If the servo is currently off, turn it on
                 _ls_servo_on();
-
                 mode = LS_SERVO_MODE_FIXED;
-                // TODO Confirm that using `received.data` works as expected
                 target_pulse_width = received.data;
-
                 break;
-
             case LS_SERVO_MOVE_RANDOMLY:
 #ifdef LSDEBUG_SERVO
                 ls_debug_printf("Servo task received move_randomly event, entering random motion mode\n");
 #endif
-
                 // If the servo is currently off, turn it on
                 _ls_servo_on();
-
                 mode = LS_SERVO_MODE_RANDOM;
                 target_pulse_width = current_pulse_width;
-
                 break;
-
             case LS_SERVO_SWEEP:
 #ifdef LSDEBUG_SERVO
                 ls_debug_printf("Servo task received sweep event, entering sweep mode\n");
 #endif
-
                 // If the servo is currently off, turn it on
                 _ls_servo_on();
-
                 if (mode != LS_SERVO_MODE_SWEEP)
                 {
                     target_pulse_width = current_pulse_width;
                     mode = LS_SERVO_MODE_SWEEP;
                 }
-
                 break;
-
             default:;
 #ifdef LSDEBUG_SERVO
                 ls_debug_printf("Warning: Received unknown ls_servo_event_type\n");
@@ -235,10 +213,8 @@ void ls_servo_task(void *pvParameter)
 #ifdef LSDEBUG_SERVO
                 ls_debug_printf("Servo reached target, choosing new random target...\n");
 #endif
-
                 // pause when target reached
                 vTaskDelay(pdMS_TO_TICKS(ls_settings_get_servo_random_pause_ms()));
-
                 uint16_t min = (uint16_t)ls_settings_get_servo_top();
                 uint16_t max = (uint16_t)ls_settings_get_servo_bottom();
                 target_pulse_width = esp_random() % (max - min + 1) + min;
