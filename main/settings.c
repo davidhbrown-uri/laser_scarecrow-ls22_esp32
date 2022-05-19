@@ -198,11 +198,6 @@ BaseType_t ls_settings_map_control_to_servo_top(BaseType_t adc)
 }
 void ls_settings_set_servo_top(BaseType_t microseconds)
 {
-    // // preserve fixed angle: if the top is equal to the bottom, change the bottom to match
-    // if (_ls_settings_servo_top == _ls_settings_servo_bottom)
-    // {
-    //     _ls_settings_servo_bottom = _constrain(microseconds, LS_SERVO_US_MIN, LS_SERVO_US_MAX);
-    // }
     _ls_settings_servo_top = _constrain(microseconds, LS_SERVO_US_MIN, LS_SERVO_US_MAX);
     _ls_settings_servo_bottom = _constrain(_ls_settings_servo_bottom, _ls_settings_servo_top, LS_SERVO_US_MAX);
 #ifdef LSDEBUG_SETTINGS

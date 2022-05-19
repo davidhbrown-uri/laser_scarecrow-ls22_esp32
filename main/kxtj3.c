@@ -64,7 +64,6 @@ static esp_err_t kxtj3_read_reg_int16(uint8_t register_number, int16_t *data)
 static void kxtj3_fail(void)
 {
     printf("KXTJ3 failed software reset sequence; power-cycle required.\n");
-    /** @todo something useful like lock out the device and make some distinctive noise */
 }
 
 static esp_err_t kxtj3_software_reset_sequence(void)

@@ -31,10 +31,10 @@ enum ls_controls_status ls_controls_get_current_status(void)
     return ls_controls_current_status;
 }
 
-#define _ls_controls_task_knobs_havent_moved()                                    \
-    {                                                                             \
-        for (int i = 0; i < LS_CONTROLS_TASK_KNOB_COUNT; moved_knob[i++] = false) \
-            ;                                                                     \
+#define _ls_controls_task_knobs_havent_moved()                \
+    {                                                         \
+        for (int i = 0; i < LS_CONTROLS_TASK_KNOB_COUNT; i++) \
+            moved_knob[i] = false;                            \
     }
 void ls_controls_task(void *pvParameter)
 {
@@ -131,7 +131,8 @@ void ls_controls_task(void *pvParameter)
                     fastreads = LS_CONTROLS_FASTREADS_AFTER_MOVE;
                 }
                 _ls_controls_task_knobs_havent_moved();
-                moved_knob[0] = (fastreads-- > 0 ? true : false);
+                moved_knob[0] = fastreads > 0;
+                fastreads--;
                 _ls_controls_current_speed = knob_readings[0];
                 ls_event event;
                 event.type = LSEVT_CONTROLS_SPEED;
@@ -148,7 +149,8 @@ void ls_controls_task(void *pvParameter)
                     fastreads = LS_CONTROLS_FASTREADS_AFTER_MOVE;
                 }
                 _ls_controls_task_knobs_havent_moved();
-                moved_knob[1] = (fastreads-- > 0 ? true : false);
+                moved_knob[1] = fastreads > 0;
+                fastreads--;
                 _ls_controls_current_topangle = knob_readings[1];
                 ls_event event;
                 event.type = LSEVT_CONTROLS_TOPANGLE;
@@ -165,7 +167,8 @@ void ls_controls_task(void *pvParameter)
                     fastreads = LS_CONTROLS_FASTREADS_AFTER_MOVE;
                 }
                 _ls_controls_task_knobs_havent_moved();
-                moved_knob[2] = (fastreads-- > 0 ? true : false);
+                moved_knob[2] = fastreads > 0;
+                fastreads--;
                 _ls_controls_current_bottomangle = knob_readings[2];
                 ls_event event;
                 event.type = LSEVT_CONTROLS_BOTTOMANGLE;

@@ -105,13 +105,13 @@ void app_main(void)
     // higher priority tasks get higher priority values
 
     // highest priority (30-31)
+    xTaskCreate(&ls_stepper_task, "stepper", configMINIMAL_STACK_SIZE * 3, NULL, 30, NULL);
 
     // high-priority; time/performance sensitive (20-29)
-    xTaskCreate(&ls_stepper_task, "stepper", configMINIMAL_STACK_SIZE * 3, NULL, 25, NULL);
+    xTaskCreate(&ls_controls_task, "controls_task", configMINIMAL_STACK_SIZE * 3, NULL, 20, NULL);
 
     // medium-priority (10-19)
     xTaskCreate(&event_handler_state_machine, "event_handler_state_machine", configMINIMAL_STACK_SIZE * 3, NULL, 15, NULL);
-    xTaskCreate(&ls_controls_task, "controls_task", configMINIMAL_STACK_SIZE * 3, NULL, 10, NULL);
 
     // lowest priority (1-9)
     xTaskCreate(&ls_tilt_task, "tilt_task", configMINIMAL_STACK_SIZE * 3, NULL, 7, NULL);

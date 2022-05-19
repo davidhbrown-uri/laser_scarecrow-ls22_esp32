@@ -54,9 +54,9 @@ void ls_state_init(void)
 }
 
 /**
- * @brief
- * @todo switch to using a queue with the full ls_event structure.
- * @see https://controllerstech.com/freertos-tutorial-5-using-queue/
+ * @brief Checks the event queue and dispatches to current state function
+ *  
+ * @link https://controllerstech.com/freertos-tutorial-5-using-queue/
  *
  * @param pvParameter
  */
@@ -410,6 +410,7 @@ ls_State ls_state_manual(ls_event event)
     switch (event.type)
     {
     case LSEVT_STATE_ENTRY:
+        ls_stepper_set_maximum_steps_per_second(ls_settings_get_stepper_speed());
         ls_laser_set_mode((ls_map_get_status() == LS_MAP_STATUS_OK) ? LS_LASER_MAPPED : LS_LASER_ON);
         ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION * 5 / 4);
         ls_servo_sweep();
@@ -734,7 +735,7 @@ ls_State ls_state_error_home(ls_event event)
 
 ls_State ls_state_error_map(ls_event event)
 {
-        _ls_state_everything_off();
+    _ls_state_everything_off();
     ls_State successor;
     successor.func = ls_state_error_map;
 #ifdef LSDEBUG_MAP
