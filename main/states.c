@@ -79,7 +79,7 @@ void event_handler_state_machine(void *pvParameter)
 
     while (1)
     {
-        if (xQueueReceive(ls_event_queue, &event, portMAX_DELAY) != pdTRUE)
+        if (xQueueReceive(ls_event_queue, &event, pdMS_TO_TICKS(LS_EVENT_NOOP_TIMEOUT_MS)) != pdTRUE)
         {
             xQueueSendToFront(ls_event_queue, (void *)&noop_event, 0);
         }
