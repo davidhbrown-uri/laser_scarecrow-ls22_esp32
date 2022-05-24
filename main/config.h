@@ -108,6 +108,8 @@ gpio_num_t lsgpio_servopulse(void);
 #define LS_CONTROLS_READINGS_TO_AVERAGE 5
 // when controls are connected, readings are sent every tick, so 50 reads=~5sec
 #define LS_CONTROLS_FASTREADS_AFTER_MOVE 50
+// a second connection must happen within this many microseconds to enter the secondary controls
+#define LS_CONTROLS_SECONDARY_US_TIME 2000000
 
 // values read by ADC for tape reflectance sensor
 // based on testing conducted March 18 '22

@@ -469,6 +469,67 @@ ls_State ls_state_manual(ls_event event)
     return successor;
 }
 
+int _ls_state_controls_secondary_servo_count = 0;
+ls_State ls_state_controls_secondary(ls_event event)
+{
+#ifdef LSDEBUG_STATES
+    ls_debug_printf("CONTROLS_SECONDARY handling event\n");
+#endif
+    ls_State successor;
+    successor.func = ls_state_controls_secondary;
+    BaseType_t control_value;
+    switch (event.type)
+    {
+    case LSEVT_STATE_ENTRY:
+        ls_laser_set_mode_off();
+        ls_stepper_stop();
+        ls_servo_off();
+        ls_buzzer_play(LS_BUZZER_PLAY_MANUAL_CONTROL_ENTER);
+        ls_buzzer_play(LS_BUZZER_PLAY_MANUAL_CONTROL_ENTER);
+        break;
+    case LSEVT_SERVO_SWEEP_TOP:
+        ls_buzzer_play(LS_BUZZER_PLAY_OCTAVE);
+        _ls_state_controls_secondary_servo_count--;
+        break;
+    case LSEVT_SERVO_SWEEP_BOTTOM:
+        ls_buzzer_play(LS_BUZZER_PLAY_ROOT);
+        _ls_state_controls_secondary_servo_count--;
+        break;
+    case LSEVT_CONTROLS_SPEED:
+        control_value = *((BaseType_t *)event.value);
+        ls_settings_set_stepper_speed(ls_settings_map_control_to_stepper_speed(control_value));
+        ls_stepper_set_maximum_steps_per_second(ls_settings_get_stepper_speed());
+        break;
+    case LSEVT_CONTROLS_TOPANGLE:
+        control_value = *((BaseType_t *)event.value);
+        ls_settings_set_servo_top(ls_settings_map_control_to_servo_top(control_value));
+        ls_servo_jumpto(ls_settings_get_servo_top());
+        _ls_state_manual_servo_hold_count = 3;
+        break;
+    case LSEVT_CONTROLS_BOTTOMANGLE:
+        control_value = *((BaseType_t *)event.value);
+        ls_settings_set_servo_bottom(ls_settings_map_control_to_servo_bottom(control_value));
+        ls_servo_jumpto(ls_settings_get_servo_bottom());
+        _ls_state_manual_servo_hold_count = 3;
+        break;
+    case LSEVT_CONTROLS_DISCONNECTED:
+        ls_stepper_stop();
+        successor.func = ls_state_active;
+        break;
+    case LSEVT_TILT_DETECTED:
+        successor.func = ls_state_error_tilt;
+        break;
+    default:;
+    } // switch event type
+
+    if (ls_state_manual != successor.func)
+    {
+        ls_buzzer_play(LS_BUZZER_PLAY_MANUAL_CONTROL_LEAVE);
+        ls_settings_save();
+    }
+    return successor;
+}
+
 ls_State ls_state_sleep(ls_event event)
 {
 #ifdef LSDEBUG_STATES

@@ -24,6 +24,7 @@ enum ls_event_t
     LSEVT_CONTROLS_SPEED, // external control slider 1 moved (ls_event.value is pointer to ADC value)
     LSEVT_CONTROLS_TOPANGLE, // external control slider 2 moved (ls_event.value is pointer to ADC value)
     LSEVT_CONTROLS_BOTTOMANGLE, // external control slider 3 moved (ls_event.value is pointer to ADC value)
+    LSEVT_CONTROLS_CONNECT_SECONDARY, // controls entered, exited, and reentered
 
     LSEVT_BUZZER_WARNING_COMPLETE = 80, // long pre-laser warning sequence of tones has finished
 

@@ -45,6 +45,7 @@ void ls_controls_task(void *pvParameter)
     uint32_t knob_readings[LS_CONTROLS_TASK_KNOB_COUNT];
     bool moved_knob[LS_CONTROLS_TASK_KNOB_COUNT];
     _ls_controls_task_knobs_havent_moved();
+    int64_t last_connected_at_us_time = 0L; // used to enter secondary controls
     int fastreads = 0;
     enum ls_controls_status connection_readings[LS_CONTROLS_TASK_CONNECTION_READINGS];
     for (int i = 0; i < LS_CONTROLS_TASK_CONNECTION_READINGS; i++)
@@ -102,6 +103,11 @@ void ls_controls_task(void *pvParameter)
                     _ls_controls_current_topangle = knob_readings[1];
                     _ls_controls_current_bottomangle = knob_readings[2];
                     _ls_controls_task_knobs_havent_moved();
+                    if (esp_timer_get_time() - LS_CONTROLS_SECONDARY_US_TIME > last_connected_at_us_time)
+                    {
+                        connection_event.type = LSEVT_CONTROLS_CONNECT_SECONDARY;
+                    }
+                    last_connected_at_us_time = esp_timer_get_time();
                     break;
                 case LS_CONTROLS_STATUS_DISCONNECTED:
                     connection_event.type = LSEVT_CONTROLS_DISCONNECTED;
