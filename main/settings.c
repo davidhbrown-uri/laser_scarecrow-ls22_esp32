@@ -16,6 +16,9 @@ static nvs_handle_t _ls_settings_nvs_handle;
 #define LS_SETTINGS_NVS_KEY_STEPPER_SPEED "stepper_speed"
 #define LS_SETTINGS_NVS_KEY_SERVO_TOP "servo_top"
 #define LS_SETTINGS_NVS_KEY_SERVO_BOTTOM "servo_bottom"
+#define LS_SETTINGS_NVS_KEY_SERVO_DELTA "servo_delta"
+#define LS_SETTINGS_NVS_KEY_LIGHTSENSE_DAY "light_day"
+#define LS_SETTINGS_NVS_KEY_LIGHTSENSE_NIGHT "light_night"
 
 void ls_settings_set_defaults(void)
 {
@@ -50,7 +53,6 @@ static void _ls_settings_open_nvs(void)
     ESP_ERROR_CHECK(err);
 
     // Open
-    printf("\nOpening Non-Volatile Storage (NVS) handle... ");
     err = nvs_open(LS_SETTINGS_NVS_NAMESPACE, NVS_READWRITE, &_ls_settings_nvs_handle);
 #ifdef LSDEBUG_SETTINGS
     if (err != ESP_OK)
@@ -254,14 +256,21 @@ BaseType_t ls_settings_get_light_threshold_off(void)
     return _ls_settings_light_threshold_off;
 }
 
+BaseType_t ls_settings_map_control_to_servo_pulse_delta(BaseType_t adc)
+{
+    return _map(_constrain(adc, LS_CONTROLS_READING_BOTTOM, LS_CONTROLS_READING_TOP),
+                LS_CONTROLS_READING_BOTTOM, LS_CONTROLS_READING_TOP, 
+                LS_SERVO_DELTA_PER_TICK_MIN, LS_SERVO_DELTA_PER_TICK_MAX);
+}
 void ls_settings_set_servo_pulse_delta(BaseType_t microseconds_per_tick)
 {
-    _ls_settings_servo_pulse_delta = _constrain(microseconds_per_tick, 0, LS_SERVO_DELTA_PER_TICK_MAX);
+    _ls_settings_servo_pulse_delta = _constrain(microseconds_per_tick, LS_SERVO_DELTA_PER_TICK_MIN, LS_SERVO_DELTA_PER_TICK_MAX);
 }
 BaseType_t ls_settings_get_servo_pulse_delta(void)
 {
     return _ls_settings_servo_pulse_delta;
 }
+
 void ls_settings_set_servo_random_pause_ms(BaseType_t duration_ms)
 {
     _ls_settings_servo_random_pause_ms = _constrain(duration_ms, 0, 10000);

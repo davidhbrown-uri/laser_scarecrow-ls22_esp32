@@ -23,6 +23,7 @@ BaseType_t ls_settings_map_control_to_servo_bottom(BaseType_t adc);
 void ls_settings_set_servo_bottom(BaseType_t microseconds);
 BaseType_t ls_settings_get_servo_bottom(void);
 
+BaseType_t ls_settings_map_control_to_pulse_delta(BaseType_t adc);
 void ls_settings_set_servo_pulse_delta(BaseType_t);
 BaseType_t ls_settings_get_servo_pulse_delta(void);
 
