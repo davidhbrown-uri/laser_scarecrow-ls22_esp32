@@ -153,3 +153,5 @@ gpio_num_t lsgpio_servopulse(void);
 // the accelerometer will check this frequently during normal operation
 #define LS_TILT_REPORT_RATE_MS 400
 #endif
+
+#define LS_EVENT_NOOP_TIMEOUT_MS 50000
