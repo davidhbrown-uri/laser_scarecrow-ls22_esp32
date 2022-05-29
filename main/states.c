@@ -202,7 +202,7 @@ ls_State ls_state_prelaserwarn(ls_event event)
         ls_event_empty_queue();
         vTaskDelay(pdMS_TO_TICKS(1000)); // 1sec quiet/still before warning
         ls_buzzer_play(LS_BUZZER_PRE_LASER_WARNING);
-        ls_stepper_set_maximum_steps_per_second(LS_STEPPER_STEPS_PER_SECOND_MAX);
+        ls_stepper_set_maximum_steps_per_second(LS_STEPPER_STEPS_PER_SECOND_WARNING);
         ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION / 2);
         break;
     case LSEVT_BUZZER_WARNING_COMPLETE:
