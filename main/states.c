@@ -15,7 +15,6 @@
 #include "settings.h"
 #include "selftest.h"
 #include "util.h"
-#include "controls.h"
 
 extern SemaphoreHandle_t print_mux;
 extern QueueHandle_t ls_event_queue;
@@ -56,7 +55,7 @@ void ls_state_init(void)
 
 /**
  * @brief Checks the event queue and dispatches to current state function
- *  
+ *
  * @link https://controllerstech.com/freertos-tutorial-5-using-queue/
  *
  * @param pvParameter
@@ -80,7 +79,7 @@ void event_handler_state_machine(void *pvParameter)
 
     while (1)
     {
-        if (xQueueReceive(ls_event_queue, &event, pdMS_TO_TICKS(LS_EVENT_NOOP_TIMEOUT_MS)) != pdTRUE)
+        if (xQueueReceive(ls_event_queue, &event, portMAX_DELAY) != pdTRUE)
         {
             xQueueSendToFront(ls_event_queue, (void *)&noop_event, 0);
         }
@@ -408,13 +407,6 @@ ls_State ls_state_manual(ls_event event)
     ls_State successor;
     successor.func = ls_state_manual;
     BaseType_t control_value;
-
-    // somewhat awkward patch for #44 https://github.com/davidhbrown-uri/laser_scarecrow-ls22_esp32/issues/44
-    if (LS_CONTROLS_STATUS_DISCONNECTED == ls_controls_get_current_status())
-    {
-        event.type = LSEVT_CONTROLS_DISCONNECTED;
-    }
-
     switch (event.type)
     {
     case LSEVT_STATE_ENTRY:
@@ -477,14 +469,14 @@ ls_State ls_state_manual(ls_event event)
     return successor;
 }
 
-int _ls_state_controls_secondary_servo_count = 0;
-ls_State ls_state_controls_secondary(ls_event event)
+int _ls_state_secondary_settings_servo_count = 0;
+ls_State ls_state_secondary_settings(ls_event event)
 {
 #ifdef LSDEBUG_STATES
     ls_debug_printf("CONTROLS_SECONDARY handling event\n");
 #endif
     ls_State successor;
-    successor.func = ls_state_controls_secondary;
+    successor.func = ls_state_secondary_settings;
     BaseType_t control_value;
     switch (event.type)
     {
@@ -494,43 +486,48 @@ ls_State ls_state_controls_secondary(ls_event event)
         ls_servo_off();
         ls_buzzer_play(LS_BUZZER_PLAY_MANUAL_CONTROL_ENTER);
         ls_buzzer_play(LS_BUZZER_PLAY_MANUAL_CONTROL_ENTER);
+        _ls_state_secondary_settings_servo_count = 0;
         break;
     case LSEVT_SERVO_SWEEP_TOP:
         ls_buzzer_play(LS_BUZZER_PLAY_OCTAVE);
-        _ls_state_controls_secondary_servo_count--;
+        _ls_state_secondary_settings_servo_count--;
+        if (_ls_state_secondary_settings_servo_count <= 0)
+        {
+            ls_servo_off();
+        }
         break;
     case LSEVT_SERVO_SWEEP_BOTTOM:
         ls_buzzer_play(LS_BUZZER_PLAY_ROOT);
-        _ls_state_controls_secondary_servo_count--;
+        _ls_state_secondary_settings_servo_count--;
+        if (_ls_state_secondary_settings_servo_count <= 0)
+        {
+            ls_servo_off();
+        }
         break;
-    case LSEVT_CONTROLS_SPEED:
+    case LSEVT_CONTROLS_SPEED: // servo speed
         control_value = *((BaseType_t *)event.value);
-        ls_settings_set_stepper_speed(ls_settings_map_control_to_stepper_speed(control_value));
-        ls_stepper_set_maximum_steps_per_second(ls_settings_get_stepper_speed());
+        ls_settings_set_servo_pulse_delta(ls_settings_map_control_to_pulse_delta(control_value));
+        _ls_state_secondary_settings_servo_count = 6;
         break;
-    case LSEVT_CONTROLS_TOPANGLE:
+    case LSEVT_CONTROLS_TOPANGLE: // light threshold
         control_value = *((BaseType_t *)event.value);
         ls_settings_set_servo_top(ls_settings_map_control_to_servo_top(control_value));
         ls_servo_jumpto(ls_settings_get_servo_top());
         _ls_state_manual_servo_hold_count = 3;
         break;
     case LSEVT_CONTROLS_BOTTOMANGLE:
-        control_value = *((BaseType_t *)event.value);
-        ls_settings_set_servo_bottom(ls_settings_map_control_to_servo_bottom(control_value));
-        ls_servo_jumpto(ls_settings_get_servo_bottom());
-        _ls_state_manual_servo_hold_count = 3;
+        ; // nothing assigned
         break;
     case LSEVT_CONTROLS_DISCONNECTED:
-        ls_stepper_stop();
-        successor.func = ls_state_active;
+        ls_servo_off();
+        successor.func = ls_state_wakeup; // because we turned laser off, must do wakeup and pre-laser warning
         break;
     case LSEVT_TILT_DETECTED:
         successor.func = ls_state_error_tilt;
         break;
     default:;
     } // switch event type
-
-    if (ls_state_manual != successor.func)
+    if (ls_state_secondary_settings != successor.func)
     {
         ls_buzzer_play(LS_BUZZER_PLAY_MANUAL_CONTROL_LEAVE);
         ls_settings_save();

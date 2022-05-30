@@ -1,7 +1,16 @@
 #pragma once
 #include "freertos/FreeRTOS.h"
 
+/**
+ * @brief Load firmware defaults at power-up; will be overridden saved settings
+ * 
+ */
 void ls_settings_set_defaults(void);
+/**
+ * @brief Overwrite any saved settings with firmware defaults
+ * 
+ */
+void ls_settings_reset_defaults(void);
 void ls_settings_read(void);
 void ls_settings_save(void);
 

@@ -23,7 +23,7 @@ ls_State ls_state_current, ls_state_previous;
 ls_State ls_state_poweron(ls_event);
 ls_State ls_state_selftest(ls_event);
 ls_State ls_state_manual(ls_event);
-ls_State ls_state_controls_secondary(ls_event);
+ls_State ls_state_secondary_settings(ls_event);
 ls_State ls_state_sleep(ls_event);
 ls_State ls_state_wakeup(ls_event);
 

@@ -17,18 +17,7 @@
 
 bool _ls_buzzer_in_use = false;
 uint32_t _tone_frequency = 1000;
-
-static enum _ls_buzzer_scale {
-    LS_BUZZER_SCALE_bb = 967, // b
-    LS_BUZZER_SCALE_C = 1024, // C
-    LS_BUZZER_SCALE_D = 1149, // D
-    LS_BUZZER_SCALE_E = 1289, // E
-    LS_BUZZER_SCALE_F = 1367, // F
-    LS_BUZZER_SCALE_G = 1534, // G
-    LS_BUZZER_SCALE_A = 1722, // A
-    LS_BUZZER_SCALE_B = 1933, // B
-    LS_BUZZER_SCALE_CC = 2048 // C'
-};
+uint8_t _tone_ticks = 1;
 
 static void _ls_buzzer_frequency(uint32_t freq)
 {
@@ -75,7 +64,7 @@ static void _ls_buzzer_effect_click(void)
     vTaskDelay(1);
 }
 
-static void _ls_buzzer_play_note(enum _ls_buzzer_scale note, int ms_duration)
+static void _ls_buzzer_play_note(enum ls_buzzer_scale note, int ms_duration)
 {
     _ls_buzzer_frequency((uint32_t)note);
     vTaskDelay(pdMS_TO_TICKS(ms_duration));
@@ -146,7 +135,9 @@ void ls_buzzer_handler_task(void *pvParameter)
                 break;
             case LS_BUZZER_PLAY_TONE:
                 _ls_buzzer_frequency(_tone_frequency);
-                vTaskDelay(1);
+                vTaskDelay(_tone_ticks);
+                _tone_ticks = 1;// reset to default
+                _tone_frequency = 1000; // reset to default
                 break;
             case LS_BUZZER_ALTERNATE_HIGH:
                 _ls_buzzer_effect_alternate_high(1000);
@@ -267,6 +258,12 @@ void ls_buzzer_handler_task(void *pvParameter)
         _ls_buzzer_in_use = false;
     }
 }
+void ls_buzzer_note(enum ls_buzzer_scale note, uint8_t ticks)
+{
+    _tone_frequency = (uint32_t) note;
+    _tone_ticks = ticks;
+    ls_buzzer_play(LS_BUZZER_PLAY_TONE);
+};
 
 void ls_buzzer_tone(BaseType_t frequency_hz)
 {

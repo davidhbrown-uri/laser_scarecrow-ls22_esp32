@@ -38,6 +38,13 @@ void ls_settings_set_defaults(void)
     ls_settings_set_tilt_threshold_mg_ok(LS_TILT_THRESHOLD_OK_MG);
 }
 
+void ls_settings_reset_defaults(void)
+{
+    ls_settings_set_defaults();
+    ls_settings_save();
+}
+
+
 static void _ls_settings_open_nvs(void)
 {
     // https://github.com/espressif/esp-idf/blob/079b5b1857242d6288478c62dc36a843718882e9/examples/storage/nvs_rw_value/main/nvs_value_example_main.c
@@ -258,9 +265,11 @@ BaseType_t ls_settings_get_light_threshold_off(void)
 
 BaseType_t ls_settings_map_control_to_servo_pulse_delta(BaseType_t adc)
 {
-    return _map(_constrain(adc, LS_CONTROLS_READING_BOTTOM, LS_CONTROLS_READING_TOP),
+    adc = _make_log_response(
+        _map(_constrain(adc, LS_CONTROLS_READING_BOTTOM, LS_CONTROLS_READING_TOP),
                 LS_CONTROLS_READING_BOTTOM, LS_CONTROLS_READING_TOP, 
-                LS_SERVO_DELTA_PER_TICK_MIN, LS_SERVO_DELTA_PER_TICK_MAX);
+                0, 2047), 11); 
+    return _map(adc, 0, 2047, LS_SERVO_DELTA_PER_TICK_MIN, LS_SERVO_DELTA_PER_TICK_MAX);
 }
 void ls_settings_set_servo_pulse_delta(BaseType_t microseconds_per_tick)
 {
