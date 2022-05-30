@@ -117,7 +117,7 @@ void ls_lightsense_read_task(void *pvParameter)
                 break;
             case LS_LIGHTSENSE_LEVEL_NIGHT:
                 if (ls_lightsense_current_mode() != LS_LIGHTSENSE_MODE_NIGHT ||
-                (ls_state_current.func != ls_state_sleep && ls_state_current.func != ls_state_manual))
+                (ls_state_current.func != ls_state_sleep && ls_state_current.func != ls_state_settings))
                 {
                     _ls_lightsense_set_mode(LS_LIGHTSENSE_MODE_NIGHT);
                 }

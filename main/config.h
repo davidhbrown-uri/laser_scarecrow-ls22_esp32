@@ -96,7 +96,7 @@ gpio_num_t lsgpio_servopulse(void);
 #define LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_TICK ( LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_SECOND / pdMS_TO_TICKS(1000))
 
 // values read by ADC from external controls
-#define LS_CONTROLS_ADC_MAX_DISCONNECT 100
+#define LS_CONTROLS_ADC_MAX_DISCONNECT 200
 #define LS_CONTROLS_ADC_MIN_CONNECT 1600
 #define LS_CONTROLS_ADC_MAX_CONNECT 1900
 // to ensure the full range of value can be selected,

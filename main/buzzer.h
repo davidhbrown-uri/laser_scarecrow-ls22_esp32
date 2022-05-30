@@ -16,7 +16,8 @@ enum ls_buzzer_scale {
     LS_BUZZER_SCALE_A = 1722, // A
     LS_BUZZER_SCALE_Ax = 1825, // A#
     LS_BUZZER_SCALE_B = 1933, // B
-    LS_BUZZER_SCALE_CC = 2048 // C'
+    LS_BUZZER_SCALE_CC = 2048, // C'
+    LS_BUZZER_SCALE_DD = 2300 // D'
 }ls_buzzer_scale;
 
 enum ls_buzzer_effects {

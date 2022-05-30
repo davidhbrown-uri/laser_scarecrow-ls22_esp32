@@ -1,4 +1,5 @@
 #include "tapemode.h"
+#include "buzzer.h"
 #include "config.h"
 #include "debug.h"
 #include "events.h"
@@ -42,8 +43,6 @@ void ls_tapemode_init(void)
     _ls_tapemode = ls_tapemode_current();
 }
 
-
-
 enum ls_tapemode_mode ls_tapemode(void)
 {
     return _ls_tapemode;
@@ -62,6 +61,33 @@ enum ls_tapemode_mode ls_tapemode_current(void)
     adc_reading /= 4;
     xSemaphoreGive(adc1_mux);
     return ls_tapemode_from_adc(adc_reading);
+}
+
+void ls_tapemode_selftest_task(void *pvParameter)
+{
+    while (1)
+    {
+        switch (ls_tapemode_current())
+        {
+        case LS_TAPEMODE_BLACK_SAFE:
+            ls_buzzer_tone((BaseType_t)LS_BUZZER_SCALE_G);
+            break;
+        case LS_TAPEMODE_BLACK:
+            ls_buzzer_tone((BaseType_t)LS_BUZZER_SCALE_F);
+            break;
+        case LS_TAPEMODE_IGNORE:
+            ls_buzzer_tone((BaseType_t)LS_BUZZER_SCALE_E);
+            break;
+        case LS_TAPEMODE_REFLECT:
+            ls_buzzer_tone((BaseType_t)LS_BUZZER_SCALE_D);
+            break;
+        case LS_TAPEMODE_REFLECT_SAFE:
+            ls_buzzer_tone((BaseType_t)LS_BUZZER_SCALE_C);
+            break;
+        default:; // don't play anything on return to selftest; we know that works or we wouldn't be here!
+        }         // switch
+        vTaskDelay(3);
+    }
 }
 
 #ifdef LSDEBUG_TAPEMODE

@@ -36,6 +36,7 @@ enum ls_tapemode_mode ls_tapemode(void);
  */
 enum ls_tapemode_mode ls_tapemode_current(void);
 
+void ls_tapemode_selftest_task(void *pvParameter);
 
 #ifdef LSDEBUG_TAPEMODE
 void ls_tapemode_debug_task(void *pvParameter);

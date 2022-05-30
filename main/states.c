@@ -313,7 +313,7 @@ ls_State ls_state_active(ls_event event)
 #ifdef LSDEBUG_STATES
         ls_debug_printf("Entering manual control\n")
 #endif
-            successor.func = ls_state_manual;
+            successor.func = ls_state_settings;
         break;
     case LSEVT_TILT_DETECTED:
         successor.func = ls_state_error_tilt;
@@ -398,14 +398,14 @@ ls_State ls_state_selftest(ls_event event)
     return successor;
 }
 
-int _ls_state_manual_servo_hold_count = 0;
-ls_State ls_state_manual(ls_event event)
+static int _ls_state_settings_servo_hold_count = 0;
+ls_State ls_state_settings(ls_event event)
 {
 #ifdef LSDEBUG_STATES
     ls_debug_printf("STATE_MANUAL handling event\n");
 #endif
     ls_State successor;
-    successor.func = ls_state_manual;
+    successor.func = ls_state_settings;
     BaseType_t control_value;
     switch (event.type)
     {
@@ -418,14 +418,14 @@ ls_State ls_state_manual(ls_event event)
         break;
     case LSEVT_STEPPER_FINISHED_MOVE:
         ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION * 5 / 4);
-        if (_ls_state_manual_servo_hold_count > 0)
+        if (_ls_state_settings_servo_hold_count > 0)
         {
-            _ls_state_manual_servo_hold_count--;
+            _ls_state_settings_servo_hold_count--;
         }
-        else if (_ls_state_manual_servo_hold_count == 0)
+        else if (_ls_state_settings_servo_hold_count == 0)
         {
             ls_servo_sweep();
-            _ls_state_manual_servo_hold_count = -1;
+            _ls_state_settings_servo_hold_count = -1;
         }
         break;
     case LSEVT_SERVO_SWEEP_TOP:
@@ -443,13 +443,13 @@ ls_State ls_state_manual(ls_event event)
         control_value = *((BaseType_t *)event.value);
         ls_settings_set_servo_top(ls_settings_map_control_to_servo_top(control_value));
         ls_servo_jumpto(ls_settings_get_servo_top());
-        _ls_state_manual_servo_hold_count = 3;
+        _ls_state_settings_servo_hold_count = 3;
         break;
     case LSEVT_CONTROLS_BOTTOMANGLE:
         control_value = *((BaseType_t *)event.value);
         ls_settings_set_servo_bottom(ls_settings_map_control_to_servo_bottom(control_value));
         ls_servo_jumpto(ls_settings_get_servo_bottom());
-        _ls_state_manual_servo_hold_count = 3;
+        _ls_state_settings_servo_hold_count = 3;
         break;
     case LSEVT_CONTROLS_DISCONNECTED:
         ls_stepper_stop();
@@ -461,7 +461,7 @@ ls_State ls_state_manual(ls_event event)
     default:;
     } // switch event type
 
-    if (ls_state_manual != successor.func)
+    if (ls_state_settings != successor.func)
     {
         ls_buzzer_play(LS_BUZZER_PLAY_MANUAL_CONTROL_LEAVE);
         ls_settings_save();
@@ -511,9 +511,10 @@ ls_State ls_state_secondary_settings(ls_event event)
         break;
     case LSEVT_CONTROLS_TOPANGLE: // light threshold
         control_value = *((BaseType_t *)event.value);
-        ls_settings_set_servo_top(ls_settings_map_control_to_servo_top(control_value));
-        ls_servo_jumpto(ls_settings_get_servo_top());
-        _ls_state_manual_servo_hold_count = 3;
+        // map input to 0-10 setting range
+
+        // calculate/set threshold values
+        // if event queue is empty, play tune to indicate threshold value
         break;
     case LSEVT_CONTROLS_BOTTOMANGLE:
         ; // nothing assigned
@@ -525,7 +526,7 @@ ls_State ls_state_secondary_settings(ls_event event)
     case LSEVT_TILT_DETECTED:
         successor.func = ls_state_error_tilt;
         break;
-    default:;
+    default:;  // do nothing for this event
     } // switch event type
     if (ls_state_secondary_settings != successor.func)
     {
@@ -595,7 +596,7 @@ ls_State ls_state_sleep(ls_event event)
 #ifdef LSDEBUG_STATES
         ls_debug_printf("Entering manual control\n");
 #endif
-        ls_state_set_prelaserwarn_successor(ls_state_manual);
+        ls_state_set_prelaserwarn_successor(ls_state_settings);
         if (ls_map_get_status() == LS_MAP_STATUS_OK)
         {
             ls_state_set_home_successor(ls_state_prelaserwarn);
