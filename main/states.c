@@ -15,6 +15,7 @@
 #include "settings.h"
 #include "selftest.h"
 #include "util.h"
+#include "controls.h"
 
 extern SemaphoreHandle_t print_mux;
 extern QueueHandle_t ls_event_queue;
@@ -79,7 +80,7 @@ void event_handler_state_machine(void *pvParameter)
 
     while (1)
     {
-        if (xQueueReceive(ls_event_queue, &event, portMAX_DELAY) != pdTRUE)
+        if (xQueueReceive(ls_event_queue, &event, pdMS_TO_TICKS(LS_EVENT_NOOP_TIMEOUT_MS)) != pdTRUE)
         {
             xQueueSendToFront(ls_event_queue, (void *)&noop_event, 0);
         }
@@ -201,7 +202,7 @@ ls_State ls_state_prelaserwarn(ls_event event)
         ls_event_empty_queue();
         vTaskDelay(pdMS_TO_TICKS(1000)); // 1sec quiet/still before warning
         ls_buzzer_play(LS_BUZZER_PRE_LASER_WARNING);
-        ls_stepper_set_maximum_steps_per_second(LS_STEPPER_STEPS_PER_SECOND_MAX);
+        ls_stepper_set_maximum_steps_per_second(LS_STEPPER_STEPS_PER_SECOND_WARNING);
         ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION / 2);
         break;
     case LSEVT_BUZZER_WARNING_COMPLETE:
@@ -413,6 +414,13 @@ ls_State ls_state_settings(ls_event event)
     ls_State successor;
     successor.func = ls_state_settings;
     BaseType_t control_value;
+
+    // somewhat awkward patch for #44 https://github.com/davidhbrown-uri/laser_scarecrow-ls22_esp32/issues/44
+    if (LS_CONTROLS_STATUS_DISCONNECTED == ls_controls_get_current_status())
+    {
+        event.type = LSEVT_CONTROLS_DISCONNECTED;
+    }
+
     switch (event.type)
     {
     case LSEVT_STATE_ENTRY:
