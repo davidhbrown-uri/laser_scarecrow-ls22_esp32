@@ -19,6 +19,8 @@ bool _ls_buzzer_in_use = false;
 uint32_t _tone_frequency = 1000;
 uint8_t _tone_ticks = 1;
 
+static struct _ls_buzzer_request
+
 static void _ls_buzzer_frequency(uint32_t freq)
 {
     ledc_timer_config_t ledc_timer = {
@@ -136,8 +138,9 @@ void ls_buzzer_handler_task(void *pvParameter)
             case LS_BUZZER_PLAY_TONE:
                 _ls_buzzer_frequency(_tone_frequency);
                 vTaskDelay(_tone_ticks);
-                _tone_ticks = 1;// reset to default
+                _tone_ticks = 1;        // reset to default
                 _tone_frequency = 1000; // reset to default
+                ESP_ERROR_CHECK(ledc_stop(BUZZER_SPEED, BUZZER_CHANNEL, 0));
                 break;
             case LS_BUZZER_ALTERNATE_HIGH:
                 _ls_buzzer_effect_alternate_high(1000);
@@ -192,14 +195,14 @@ void ls_buzzer_handler_task(void *pvParameter)
                 _ls_buzzer_play_note(LS_BUZZER_SCALE_bb, 400);
                 vTaskDelay(pdMS_TO_TICKS(500)); // rest
                 break;
-            case LS_BUZZER_PLAY_MANUAL_CONTROL_ENTER:
+            case LS_BUZZER_PLAY_SETTINGS_CONTROL_ENTER:
                 _ls_buzzer_play_note(LS_BUZZER_SCALE_F, 100);
                 _ls_buzzer_play_note(LS_BUZZER_SCALE_G, 100);
                 _ls_buzzer_play_note(LS_BUZZER_SCALE_A, 100);
                 _ls_buzzer_play_note(LS_BUZZER_SCALE_B, 100);
                 _ls_buzzer_play_note(LS_BUZZER_SCALE_CC, 100);
                 break;
-            case LS_BUZZER_PLAY_MANUAL_CONTROL_LEAVE:
+            case LS_BUZZER_PLAY_SETTINGS_CONTROL_LEAVE:
                 _ls_buzzer_play_note(LS_BUZZER_SCALE_CC, 100);
                 _ls_buzzer_play_note(LS_BUZZER_SCALE_B, 100);
                 _ls_buzzer_play_note(LS_BUZZER_SCALE_A, 100);
@@ -260,7 +263,7 @@ void ls_buzzer_handler_task(void *pvParameter)
 }
 void ls_buzzer_note(enum ls_buzzer_scale note, uint8_t ticks)
 {
-    _tone_frequency = (uint32_t) note;
+    _tone_frequency = (uint32_t)note;
     _tone_ticks = ticks;
     ls_buzzer_play(LS_BUZZER_PLAY_TONE);
 };
@@ -268,5 +271,6 @@ void ls_buzzer_note(enum ls_buzzer_scale note, uint8_t ticks)
 void ls_buzzer_tone(BaseType_t frequency_hz)
 {
     _tone_frequency = (uint32_t)_constrain(frequency_hz, 500, 22000);
+    _tone_ticks = 1;
     ls_buzzer_play(LS_BUZZER_PLAY_TONE);
 }
