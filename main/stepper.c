@@ -53,9 +53,8 @@ static int _ls_stepper_steps_to_decelerate(int current_rate)
     // used Excel to fit a quadratic curve (y=ax^2+bx+c) the the calculated deceleration steps
     // the constant term might want to change if the speed limit is changed
     return (current_rate * current_rate) / (2 * LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_SECOND) + // 'a' coefficient on x^2 is the reciprocal of 2x the steps delta
-           (current_rate / 20) +  // the 'b' coefficient is consistently 0.05... not sure exactly why
-           10; // 'c' constant term for steps left over after steps delta has been removed each time (3600 is not divisible by 800)
-    
+           (current_rate / 20) +                                                              // the 'b' coefficient is consistently 0.05... not sure exactly why
+           10;                                                                                // 'c' constant term for steps left over after steps delta has been removed each time (3600 is not divisible by 800)
 }
 
 void ls_stepper_set_maximum_steps_per_second(int steps_per_second)
@@ -63,8 +62,12 @@ void ls_stepper_set_maximum_steps_per_second(int steps_per_second)
 #ifdef LSDEBUG_STEPPER
     bool changed = steps_per_second != _ls_stepper_steps_per_second_max;
 #endif
-    // set and constrain new current speed limit
-    _ls_stepper_steps_per_second_max = _constrain(steps_per_second, LS_STEPPER_STEPS_PER_SECOND_MIN, LS_STEPPER_STEPS_PER_SECOND_MAX);
+    // set and constrain new current speed limit (except if doing the warning)
+    if (steps_per_second != LS_STEPPER_STEPS_PER_SECOND_WARNING)
+    {
+        steps_per_second = _constrain(steps_per_second, LS_STEPPER_STEPS_PER_SECOND_MIN, LS_STEPPER_STEPS_PER_SECOND_MAX);
+    }
+    _ls_stepper_steps_per_second_max = steps_per_second;
 #ifdef LSDEBUG_STEPPER
     // might be called before print mutex is set up
     if (changed)
@@ -164,7 +167,7 @@ static void _ls_stepper_set_speed(void)
     {
         _ls_stepper_speed_current_rate += LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_TICK;
     }
-    _ls_stepper_speed_current_rate = _constrain(_ls_stepper_speed_current_rate, LS_STEPPER_STEPS_PER_SECOND_MIN, LS_STEPPER_STEPS_PER_SECOND_MAX);
+    _ls_stepper_speed_current_rate = _constrain(_ls_stepper_speed_current_rate, LS_STEPPER_STEPS_PER_SECOND_MIN, _ls_stepper_steps_per_second_max);
 
     ESP_ERROR_CHECK(timer_set_alarm_value(TIMER_GROUP_0, TIMER_0, APB_CLK_FREQ / LS_STEPPER_TIMER_DIVIDER / _ls_stepper_speed_current_rate));
 }
