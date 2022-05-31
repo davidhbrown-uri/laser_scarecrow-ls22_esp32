@@ -53,7 +53,7 @@ void selftest_event_handler(ls_event event)
     case LSEVT_STATE_ENTRY:
         ls_servo_jumpto(LS_SERVO_US_MID);
         vTaskDelay(pdMS_TO_TICKS(LS_SERVO_SELFTEST_HOLD_MS));
-        ls_buzzer_play(LS_BUZZER_PRE_LASER_WARNING);
+        ls_buzzer_effect(LS_BUZZER_PRE_LASER_WARNING);
         while(ls_buzzer_in_use())
         {
             vTaskDelay(1);
@@ -73,19 +73,19 @@ void selftest_event_handler(ls_event event)
         break;
     case LSEVT_MAGNET_ENTER:
     case LSEVT_MAGNET_LEAVE:
-        ls_buzzer_play(LS_BUZZER_CLICK);
+        ls_buzzer_effect(LS_BUZZER_CLICK);
         break;
     case LSEVT_LIGHT_DAY:
-        ls_buzzer_play(LS_BUZZER_PLAY_WAKE);
+        ls_buzzer_effect(LS_BUZZER_PLAY_WAKE);
         break;
     case LSEVT_LIGHT_NIGHT:
-        ls_buzzer_play(LS_BUZZER_PLAY_SLEEP);
+        ls_buzzer_effect(LS_BUZZER_PLAY_SLEEP);
         break;
     case LSEVT_CONTROLS_CONNECTED:
-        ls_buzzer_play(LS_BUZZER_PLAY_SETTINGS_CONTROL_ENTER);
+        ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_ENTER);
         break;
     case LSEVT_CONTROLS_DISCONNECTED:
-        ls_buzzer_play(LS_BUZZER_PLAY_SETTINGS_CONTROL_LEAVE);
+        ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_LEAVE);
         break;
     case LSEVT_CONTROLS_SPEED:
         if (!ls_buzzer_in_use())
@@ -106,10 +106,10 @@ void selftest_event_handler(ls_event event)
         }
         break;
     case LSEVT_TILT_DETECTED:
-        ls_buzzer_play(LS_BUZZER_PLAY_TILT_FAIL);
+        ls_buzzer_effect(LS_BUZZER_PLAY_TILT_FAIL);
         break;
     case LSEVT_TILT_OK:
-        ls_buzzer_play(LS_BUZZER_ALERT_1S);
+        ls_buzzer_effect(LS_BUZZER_ALERT_1S);
         break;
     default:;
     }

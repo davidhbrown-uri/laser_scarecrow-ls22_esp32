@@ -16,10 +16,14 @@
 #define BUZZER_DUTY (1)
 
 bool _ls_buzzer_in_use = false;
-uint32_t _tone_frequency = 1000;
-uint8_t _tone_ticks = 1;
+#define LS_BUZZER_REQUEST_DEFAULT_FREQUENCY 1000
+#define LS_BUZZER_REQUEST_DEFAULT_TICKS 1
 
-static struct _ls_buzzer_request
+struct ls_buzzer_request_t {
+    enum ls_buzzer_effects effect;
+    BaseType_t frequency;
+    TickType_t ticks;
+}ls_buzzer_request_t;
 
 static void _ls_buzzer_frequency(uint32_t freq)
 {
@@ -44,12 +48,16 @@ static void _ls_buzzer_frequency(uint32_t freq)
 
 void ls_buzzer_init(void)
 {
-    ls_buzzer_queue = xQueueCreate(32, sizeof(enum ls_buzzer_effects));
+    ls_buzzer_queue = xQueueCreate(32, sizeof(ls_buzzer_request_t));
 }
 
-void ls_buzzer_play(enum ls_buzzer_effects effect)
+void ls_buzzer_effect(enum ls_buzzer_effects effect)
 {
-    xQueueSend(ls_buzzer_queue, (void *)&effect, 0); // don't block if queue full
+    struct ls_buzzer_request_t request;
+    request.effect = effect;
+    request.frequency = LS_BUZZER_REQUEST_DEFAULT_FREQUENCY;
+    request.ticks = LS_BUZZER_REQUEST_DEFAULT_TICKS;
+    xQueueSend(ls_buzzer_queue, (void *)&request, 0); // don't block if queue full
 }
 
 bool ls_buzzer_in_use(void)
@@ -111,7 +119,7 @@ static void _ls_buzzer_pre_laser_warning(void)
 
 void ls_buzzer_handler_task(void *pvParameter)
 {
-    enum ls_buzzer_effects received;
+    struct ls_buzzer_request_t received;
     while (1)
     {
         if (xQueueReceive(ls_buzzer_queue, &received, portMAX_DELAY) != pdTRUE)
@@ -123,7 +131,7 @@ void ls_buzzer_handler_task(void *pvParameter)
         else
         {
             _ls_buzzer_in_use = true;
-            switch (received)
+            switch (received.effect)
             {
             case LS_BUZZER_CLICK:
                 _ls_buzzer_effect_click();
@@ -132,14 +140,12 @@ void ls_buzzer_handler_task(void *pvParameter)
 #ifdef LSDEBUG_BUZZER
                 ls_debug_printf("Buzzer Alert 1s\n");
 #endif
-                _ls_buzzer_frequency(3100);
+                _ls_buzzer_frequency(1000);
                 vTaskDelay(pdMS_TO_TICKS(1000));
                 break;
             case LS_BUZZER_PLAY_TONE:
-                _ls_buzzer_frequency(_tone_frequency);
-                vTaskDelay(_tone_ticks);
-                _tone_ticks = 1;        // reset to default
-                _tone_frequency = 1000; // reset to default
+                _ls_buzzer_frequency(received.frequency);
+                vTaskDelay(received.ticks);
                 ESP_ERROR_CHECK(ledc_stop(BUZZER_SPEED, BUZZER_CHANNEL, 0));
                 break;
             case LS_BUZZER_ALTERNATE_HIGH:
@@ -253,7 +259,7 @@ void ls_buzzer_handler_task(void *pvParameter)
                 break;
             default:;
 #ifdef LSDEBUG_BUZZER
-                ls_debug_printf("Unknown ls_buzzer_effect %d -- I'm confused", received);
+                ls_debug_printf("Unknown ls_buzzer_effect %d -- I'm confused", received.effect);
 #endif
             }
         }
@@ -261,16 +267,20 @@ void ls_buzzer_handler_task(void *pvParameter)
         _ls_buzzer_in_use = false;
     }
 }
-void ls_buzzer_note(enum ls_buzzer_scale note, uint8_t ticks)
+void ls_buzzer_note(enum ls_buzzer_scale note, TickType_t ticks)
 {
-    _tone_frequency = (uint32_t)note;
-    _tone_ticks = ticks;
-    ls_buzzer_play(LS_BUZZER_PLAY_TONE);
+    struct ls_buzzer_request_t request;
+    request.effect = LS_BUZZER_PLAY_TONE;
+    request.frequency = _constrain((BaseType_t) note, 500, 22000);
+    request.ticks = ticks;
+    xQueueSend(ls_buzzer_queue, (void *)&request, 0); // don't block if queue full
 };
 
 void ls_buzzer_tone(BaseType_t frequency_hz)
 {
-    _tone_frequency = (uint32_t)_constrain(frequency_hz, 500, 22000);
-    _tone_ticks = 1;
-    ls_buzzer_play(LS_BUZZER_PLAY_TONE);
+    struct ls_buzzer_request_t request;
+    request.effect = LS_BUZZER_PLAY_TONE;
+    request.frequency = (BaseType_t) _constrain(frequency_hz, 500, 22000);;
+    request.ticks = LS_BUZZER_REQUEST_DEFAULT_TICKS;
+    xQueueSend(ls_buzzer_queue, (void *)&request, 0); // don't block if queue full
 }

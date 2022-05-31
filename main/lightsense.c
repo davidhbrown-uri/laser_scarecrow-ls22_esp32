@@ -25,7 +25,7 @@ static enum ls_lightsense_level_t _ls_lightsense_level_from_adc(uint32_t adc_rea
     {
         return LS_LIGHTSENSE_LEVEL_DAY;
     }
-    if (adc_reading < ls_settings_get_light_threshold_off())
+    if (adc_reading <= ls_settings_get_light_threshold_off())
     {
         return LS_LIGHTSENSE_LEVEL_NIGHT;
     }

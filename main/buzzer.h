@@ -38,7 +38,7 @@ enum ls_buzzer_effects {
     LS_BUZZER_PLAY_OCTAVE, // C', 200ms
     LS_BUZZER_PLAY_WAKE, // ascending scale alternating with root
     LS_BUZZER_PLAY_SLEEP, // descending scale alternating with octave
-    LS_BUZZER_PLAY_TONE, // specify frequency using ls_buzzer_tone() instead of ls_buzzer_play()
+    LS_BUZZER_PLAY_TONE, // specify frequency using ls_buzzer_tone() instead of ls_buzzer_effect()
     LS_BUZZER_PLAY_NOTHING // 1 tick silence
 }ls_buzzer_effects;
 
@@ -46,9 +46,9 @@ QueueHandle_t ls_buzzer_queue;
 
 void ls_buzzer_init(void);
 
-void ls_buzzer_play(enum ls_buzzer_effects effect);
+void ls_buzzer_effect(enum ls_buzzer_effects effect);
 
-void ls_buzzer_note(enum ls_buzzer_scale note, uint8_t ticks);
+void ls_buzzer_note(enum ls_buzzer_scale note, TickType_t ticks);
 
 void ls_buzzer_tone(BaseType_t frequency_hz);
 

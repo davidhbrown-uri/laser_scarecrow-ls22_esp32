@@ -17,8 +17,8 @@ static nvs_handle_t _ls_settings_nvs_handle;
 #define LS_SETTINGS_NVS_KEY_SERVO_TOP "servo_top"
 #define LS_SETTINGS_NVS_KEY_SERVO_BOTTOM "servo_bottom"
 #define LS_SETTINGS_NVS_KEY_SERVO_DELTA "servo_delta"
-#define LS_SETTINGS_NVS_KEY_LIGHTSENSE_DAY "light_day"
-#define LS_SETTINGS_NVS_KEY_LIGHTSENSE_NIGHT "light_night"
+#define LS_SETTINGS_NVS_KEY_LIGHTSENSE_ON "light_on"
+#define LS_SETTINGS_NVS_KEY_LIGHTSENSE_OFF "light_off"
 
 void ls_settings_set_defaults(void)
 {
@@ -122,6 +122,18 @@ void ls_settings_read(void)
     {
         ls_settings_set_servo_bottom(nvs_value);
     }
+    if (ESP_OK == _ls_settings_read_from_nvs(LS_SETTINGS_NVS_KEY_SERVO_DELTA, &nvs_value))
+    {
+        ls_settings_set_servo_pulse_delta(nvs_value);
+    }
+    if (ESP_OK == _ls_settings_read_from_nvs(LS_SETTINGS_NVS_KEY_LIGHTSENSE_OFF, &nvs_value))
+    {
+        ls_settings_set_light_threshold_off(nvs_value);
+    }
+    if (ESP_OK == _ls_settings_read_from_nvs(LS_SETTINGS_NVS_KEY_LIGHTSENSE_ON, &nvs_value))
+    {
+        ls_settings_set_light_threshold_on(nvs_value);
+    }
     _ls_settings_close_nvs();
 }
 
@@ -174,6 +186,51 @@ void ls_settings_save(void)
         ;
 #ifdef LSDEBUG_SETTINGS
         ls_debug_printf("Settings could not save servo bottom\n");
+#endif
+    }
+    if (ESP_OK == nvs_set_i32(_ls_settings_nvs_handle, LS_SETTINGS_NVS_KEY_SERVO_DELTA,
+                              ls_settings_get_servo_pulse_delta()))
+    {
+        ;
+#ifdef LSDEBUG_SETTINGS
+        ls_debug_printf("Settings saved servo pulse delta=%d\n", ls_settings_get_servo_pulse_delta());
+#endif
+    }
+    else
+    {
+        ;
+#ifdef LSDEBUG_SETTINGS
+        ls_debug_printf("Settings could not save servo pulse delta.\n");
+#endif
+    }
+    if (ESP_OK == nvs_set_i32(_ls_settings_nvs_handle, LS_SETTINGS_NVS_KEY_LIGHTSENSE_OFF,
+                              ls_settings_get_light_threshold_off()))
+    {
+        ;
+#ifdef LSDEBUG_SETTINGS
+        ls_debug_printf("Settings saved light threshold OFF=%d\n", ls_settings_get_light_threshold_off());
+#endif
+    }
+    else
+    {
+        ;
+#ifdef LSDEBUG_SETTINGS
+        ls_debug_printf("Settings could not save light threshold OFF.\n");
+#endif
+    }
+    if (ESP_OK == nvs_set_i32(_ls_settings_nvs_handle, LS_SETTINGS_NVS_KEY_LIGHTSENSE_ON,
+                              ls_settings_get_light_threshold_on()))
+    {
+        ;
+#ifdef LSDEBUG_SETTINGS
+        ls_debug_printf("Settings saved light threshold ON=%d\n", ls_settings_get_light_threshold_on());
+#endif
+    }
+    else
+    {
+        ;
+#ifdef LSDEBUG_SETTINGS
+        ls_debug_printf("Settings could not save light threshold on.\n");
 #endif
     }
     _ls_settings_close_nvs();
