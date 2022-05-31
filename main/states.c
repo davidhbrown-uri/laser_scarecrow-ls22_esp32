@@ -311,9 +311,15 @@ ls_State ls_state_active(ls_event event)
     case LSEVT_CONTROLS_TOPANGLE:
     case LSEVT_CONTROLS_BOTTOMANGLE:
 #ifdef LSDEBUG_STATES
-        ls_debug_printf("Entering manual control\n")
+        ls_debug_printf("Entering settings control\n")
 #endif
             successor.func = ls_state_settings;
+        break;
+    case LSEVT_CONTROLS_CONNECT_SECONDARY:
+#ifdef LSDEBUG_STATES
+        ls_debug_printf("Entering secondary settings control\n")
+#endif
+            successor.func = ls_state_secondary_settings;
         break;
     case LSEVT_TILT_DETECTED:
         successor.func = ls_state_error_tilt;
@@ -402,7 +408,7 @@ static int _ls_state_settings_servo_hold_count = 0;
 ls_State ls_state_settings(ls_event event)
 {
 #ifdef LSDEBUG_STATES
-    ls_debug_printf("STATE_MANUAL handling event\n");
+    ls_debug_printf("STATE_SETTINGS handling event\n");
 #endif
     ls_State successor;
     successor.func = ls_state_settings;
@@ -414,7 +420,7 @@ ls_State ls_state_settings(ls_event event)
         ls_laser_set_mode((ls_map_get_status() == LS_MAP_STATUS_OK) ? LS_LASER_MAPPED : LS_LASER_ON);
         ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION * 5 / 4);
         ls_servo_sweep();
-        ls_buzzer_play(LS_BUZZER_PLAY_MANUAL_CONTROL_ENTER);
+        ls_buzzer_play(LS_BUZZER_PLAY_SETTINGS_CONTROL_ENTER);
         break;
     case LSEVT_STEPPER_FINISHED_MOVE:
         ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION * 5 / 4);
@@ -455,6 +461,12 @@ ls_State ls_state_settings(ls_event event)
         ls_stepper_stop();
         successor.func = ls_state_active;
         break;
+    case LSEVT_CONTROLS_CONNECT_SECONDARY:
+#ifdef LSDEBUG_STATES
+        ls_debug_printf("Entering secondary from primary settings control\n")
+#endif
+            successor.func = ls_state_secondary_settings;
+        break;
     case LSEVT_TILT_DETECTED:
         successor.func = ls_state_error_tilt;
         break;
@@ -463,13 +475,19 @@ ls_State ls_state_settings(ls_event event)
 
     if (ls_state_settings != successor.func)
     {
-        ls_buzzer_play(LS_BUZZER_PLAY_MANUAL_CONTROL_LEAVE);
+        ls_buzzer_play(LS_BUZZER_PLAY_SETTINGS_CONTROL_LEAVE);
         ls_settings_save();
     }
     return successor;
 }
 
-int _ls_state_secondary_settings_servo_count = 0;
+static enum ls_buzzer_scale _ls_state_secondary_settings_lightsense_scale[] = {
+    // 0..4 => switch at lower light levels
+    LS_BUZZER_SCALE_D, LS_BUZZER_SCALE_Dx, LS_BUZZER_SCALE_E, LS_BUZZER_SCALE_F, LS_BUZZER_SCALE_Fx,
+    LS_BUZZER_SCALE_G, // 5th value; center of range
+    // 6..10 => switch at higher levels
+    LS_BUZZER_SCALE_Gx, LS_BUZZER_SCALE_A, LS_BUZZER_SCALE_Ax, LS_BUZZER_SCALE_B, LS_BUZZER_SCALE_CC};
+static int _ls_state_secondary_settings_servo_count = 0;
 ls_State ls_state_secondary_settings(ls_event event)
 {
 #ifdef LSDEBUG_STATES
@@ -483,9 +501,10 @@ ls_State ls_state_secondary_settings(ls_event event)
     case LSEVT_STATE_ENTRY:
         ls_laser_set_mode_off();
         ls_stepper_stop();
+        ls_stepper_sleep();
         ls_servo_off();
-        ls_buzzer_play(LS_BUZZER_PLAY_MANUAL_CONTROL_ENTER);
-        ls_buzzer_play(LS_BUZZER_PLAY_MANUAL_CONTROL_ENTER);
+        ls_buzzer_play(LS_BUZZER_PLAY_SETTINGS_CONTROL_ENTER);
+        ls_buzzer_play(LS_BUZZER_PLAY_SETTINGS_CONTROL_ENTER);
         _ls_state_secondary_settings_servo_count = 0;
         break;
     case LSEVT_SERVO_SWEEP_TOP:
@@ -506,18 +525,30 @@ ls_State ls_state_secondary_settings(ls_event event)
         break;
     case LSEVT_CONTROLS_SPEED: // servo speed
         control_value = *((BaseType_t *)event.value);
-        ls_settings_set_servo_pulse_delta(ls_settings_map_control_to_pulse_delta(control_value));
+        ls_settings_set_servo_pulse_delta(ls_settings_map_control_to_servo_pulse_delta(control_value));
+#ifdef LSDEBUG_SETTINGS
+        ls_debug_printf("Setting servo pulse delta to %d microseconds per tick.\n", ls_settings_map_control_to_servo_pulse_delta(control_value));
+#endif
         _ls_state_secondary_settings_servo_count = 6;
+        ls_servo_sweep();
         break;
     case LSEVT_CONTROLS_TOPANGLE: // light threshold
         control_value = *((BaseType_t *)event.value);
         // map input to 0-10 setting range
-
+        int index = _map(control_value, LS_CONTROLS_READING_BOTTOM, LS_CONTROLS_READING_TOP, 0, 10);
         // calculate/set threshold values
+       // ls_settings_set_light_thresholds_from_0to10(index);
         // if event queue is empty, play tune to indicate threshold value
+        for (int i = 5; i >= index && i > 0; i--)
+        {
+            ls_buzzer_note(_ls_state_secondary_settings_lightsense_scale[i], 2);
+        }
+        for (int i = 5; i <= index && i <= 10; i++)
+        {
+            ls_buzzer_note(_ls_state_secondary_settings_lightsense_scale[i], 2);
+        }
         break;
-    case LSEVT_CONTROLS_BOTTOMANGLE:
-        ; // nothing assigned
+    case LSEVT_CONTROLS_BOTTOMANGLE:; // nothing assigned
         break;
     case LSEVT_CONTROLS_DISCONNECTED:
         ls_servo_off();
@@ -526,11 +557,13 @@ ls_State ls_state_secondary_settings(ls_event event)
     case LSEVT_TILT_DETECTED:
         successor.func = ls_state_error_tilt;
         break;
-    default:;  // do nothing for this event
-    } // switch event type
+        case LSEVT_NOOP:
+        ls_buzzer_play(LS_BUZZER_PLAY_SETTINGS_CONTROL_ENTER);
+    default:; // do nothing for this event
+    }         // switch event type
     if (ls_state_secondary_settings != successor.func)
     {
-        ls_buzzer_play(LS_BUZZER_PLAY_MANUAL_CONTROL_LEAVE);
+        ls_buzzer_play(LS_BUZZER_PLAY_SETTINGS_CONTROL_LEAVE);
         ls_settings_save();
     }
     return successor;
@@ -594,7 +627,7 @@ ls_State ls_state_sleep(ls_event event)
     case LSEVT_CONTROLS_TOPANGLE:
     case LSEVT_CONTROLS_BOTTOMANGLE:
 #ifdef LSDEBUG_STATES
-        ls_debug_printf("Entering manual control\n");
+        ls_debug_printf("Entering settings control from sleep\n");
 #endif
         ls_state_set_prelaserwarn_successor(ls_state_settings);
         if (ls_map_get_status() == LS_MAP_STATUS_OK)
@@ -606,6 +639,12 @@ ls_State ls_state_sleep(ls_event event)
         {
             successor.func = ls_state_prelaserwarn;
         }
+        break;
+    case LSEVT_CONTROLS_CONNECT_SECONDARY:
+#ifdef LSDEBUG_STATES
+        ls_debug_printf("Entering secondary settings control from sleep\n")
+#endif
+            successor.func = ls_state_secondary_settings;
         break;
     case LSEVT_TILT_DETECTED:
         successor.func = ls_state_error_tilt;

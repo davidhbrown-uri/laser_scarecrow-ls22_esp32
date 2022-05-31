@@ -97,13 +97,13 @@ void ls_controls_task(void *pvParameter)
                 case LS_CONTROLS_STATUS_CONNECTED:
                     connection_event.type = LSEVT_CONTROLS_CONNECTED;
 #ifdef LSDEBUG_CONTROLS
-                    ls_debug_printf("Controls status CONNECTED\n");
+                    ls_debug_printf("Controls status CONNECTED about %lld microseconds after last connection\n", esp_timer_get_time()-last_connected_at_us_time);
 #endif
                     _ls_controls_current_speed = knob_readings[0];
                     _ls_controls_current_topangle = knob_readings[1];
                     _ls_controls_current_bottomangle = knob_readings[2];
                     _ls_controls_task_knobs_havent_moved();
-                    if (esp_timer_get_time() - LS_CONTROLS_SECONDARY_US_TIME > last_connected_at_us_time)
+                    if (esp_timer_get_time() - LS_CONTROLS_SECONDARY_US_TIME < last_connected_at_us_time)
                     {
                         connection_event.type = LSEVT_CONTROLS_CONNECT_SECONDARY;
                     }

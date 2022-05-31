@@ -82,10 +82,10 @@ void selftest_event_handler(ls_event event)
         ls_buzzer_play(LS_BUZZER_PLAY_SLEEP);
         break;
     case LSEVT_CONTROLS_CONNECTED:
-        ls_buzzer_play(LS_BUZZER_PLAY_MANUAL_CONTROL_ENTER);
+        ls_buzzer_play(LS_BUZZER_PLAY_SETTINGS_CONTROL_ENTER);
         break;
     case LSEVT_CONTROLS_DISCONNECTED:
-        ls_buzzer_play(LS_BUZZER_PLAY_MANUAL_CONTROL_LEAVE);
+        ls_buzzer_play(LS_BUZZER_PLAY_SETTINGS_CONTROL_LEAVE);
         break;
     case LSEVT_CONTROLS_SPEED:
         if (!ls_buzzer_in_use())
