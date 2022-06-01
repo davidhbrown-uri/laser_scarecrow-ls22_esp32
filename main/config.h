@@ -67,7 +67,8 @@ gpio_num_t lsgpio_servopulse(void);
 #define LS_SERVO_US_MAX 2250
 #define LS_SERVO_US_MID 1500
 #define LS_SERVO_DELTA_PER_TICK_DEFAULT 2
-#define LS_SERVO_DELTA_PER_TICK_MAX 1000
+#define LS_SERVO_DELTA_PER_TICK_MAX 100
+#define LS_SERVO_DELTA_PER_TICK_MIN 1
 #define LS_SERVO_RANDOM_PAUSE_MS 300
 #define LS_SERVO_SWEEP_PAUSE_MS 4000
 #define LS_SERVO_MCPWM_UNIT MCPWM_UNIT_0
@@ -89,13 +90,14 @@ gpio_num_t lsgpio_servopulse(void);
 #define LS_STEPPER_STEPS_PER_SECOND_MAX 3600
 #define LS_STEPPER_STEPS_PER_SECOND_HOMING 1800
 #define LS_STEPPER_STEPS_PER_SECOND_MAPPING 1800
+#define LS_STEPPER_STEPS_PER_SECOND_WARNING 7200
 #define LS_STEPPER_STEPS_PER_SECOND_DEFAULT 2400
 // LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_SECOND will be added or subtracted to the steps per second when accelerating or decelerating
 #define LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_SECOND 8000
 #define LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_TICK ( LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_SECOND / pdMS_TO_TICKS(1000))
 
 // values read by ADC from external controls
-#define LS_CONTROLS_ADC_MAX_DISCONNECT 100
+#define LS_CONTROLS_ADC_MAX_DISCONNECT 200
 #define LS_CONTROLS_ADC_MIN_CONNECT 1600
 #define LS_CONTROLS_ADC_MAX_CONNECT 1900
 // to ensure the full range of value can be selected,
@@ -108,6 +110,8 @@ gpio_num_t lsgpio_servopulse(void);
 #define LS_CONTROLS_READINGS_TO_AVERAGE 5
 // when controls are connected, readings are sent every tick, so 50 reads=~5sec
 #define LS_CONTROLS_FASTREADS_AFTER_MOVE 50
+// a second connection must happen within this many microseconds to enter the secondary controls
+#define LS_CONTROLS_SECONDARY_US_TIME 6000000L
 
 // values read by ADC for tape reflectance sensor
 // based on testing conducted March 18 '22
@@ -150,3 +154,5 @@ gpio_num_t lsgpio_servopulse(void);
 // the accelerometer will check this frequently during normal operation
 #define LS_TILT_REPORT_RATE_MS 400
 #endif
+
+#define LS_EVENT_NOOP_TIMEOUT_MS 50000

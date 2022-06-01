@@ -18,7 +18,6 @@ enum ls_lightsense_mode_t ls_lightsense_current_mode(void);
 int ls_lightsense_read_adc(void);
 void ls_lightsense_read_task(void *pvParameter);
 
-
 /* "Calibration" data
 April 4 '22: measuring actual light levels with HoldPeak HP881-C meter and one sample phototransistor
 TimeHMM lux reading - comment

@@ -16,6 +16,9 @@ static nvs_handle_t _ls_settings_nvs_handle;
 #define LS_SETTINGS_NVS_KEY_STEPPER_SPEED "stepper_speed"
 #define LS_SETTINGS_NVS_KEY_SERVO_TOP "servo_top"
 #define LS_SETTINGS_NVS_KEY_SERVO_BOTTOM "servo_bottom"
+#define LS_SETTINGS_NVS_KEY_SERVO_DELTA "servo_delta"
+#define LS_SETTINGS_NVS_KEY_LIGHTSENSE_ON "light_on"
+#define LS_SETTINGS_NVS_KEY_LIGHTSENSE_OFF "light_off"
 
 void ls_settings_set_defaults(void)
 {
@@ -35,6 +38,12 @@ void ls_settings_set_defaults(void)
     ls_settings_set_tilt_threshold_mg_ok(LS_TILT_THRESHOLD_OK_MG);
 }
 
+void ls_settings_reset_defaults(void)
+{
+    ls_settings_set_defaults();
+    ls_settings_save();
+}
+
 static void _ls_settings_open_nvs(void)
 {
     // https://github.com/espressif/esp-idf/blob/079b5b1857242d6288478c62dc36a843718882e9/examples/storage/nvs_rw_value/main/nvs_value_example_main.c
@@ -50,7 +59,6 @@ static void _ls_settings_open_nvs(void)
     ESP_ERROR_CHECK(err);
 
     // Open
-    printf("\nOpening Non-Volatile Storage (NVS) handle... ");
     err = nvs_open(LS_SETTINGS_NVS_NAMESPACE, NVS_READWRITE, &_ls_settings_nvs_handle);
 #ifdef LSDEBUG_SETTINGS
     if (err != ESP_OK)
@@ -114,6 +122,18 @@ void ls_settings_read(void)
     {
         ls_settings_set_servo_bottom(nvs_value);
     }
+    if (ESP_OK == _ls_settings_read_from_nvs(LS_SETTINGS_NVS_KEY_SERVO_DELTA, &nvs_value))
+    {
+        ls_settings_set_servo_pulse_delta(nvs_value);
+    }
+    if (ESP_OK == _ls_settings_read_from_nvs(LS_SETTINGS_NVS_KEY_LIGHTSENSE_OFF, &nvs_value))
+    {
+        ls_settings_set_light_threshold_off(nvs_value);
+    }
+    if (ESP_OK == _ls_settings_read_from_nvs(LS_SETTINGS_NVS_KEY_LIGHTSENSE_ON, &nvs_value))
+    {
+        ls_settings_set_light_threshold_on(nvs_value);
+    }
     _ls_settings_close_nvs();
 }
 
@@ -166,6 +186,51 @@ void ls_settings_save(void)
         ;
 #ifdef LSDEBUG_SETTINGS
         ls_debug_printf("Settings could not save servo bottom\n");
+#endif
+    }
+    if (ESP_OK == nvs_set_i32(_ls_settings_nvs_handle, LS_SETTINGS_NVS_KEY_SERVO_DELTA,
+                              ls_settings_get_servo_pulse_delta()))
+    {
+        ;
+#ifdef LSDEBUG_SETTINGS
+        ls_debug_printf("Settings saved servo pulse delta=%d\n", ls_settings_get_servo_pulse_delta());
+#endif
+    }
+    else
+    {
+        ;
+#ifdef LSDEBUG_SETTINGS
+        ls_debug_printf("Settings could not save servo pulse delta.\n");
+#endif
+    }
+    if (ESP_OK == nvs_set_i32(_ls_settings_nvs_handle, LS_SETTINGS_NVS_KEY_LIGHTSENSE_OFF,
+                              ls_settings_get_light_threshold_off()))
+    {
+        ;
+#ifdef LSDEBUG_SETTINGS
+        ls_debug_printf("Settings saved light threshold OFF=%d\n", ls_settings_get_light_threshold_off());
+#endif
+    }
+    else
+    {
+        ;
+#ifdef LSDEBUG_SETTINGS
+        ls_debug_printf("Settings could not save light threshold OFF.\n");
+#endif
+    }
+    if (ESP_OK == nvs_set_i32(_ls_settings_nvs_handle, LS_SETTINGS_NVS_KEY_LIGHTSENSE_ON,
+                              ls_settings_get_light_threshold_on()))
+    {
+        ;
+#ifdef LSDEBUG_SETTINGS
+        ls_debug_printf("Settings saved light threshold ON=%d\n", ls_settings_get_light_threshold_on());
+#endif
+    }
+    else
+    {
+        ;
+#ifdef LSDEBUG_SETTINGS
+        ls_debug_printf("Settings could not save light threshold on.\n");
 #endif
     }
     _ls_settings_close_nvs();
@@ -254,14 +319,42 @@ BaseType_t ls_settings_get_light_threshold_off(void)
     return _ls_settings_light_threshold_off;
 }
 
+void ls_settings_set_light_thresholds_from_0to10(int index)
+{
+    if (index < 0 || index > 10)
+    {
+#ifdef LSDEBUG_SETTINGS
+        ls_debug_printf("Ignoring invalid lightsense threshold index %d must be 0..10 inclusive.\n", index);
+#endif
+        return;
+    }
+#ifdef LSDEBUG_SETTINGS
+        ls_debug_printf("Setting lightsense thresholds from index value %d (range 0..10 inclusive).\n", index);
+#endif
+    // off will range from 0 to 2010; 5 => 505 (near default)
+    ls_settings_set_light_threshold_off(20 * (index * index) + (1 * index) + 0);
+    // off will range from 50 to 4070; 5 => 1060 (near default)
+    ls_settings_set_light_threshold_on(40 * (index * index) + (2 * index) + 50);
+}
+
+BaseType_t ls_settings_map_control_to_servo_pulse_delta(BaseType_t adc)
+{
+    adc = _make_log_response(
+        _map(_constrain(adc, LS_CONTROLS_READING_BOTTOM, LS_CONTROLS_READING_TOP),
+             LS_CONTROLS_READING_BOTTOM, LS_CONTROLS_READING_TOP,
+             0, 2047),
+        11);
+    return _map(adc, 0, 2047, LS_SERVO_DELTA_PER_TICK_MIN, LS_SERVO_DELTA_PER_TICK_MAX);
+}
 void ls_settings_set_servo_pulse_delta(BaseType_t microseconds_per_tick)
 {
-    _ls_settings_servo_pulse_delta = _constrain(microseconds_per_tick, 0, LS_SERVO_DELTA_PER_TICK_MAX);
+    _ls_settings_servo_pulse_delta = _constrain(microseconds_per_tick, LS_SERVO_DELTA_PER_TICK_MIN, LS_SERVO_DELTA_PER_TICK_MAX);
 }
 BaseType_t ls_settings_get_servo_pulse_delta(void)
 {
     return _ls_settings_servo_pulse_delta;
 }
+
 void ls_settings_set_servo_random_pause_ms(BaseType_t duration_ms)
 {
     _ls_settings_servo_random_pause_ms = _constrain(duration_ms, 0, 10000);
