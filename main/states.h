@@ -22,7 +22,8 @@ ls_State ls_state_current, ls_state_previous;
 
 ls_State ls_state_poweron(ls_event);
 ls_State ls_state_selftest(ls_event);
-ls_State ls_state_manual(ls_event);
+ls_State ls_state_settings(ls_event);
+ls_State ls_state_secondary_settings(ls_event);
 ls_State ls_state_sleep(ls_event);
 ls_State ls_state_wakeup(ls_event);
 
@@ -32,7 +33,7 @@ ls_State ls_state_prelaserwarn(ls_event);
  * @brief Default if not called is ls_state_active. 
  * 
  * typical use:
- *         ls_state_set_prelaserwarn_successor(&ls_state_manual);
+ *         ls_state_set_prelaserwarn_successor(&ls_state_settings);
  *         successor.func = ls_state_prelaserwarn;
  * 
  */

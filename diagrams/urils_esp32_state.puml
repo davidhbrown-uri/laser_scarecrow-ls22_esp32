@@ -98,11 +98,17 @@ MapSeekHome : /do: forward other events to SeekHome
 
 state Sleep
 Sleep : /entry: turn off all devices
-Sleep : /do: check ambient light; check manual control; snore?
+Sleep : /do: check ambient light; snore
 Sleep --> PreLaserWarningActive : LSEVT_LIGHT_DAY
 Sleep --> Manual : LSEVT_CONTROLS_ENABLE
 
 Manual : /entry: save settings
 Manual : /exit: save settings
+
+state Settings
+
+state SecondarySettings
+
+
 
 @enduml

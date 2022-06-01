@@ -25,7 +25,7 @@ static enum ls_lightsense_level_t _ls_lightsense_level_from_adc(uint32_t adc_rea
     {
         return LS_LIGHTSENSE_LEVEL_DAY;
     }
-    if (adc_reading < ls_settings_get_light_threshold_off())
+    if (adc_reading <= ls_settings_get_light_threshold_off())
     {
         return LS_LIGHTSENSE_LEVEL_NIGHT;
     }
@@ -117,7 +117,7 @@ void ls_lightsense_read_task(void *pvParameter)
                 break;
             case LS_LIGHTSENSE_LEVEL_NIGHT:
                 if (ls_lightsense_current_mode() != LS_LIGHTSENSE_MODE_NIGHT ||
-                (ls_state_current.func != ls_state_sleep && ls_state_current.func != ls_state_manual))
+                (ls_state_current.func != ls_state_sleep && ls_state_current.func != ls_state_settings))
                 {
                     _ls_lightsense_set_mode(LS_LIGHTSENSE_MODE_NIGHT);
                 }

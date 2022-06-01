@@ -1,7 +1,16 @@
 #pragma once
 #include "freertos/FreeRTOS.h"
 
+/**
+ * @brief Load firmware defaults at power-up; will be overridden saved settings
+ * 
+ */
 void ls_settings_set_defaults(void);
+/**
+ * @brief Overwrite any saved settings with firmware defaults
+ * 
+ */
+void ls_settings_reset_defaults(void);
 void ls_settings_read(void);
 void ls_settings_save(void);
 
@@ -23,6 +32,7 @@ BaseType_t ls_settings_map_control_to_servo_bottom(BaseType_t adc);
 void ls_settings_set_servo_bottom(BaseType_t microseconds);
 BaseType_t ls_settings_get_servo_bottom(void);
 
+BaseType_t ls_settings_map_control_to_servo_pulse_delta(BaseType_t adc);
 void ls_settings_set_servo_pulse_delta(BaseType_t);
 BaseType_t ls_settings_get_servo_pulse_delta(void);
 
@@ -34,6 +44,13 @@ BaseType_t ls_settings_get_light_threshold_on(void);
 
 void ls_settings_set_light_threshold_off(BaseType_t adc);
 BaseType_t ls_settings_get_light_threshold_off(void);
+
+/**
+ * @brief Set thresholds to identifiable values with a logrithmic response
+ * 
+ * @param index 
+ */
+void ls_settings_set_light_thresholds_from_0to10(int index);
 
 void ls_settings_set_tilt_threshold_mg_detected(BaseType_t milli_gs);
 BaseType_t ls_settings_get_tilt_threshold_mg_detected(void);
