@@ -5,6 +5,7 @@
 #include "driver/gpio.h"
 #include "esp_adc_cal.h"
 #include "buzzer.h"
+#include "debug.h"
 
 extern SemaphoreHandle_t adc1_mux;
 static bool _ls_tape_sensor_enabled = false;
@@ -55,7 +56,10 @@ void ls_tape_sensor_selftest_task(void *pvParameter)
     uint32_t last_tape_reading = ls_tape_sensor_read();
     while (1)
     {
-        int tape_reading = ls_tape_sensor_read();
+        uint32_t tape_reading = ls_tape_sensor_read();
+#ifdef LSDEBUG_TAPE
+ls_debug_printf("Tape ADC: %d\n", tape_reading);
+#endif
         if(tape_reading < LS_REFLECTANCE_ADC_MAX_WHITE_BUCKET && last_tape_reading >= LS_REFLECTANCE_ADC_MAX_WHITE_BUCKET)
         {
             ls_buzzer_effect(LS_BUZZER_PLAY_ROOT);

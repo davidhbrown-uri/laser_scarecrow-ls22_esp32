@@ -59,8 +59,8 @@ void selftest_event_handler(ls_event event)
             vTaskDelay(1);
         }
         ls_settings_reset_defaults();
-        xTaskCreate(&ls_tape_sensor_selftest_task, "tapesense_selftest", configMINIMAL_STACK_SIZE * 2, NULL, 10, NULL);
-        xTaskCreate(&ls_tapemode_selftest_task, "tapemode_selftest", configMINIMAL_STACK_SIZE * 2, NULL, 10, NULL);
+        xTaskCreate(&ls_tape_sensor_selftest_task, "tapesense_selftest", configMINIMAL_STACK_SIZE * 3, NULL, 10, NULL);
+        xTaskCreate(&ls_tapemode_selftest_task, "tapemode_selftest", configMINIMAL_STACK_SIZE * 3, NULL, 10, NULL);
         ls_laser_pulse_init();
         ls_settings_set_servo_bottom(LS_SERVO_US_MAX);
         ls_settings_set_servo_top(LS_SERVO_US_MIN);
