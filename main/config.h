@@ -56,7 +56,7 @@ gpio_num_t lsgpio_servopulse(void);
 #define LSIC2_PORT I2C_NUM_0
 #define LSI2C_SDA 21
 #define LSI2C_SCL 22
-#define LSI2C_FREQ_HZ 100000
+#define LSI2C_FREQ_HZ 400000
 // currently unused
 #define LSGPIO_SPARE2 23
 #define LSGPIO_SPARE3 1
