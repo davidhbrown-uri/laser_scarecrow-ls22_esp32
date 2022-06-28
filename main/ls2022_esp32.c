@@ -1,4 +1,4 @@
-#define VERSION_MESSAGE "URI Laser Scarecrow 2022 version 1.1.0 (May 31, 2022)\n"
+#define VERSION_MESSAGE "URI Laser Scarecrow 2022 version 1.1.1 (June 26, 2022)\n"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>

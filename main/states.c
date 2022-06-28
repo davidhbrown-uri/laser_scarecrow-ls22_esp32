@@ -933,7 +933,13 @@ ls_State ls_state_error_noaccel(ls_event event)
     successor.func = ls_state_error_noaccel;
     // we're never really going to return
     ls_buzzer_effect(LS_BUZZER_PLAY_TILT_FAIL);
-    vTaskDelay(pdMS_TO_TICKS(1000));
+    vTaskDelay(pdMS_TO_TICKS(500));
+    // if this is the first attempt just try to restart
+    if(esp_reset_reason() != ESP_RST_SW)
+    {
+    esp_restart(); // software reset of the chip; starts execution again
+    }
+    // otherwise play the warning tone, too, and wait to try again
     ls_buzzer_effect(LS_BUZZER_ALTERNATE_HIGH);
     vTaskDelay(pdMS_TO_TICKS(29000));
     esp_restart(); // software reset of the chip; starts execution again

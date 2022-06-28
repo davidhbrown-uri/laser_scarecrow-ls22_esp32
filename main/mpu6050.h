@@ -27,3 +27,4 @@
 void mpu6050_begin(void);
 float mpu6050_read_accel_z(void);
 float mpu6050_read_temp(void);
+esp_err_t mpu6050_attempt_reset(void);
