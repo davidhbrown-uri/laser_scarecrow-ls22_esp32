@@ -37,23 +37,25 @@ static enum ls_i2c_accelerometer_device_t _ls_i2c_accelerometer_device = LS_I2C_
  */
 static esp_err_t i2c_master_init(void)
 {
-#ifdef LSDEBUG_I2C
-    ls_debug_printf("I2C bus master initializing...\n");
-#endif
-    int i2c_master_port = LSIC2_PORT;
+
+    int i2c_master_port = LSI2C_PORT;
 
     i2c_config_t conf = {
         .mode = I2C_MODE_MASTER,
         .sda_io_num = LSI2C_SDA,
         .scl_io_num = LSI2C_SCL,
-        .sda_pullup_en = GPIO_PULLUP_ENABLE,
-        .scl_pullup_en = GPIO_PULLUP_ENABLE,
+        .sda_pullup_en = GPIO_PULLUP_ENABLE,  // have our own pullup resistors, too
+        .scl_pullup_en = GPIO_PULLUP_ENABLE,  // have our own pullup resistors, too
         .master.clk_speed = LSI2C_FREQ_HZ,
     };
 
     i2c_param_config(i2c_master_port, &conf);
 
-    return i2c_driver_install(i2c_master_port, conf.mode, I2C_MASTER_RX_BUF_DISABLE, I2C_MASTER_TX_BUF_DISABLE, 0);
+    esp_err_t status = i2c_driver_install(i2c_master_port, conf.mode, I2C_MASTER_RX_BUF_DISABLE, I2C_MASTER_TX_BUF_DISABLE, 0);
+#ifdef LSDEBUG_I2C
+    ls_debug_printf("I2C bus master initializing on port %d returning esp_err_t = %d.\n", LSI2C_PORT, status);
+#endif
+    return status;
 }
 
 esp_err_t ls_i2c_write_reg_byte(uint8_t device_address, uint8_t register_number, uint8_t data)
@@ -64,7 +66,7 @@ esp_err_t ls_i2c_write_reg_byte(uint8_t device_address, uint8_t register_number,
     i2c_master_write_byte(cmd, register_number, ACK_CHECK_EN);                        // RA (ACK)
     i2c_master_write_byte(cmd, data, ACK_CHECK_EN);                                   // DATA (ACK)
     i2c_master_stop(cmd);                                                             // P
-    esp_err_t ret = i2c_master_cmd_begin(I2C_NUM_0, cmd, 1000 / portTICK_RATE_MS);
+    esp_err_t ret = i2c_master_cmd_begin(LSI2C_PORT, cmd, 1000 / portTICK_RATE_MS);
     i2c_cmd_link_delete(cmd);
     return ret;
 }
@@ -80,7 +82,7 @@ esp_err_t ls_i2c_read_reg_uint8(uint8_t device_address, uint8_t register_number,
     i2c_master_write_byte(cmd, device_address << 1 | I2C_MASTER_READ, ACK_CHECK_EN);  // SAD+R (ACK)
     i2c_master_read_byte(cmd, data, I2C_MASTER_NACK);                                 // (DATA) ACK
     i2c_master_stop(cmd);                                                             // P
-    esp_err_t ret = i2c_master_cmd_begin(I2C_NUM_0, cmd, 1000 / portTICK_RATE_MS);
+    esp_err_t ret = i2c_master_cmd_begin(LSI2C_PORT, cmd, 1000 / portTICK_RATE_MS);
     i2c_cmd_link_delete(cmd);
     return ret;
 }
@@ -112,7 +114,7 @@ bool ls_i2c_probe_address(uint8_t address)
     i2c_master_start(cmd);
     i2c_master_write_byte(cmd, (address << 1) | WRITE_BIT, ACK_CHECK_EN);
     i2c_master_stop(cmd);
-    esp_err_t ret = i2c_master_cmd_begin(LSIC2_PORT, cmd, 50 / portTICK_PERIOD_MS);
+    esp_err_t ret = i2c_master_cmd_begin(LSI2C_PORT, cmd, 50 / portTICK_PERIOD_MS);
     i2c_cmd_link_delete(cmd);
 
     return (ret == ESP_OK);
@@ -137,6 +139,16 @@ enum ls_i2c_accelerometer_device_t ls_i2c_accelerometer_device(void)
     {
         mpu6050_begin();
         _ls_i2c_accelerometer_device = LS_I2C_ACCELEROMETER_MPU6050;
+    }
+    // if we haven't yet detected an accelerometer, we may need to try harder.
+
+    if (LS_I2C_ACCELEROMETER_NONE == _ls_i2c_accelerometer_device) 
+    {
+        if (ESP_OK == mpu6050_attempt_reset())
+        {
+            printf("Detected MPU6050 accelerometer via MPU6050 reset\r\n");
+            _ls_i2c_accelerometer_device = LS_I2C_ACCELEROMETER_MPU6050;
+        }
     }
     return _ls_i2c_accelerometer_device;
 }
@@ -206,8 +218,8 @@ void ls_tilt_task(void *pvParameter)
     event.value = NULL;
     enum _ls_tilt_task_tilt_status_t readings[LS_TILT_TASK_TILT_STATUS_READINGS_COUNT];
     enum _ls_tilt_task_tilt_status_t current_status = LS_TILT_TASK_TILT_STATUS_UNDEFINED;
-    ls_i2c_init();
-    ls_i2c_accelerometer_device();
+    // ls_i2c_init(); // done by main
+    // ls_i2c_accelerometer_device(); // done by main
     // the MPU6050, in particular, can take a while to initialize
     vTaskDelay(pdMS_TO_TICKS(5000));
     // and the produces a few reading of bogus data

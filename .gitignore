@@ -62,3 +62,12 @@ sdkconfig.old
 !.vscode/*.code-snippets
 
 # End of https://www.toptal.com/developers/gitignore/api/c++,visualstudiocode
+.VSCodeCounter/2022-05-31_22-49-22/details.md
+.VSCodeCounter/2022-05-31_22-49-22/diff-details.md
+.VSCodeCounter/2022-05-31_22-49-22/diff.csv
+.VSCodeCounter/2022-05-31_22-49-22/diff.md
+.VSCodeCounter/2022-05-31_22-49-22/diff.txt
+.VSCodeCounter/2022-05-31_22-49-22/results.csv
+.VSCodeCounter/2022-05-31_22-49-22/results.json
+.VSCodeCounter/2022-05-31_22-49-22/results.md
+.VSCodeCounter/2022-05-31_22-49-22/results.txt
