@@ -68,5 +68,6 @@ First reading at each level is same device as initial test; others not consisten
 
 Individual set light level so each phototransistor read as close to 500 as possible,
 then measured with light meter (same first device)
-500=>9 lx, 25, 12, 12, 8, 15, 14, 10, 12, 16 
+500=>8, 9, 10, 12, 12, 12, 15, 14, 16, 25 lux
+
 */
