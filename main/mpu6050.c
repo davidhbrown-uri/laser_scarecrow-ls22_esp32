@@ -1,6 +1,24 @@
+/*
+    Control software for URI Laser Scarecrow, 2022 Model
+    Copyright (C) 2022  David H. Brown
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
 #include "freertos/FreeRTOS.h"
 #include "mpu6050.h"
 #include "driver/i2c.h"
+#include "config.h"
 
 #define ACK_CHECK_EN 0x1                        /*!< I2C master will check ack from slave*/
 #define ACK_CHECK_DIS 0x0                       /*!< I2C master will not check ack from slave */
@@ -17,7 +35,7 @@ static esp_err_t mpu6050_write_reg_byte(uint8_t register_number, uint8_t data)
     i2c_master_write_byte(cmd, register_number, ACK_CHECK_EN); // RA (ACK)
     i2c_master_write_byte(cmd, data, ACK_CHECK_EN); // DATA (ACK)
     i2c_master_stop(cmd); // P
-    esp_err_t ret = i2c_master_cmd_begin(I2C_NUM_0, cmd, 1000 / portTICK_RATE_MS);
+    esp_err_t ret = i2c_master_cmd_begin(LSI2C_PORT, cmd, 1000 / portTICK_RATE_MS);
     i2c_cmd_link_delete(cmd);
     return ret;
 }
@@ -33,7 +51,7 @@ static esp_err_t mpu6050_read_reg_uint8(uint8_t register_number, uint8_t *data)
     i2c_master_write_byte(cmd, MPU6050_ADDR << 1 | I2C_MASTER_READ, ACK_CHECK_EN); // AD+R (ACK)
     i2c_master_read_byte(cmd, data, I2C_MASTER_NACK); // (DATA) ACK
     i2c_master_stop(cmd); // P
-    esp_err_t ret = i2c_master_cmd_begin(I2C_NUM_0, cmd, 1000 / portTICK_RATE_MS);
+    esp_err_t ret = i2c_master_cmd_begin(LSI2C_PORT, cmd, 1000 / portTICK_RATE_MS);
     i2c_cmd_link_delete(cmd);
     return ret;
 }
@@ -50,7 +68,7 @@ static esp_err_t mpu6050_read_reg_int16(uint8_t register_number, int16_t *data)
     i2c_master_read_byte(cmd, &data_h, I2C_MASTER_ACK); // (DATA) ACK
     i2c_master_read_byte(cmd, &data_l, I2C_MASTER_NACK); // (DATA) NACK
     i2c_master_stop(cmd); // P
-    esp_err_t ret = i2c_master_cmd_begin(I2C_NUM_0, cmd, 1000 / portTICK_RATE_MS);
+    esp_err_t ret = i2c_master_cmd_begin(LSI2C_PORT, cmd, 1000 / portTICK_RATE_MS);
     i2c_cmd_link_delete(cmd);
     // reassemble 2s-complement value from separate high and low bytes
     *data = ((data_h & 0x80) ? -32878 : 0) + (data_h & 0x7f) * 256 + data_l;
@@ -80,6 +98,22 @@ void mpu6050_begin(void)
     vTaskDelay(pdMS_TO_TICKS(100));
     ESP_ERROR_CHECK(mpu6050_write_reg_byte(MPU6050_PWR_MGMT_1, MPU6050_PWR_MGMT_1_CYCLE_BIT));
     ESP_ERROR_CHECK(mpu6050_write_reg_byte(MPU6050_PWR_MGMT_2, MPU6050_PWR_MGMT_2_ZA_ONLY));
+}
+
+esp_err_t mpu6050_attempt_reset(void)
+{
+    esp_err_t result = mpu6050_write_reg_byte(MPU6050_PWR_MGMT_1, MPU6050_PWR_MGMT_1_RESET_BIT);
+    if (result != ESP_OK)
+    {
+        return result;
+    }
+    vTaskDelay(pdMS_TO_TICKS(100));
+    result = mpu6050_write_reg_byte(MPU6050_PWR_MGMT_1, MPU6050_PWR_MGMT_1_CYCLE_BIT);
+    if (result != ESP_OK)
+    {
+        return result;
+    }
+    return mpu6050_write_reg_byte(MPU6050_PWR_MGMT_2, MPU6050_PWR_MGMT_2_ZA_ONLY);
 }
 
 float mpu6050_read_accel_z(void)

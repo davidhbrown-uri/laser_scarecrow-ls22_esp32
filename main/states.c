@@ -1,3 +1,20 @@
+/*
+    Control software for URI Laser Scarecrow, 2022 Model
+    Copyright (C) 2022  David H. Brown
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
 #include "debug.h"
 #include "states.h"
 #include "freertos/semphr.h"
@@ -933,7 +950,13 @@ ls_State ls_state_error_noaccel(ls_event event)
     successor.func = ls_state_error_noaccel;
     // we're never really going to return
     ls_buzzer_effect(LS_BUZZER_PLAY_TILT_FAIL);
-    vTaskDelay(pdMS_TO_TICKS(1000));
+    vTaskDelay(pdMS_TO_TICKS(500));
+    // if this is the first attempt just try to restart
+    if(esp_reset_reason() != ESP_RST_SW)
+    {
+    esp_restart(); // software reset of the chip; starts execution again
+    }
+    // otherwise play the warning tone, too, and wait to try again
     ls_buzzer_effect(LS_BUZZER_ALTERNATE_HIGH);
     vTaskDelay(pdMS_TO_TICKS(29000));
     esp_restart(); // software reset of the chip; starts execution again

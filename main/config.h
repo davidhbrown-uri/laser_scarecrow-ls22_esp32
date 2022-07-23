@@ -1,3 +1,20 @@
+/*
+    Control software for URI Laser Scarecrow, 2022 Model
+    Copyright (C) 2022  David H. Brown
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
 #pragma once
 #include "debug.h"
 #include "driver/gpio.h"
@@ -53,10 +70,10 @@ gpio_num_t lsgpio_servopulse(void);
 #define LSGPIO_SERVOPULSE (lsgpio_servopulse())
 #define LSGPIO_BUZZERENABLE 2
 // I2C (using controller 0; pins selected to match Arduino usage; maybe they have a reason?)
-#define LSIC2_PORT I2C_NUM_0
+#define LSI2C_PORT I2C_NUM_0
 #define LSI2C_SDA 21
 #define LSI2C_SCL 22
-#define LSI2C_FREQ_HZ 100000
+#define LSI2C_FREQ_HZ 400000
 // currently unused
 #define LSGPIO_SPARE2 23
 #define LSGPIO_SPARE3 1
