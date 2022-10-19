@@ -815,21 +815,7 @@ ls_State ls_state_map_build(ls_event event)
             } // handle bad map
             else
             {
-                int max_span_enabled = 0;
-                int current_span = 0;
-                for (int i = 0; i < LS_STEPPER_STEPS_PER_ROTATION * 2; i++)
-                {
-                    bool enabled = (bool)ls_map_is_enabled_at(i % LS_STEPPER_STEPS_PER_ROTATION);
-                    if (enabled)
-                    {
-                        current_span++;
-                    }
-                    else
-                    {
-                        max_span_enabled = (current_span > max_span_enabled) ? current_span : max_span_enabled;
-                        current_span = 0;
-                    }
-                }
+                int max_span_enabled = ls_map_find_spans();
                 ls_settings_set_stepper_random_max(max_span_enabled / 2);
                 ls_map_set_status(LS_MAP_STATUS_OK);
 #ifdef LSDEBUG_MAP

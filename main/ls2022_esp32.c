@@ -80,6 +80,7 @@ static void print_char_val_type(esp_adc_cal_value_t val_type)
  */
 void app_main(void)
 {
+
     vTaskDelay(pdMS_TO_TICKS(2000)); // let voltages settle, USB connect
     adc1_mux = xSemaphoreCreateMutex();
     adc2_mux = xSemaphoreCreateMutex();
@@ -119,6 +120,10 @@ void app_main(void)
     ls_magnet_isr_begin();
 
     printf("Initialized queues / semaphores / IRQs\n");
+
+#ifdef LS_TEST_SPANNODE
+    ls_map_test_spannode();
+#endif
 
     // higher priority tasks get higher priority values
 

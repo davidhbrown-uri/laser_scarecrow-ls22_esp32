@@ -23,13 +23,12 @@
 #include "stepper.h"
 #include "buzzer.h"
 
-#define LS_MAP_BYTES_REQUIRED (LS_STEPPER_STEPS_PER_ROTATION / 32 / LS_MAP_RESOLUTION)
-static uint32_t IRAM_ATTR _ls_map_data[LS_MAP_BYTES_REQUIRED];
+#define LS_MAP_ENTRIES_REQUIRED (LS_STEPPER_STEPS_PER_ROTATION / 32 / LS_MAP_RESOLUTION)
+static uint32_t IRAM_ATTR _ls_map_data[LS_MAP_ENTRIES_REQUIRED];
 // http://www.mathcs.emory.edu/~cheung/Courses/255/Syllabus/1-C-intro/bit-array.html
-#define ls_map_set_bit(map_index) ( _ls_map_data[(map_index / 32)] |= (1 << (map_index % 32)))
-#define ls_map_clear_bit(map_index) ( _ls_map_data[(map_index / 32)] &= ~(1 << (map_index % 32)))
-#define ls_map_read_bit(map_index)    ( _ls_map_data[(map_index / 32)] & (1 << (map_index % 32)) )
-
+#define ls_map_set_bit(map_index) (_ls_map_data[(map_index / 32)] |= (1 << (map_index % 32)))
+#define ls_map_clear_bit(map_index) (_ls_map_data[(map_index / 32)] &= ~(1 << (map_index % 32)))
+#define ls_map_read_bit(map_index) (_ls_map_data[(map_index / 32)] & (1 << (map_index % 32)))
 
 void ls_map_enable_at(int32_t stepper_position)
 {
@@ -41,8 +40,8 @@ void ls_map_disable_at(int32_t stepper_position)
 }
 /**
  * @brief return 0 if the laser should be off and 1 if it should be on
- * 
- * @param stepper_position 
+ *
+ * @param stepper_position
  * @return uint32_t to work in IRAM
  */
 uint32_t IRAM_ATTR ls_map_is_enabled_at(int32_t stepper_position)
@@ -59,7 +58,6 @@ enum ls_map_status_t ls_map_get_status(void)
 {
     return _ls_map_status;
 }
-
 
 static uint16_t _ls_map_raw_adc[LS_STEPPER_STEPS_PER_ROTATION / LS_MAP_RESOLUTION];
 static uint16_t _ls_map_histo_bins[LS_MAP_HISTOGRAM_BINCOUNT];
@@ -111,7 +109,7 @@ void _ls_state_map_build_histogram(uint16_t min_adc, uint16_t max_adc)
     for (int i = 0; i < LS_MAP_HISTOGRAM_BINCOUNT; i++)
     {
         ls_debug_printf("%2d [%4d]: %3d %*.*s\n", i, _map(i, 0, LS_MAP_HISTOGRAM_BINCOUNT - 1, _ls_map_min_adc, _ls_map_max_adc), _ls_map_histo_bins[i],
-               _map(_ls_map_histo_bins[i], 0, max_count_in_bin, 0, 30), _map(_ls_map_histo_bins[i], 0, max_count_in_bin, 0, 30), histo_bar);
+                        _map(_ls_map_histo_bins[i], 0, max_count_in_bin, 0, 30), _map(_ls_map_histo_bins[i], 0, max_count_in_bin, 0, 30), histo_bar);
     }
 #endif
 }
@@ -169,12 +167,12 @@ void _ls_state_map_build_histogram_get_peaks_edges(int *low_peak_bin, int *low_e
 
 /**
  * @brief remaps according to specified thresholds and _ls_map_raw_adc[] filled by calls to _ls_state_map_build_read_and_set_map()
- * 
- * @param[out] enable_count 
- * @param[out] disable_count 
- * @param[out] misread_count 
- * @param low_threshold 
- * @param high_threshold 
+ *
+ * @param[out] enable_count
+ * @param[out] disable_count
+ * @param[out] misread_count
+ * @param low_threshold
+ * @param high_threshold
  */
 void _ls_state_map_build_set_map(int *enable_count, int *disable_count, int *misread_count, uint16_t low_threshold, uint16_t high_threshold)
 {
@@ -232,12 +230,12 @@ void _ls_state_map_build_set_map(int *enable_count, int *disable_count, int *mis
         xSemaphoreTake(print_mux, portMAX_DELAY);
         if (map_index % 40 == 0)
         {
-            ls_debug_printf("map @%4d: ", position);
+            printf("map @%4d: ", position);
         }
-        ls_debug_printf("%c", ls_map_is_enabled_at(position) ? 'O' : '.');
+        printf("%c", ls_map_is_enabled_at(position) ? 'O' : '.');
         if (map_index % 40 == 39)
         {
-            ls_debug_printf("\n");
+            printf("\n");
         }
         xSemaphoreGive(print_mux);
 #endif
@@ -246,10 +244,10 @@ void _ls_state_map_build_set_map(int *enable_count, int *disable_count, int *mis
 
 /**
  * @brief Called multiple times as arm rotates, so initialize counts to 0 before first call
- * 
+ *
  * @param[out] enable_count must be initizlied to 0 before first call
- * @param[out] disable_count must be initizlied to 0 before first call 
- * @param[out] misread_count must be initizlied to 0 before first call 
+ * @param[out] disable_count must be initizlied to 0 before first call
+ * @param[out] misread_count must be initizlied to 0 before first call
  */
 void _ls_state_map_build_read_and_set_map(int *enable_count, int *disable_count, int *misread_count)
 {
@@ -326,8 +324,205 @@ void _ls_state_map_build_read_and_set_map(int *enable_count, int *disable_count,
     default:; // init case only for previous
     }
 #ifdef LSDEBUG_MAP
-    xSemaphoreTake(print_mux, portMAX_DELAY);
     ls_debug_printf("map @%d: %d [%d]=>%c\n", position, raw_adc, reading, ls_map_is_enabled_at(position) ? 'O' : '.');
-    xSemaphoreGive(print_mux);
 #endif
 }
+
+/**
+ * @brief Discover the active spans in the tape map
+ *
+ * The tape mapping must have succeeded.
+ *
+ * @return int length of longest span
+ */
+int ls_map_find_spans()
+{
+    int max_span_length = 0;
+    // create the first span with invalid begin/end and loop to itself
+    ls_map_span_first = (struct ls_map_SpanNode *)malloc(sizeof(struct ls_map_SpanNode));
+    ls_map_span_first->begin = ls_map_span_first->end = LS_MAP_SPANNODE_INVALID_POSITION;
+    ls_map_span_first->prev = ls_map_span_first->next = ls_map_span_first;
+    struct ls_map_SpanNode *current_span = ls_map_span_first;
+    // check if step 0 is in a span and work backwards from end of map to find the start if so
+    bool in_span = (bool)ls_map_is_enabled_at(0);
+    if (in_span)
+    {
+#ifdef LSDEBUG_MAP
+        ls_debug_printf("First span includes position 0... ");
+#endif
+        ls_map_span_first->begin = ls_map_span_first->end = 0;
+        for (int i = LS_STEPPER_STEPS_PER_ROTATION - 1; i >= 0; i--)
+        {
+            if ((bool)ls_map_is_enabled_at(i))
+            {
+                ls_map_span_first->begin = i;
+            }
+            else
+            {
+#ifdef LSDEBUG_MAP
+                ls_debug_printf("and extends back to position %d.\n", ls_map_span_first->begin);
+#endif
+                break;
+            }
+        }
+    }
+    int stop_at_step = in_span ? ls_map_span_first->begin : LS_STEPPER_STEPS_PER_ROTATION;
+    // continue from step 1
+    for (int i = 1; i < stop_at_step; i++)
+    {
+        bool enabled = (bool)ls_map_is_enabled_at(i);
+
+        if (enabled)
+        {
+            if (in_span)
+            {
+                current_span->end = i;
+            }
+            else
+            {
+                // need to allocate the next node UNLESS ls_map_span_first is still initialized to LS_MAP_SPANNODE_INVALID_POSITION
+                if (LS_MAP_SPANNODE_INVALID_POSITION != ls_map_span_first->begin)
+                {
+                    struct ls_map_SpanNode *new_span = (struct ls_map_SpanNode *)malloc(sizeof(struct ls_map_SpanNode));
+                    // and link it in at the tail of the DLL
+                    new_span->prev = current_span;
+                    current_span->next = new_span;
+                    ls_map_span_first->prev = new_span;
+                    new_span->next = ls_map_span_first;
+                    // this is now our current span
+                    current_span = new_span;
+                }
+                // initialize the current span
+#ifdef LSDEBUG_MAP
+                ls_debug_printf("Found span beginning at step %d\n", i);
+#endif
+                current_span->begin = current_span->end = i;
+                in_span = true;
+            }
+        } // if enabled at this step
+        else
+        { // not enabled
+            if (in_span)
+            {
+                // check if this is the longest span
+                int current_span_length = current_span->end - current_span->begin + 1;
+                if (current_span_length < 0)
+                {
+                    current_span_length += LS_STEPPER_STEPS_PER_ROTATION;
+                }
+                if (current_span_length > max_span_length)
+                {
+                    max_span_length = current_span_length;
+                }
+#ifdef LSDEBUG_MAP
+                ls_debug_printf("Found span of %d steps from %d to %d; longest span is currently %d.\n", current_span_length,
+                                current_span->begin, current_span->end, max_span_length);
+#endif
+            } // if ending a span
+            in_span = false;
+        }
+    }
+
+    return max_span_length;
+}
+
+struct ls_map_SpanNode *ls_map_span_next(int32_t step, enum ls_stepper_direction direction, struct ls_map_SpanNode *starting_span)
+{
+    // short-circuit if there is only one span:
+    if (starting_span->next == starting_span || starting_span->prev == starting_span)
+    {
+        return starting_span;
+    }
+    struct ls_map_SpanNode *current_span = starting_span;
+    // check to see whether step is actually in a span
+    do
+    {
+        if (current_span->begin <= current_span->end && step >= current_span->begin && step <= current_span->end)
+        {
+            return current_span; // inside a mid-range span
+        }
+        if (current_span->begin > current_span->end && (step >= current_span->begin || step <= current_span->end))
+        {
+            return current_span; // inside a wrapped span
+        }
+        current_span = current_span->next;
+    } while (current_span != starting_span);
+    // current span is again starting span
+
+    do
+    {
+        if (LS_STEPPER_DIRECTION_FORWARD == direction)
+        { // work forwards through list
+            if (step > current_span->end && step <= current_span->next->begin)
+            {
+                return current_span->next;
+            }
+            current_span = current_span->next;
+        }
+        else
+        { // look backwards through list
+            if (step < current_span->begin && step >= current_span->prev->end)
+            {
+                return current_span->prev;
+            }
+            current_span = current_span->prev;
+        }
+    } while (current_span != starting_span);
+
+    // should not happen?
+    return starting_span;
+}
+
+#ifdef LS_TEST_SPANNODE
+void ls_map_test_spannode()
+{
+    ls_debug_printf("Testing spannode functions\n");
+    bool passed = true; // && with result of each test
+    int32_t step;
+
+    // place a span right in the middle of the step range; this is th eonly span for now
+    struct ls_map_SpanNode *mid = (struct ls_map_SpanNode *)malloc(sizeof(struct ls_map_SpanNode));
+    mid->begin = LS_STEPPER_STEPS_PER_ROTATION * 3 / 8;
+    mid->end = LS_STEPPER_STEPS_PER_ROTATION * 5 / 8;
+    mid->next = mid->prev = mid;
+    ls_debug_printf("Span `mid` (%d-%d): is only span for first tests.\n", mid->begin, mid->end);
+
+    step = LS_STEPPER_STEPS_PER_ROTATION * 2 / 8;
+    passed = passed && ls_map_span_next(step, LS_STEPPER_DIRECTION_FORWARD, mid) == mid;
+    ls_debug_printf("Single span `mid` is next for step %d moving forward: %s\n", step, passed ? "pass" : "FAIL");
+
+    step = LS_STEPPER_STEPS_PER_ROTATION * 4 / 8;
+    passed = passed && ls_map_span_next(step, LS_STEPPER_DIRECTION_FORWARD, mid) == mid;
+    ls_debug_printf("Single span `mid` is next for step %d moving forward: %s\n", step, passed ? "pass" : "FAIL");
+
+    step = LS_STEPPER_STEPS_PER_ROTATION * 6 / 8;
+    passed = passed && ls_map_span_next(step, LS_STEPPER_DIRECTION_FORWARD, mid) == mid;
+    ls_debug_printf("Single span `mid` is next for step %d moving forward: %s\n", step, passed ? "pass" : "FAIL");
+
+    // create a span that wraps around step 0; add it to the list with the mid span.
+    struct ls_map_SpanNode *wrap = (struct ls_map_SpanNode *)malloc(sizeof(struct ls_map_SpanNode));
+    wrap->begin = LS_STEPPER_STEPS_PER_ROTATION * 7 / 8;
+    wrap->end = LS_STEPPER_STEPS_PER_ROTATION * 1 / 8;
+    wrap->next = wrap->prev = mid;
+    mid->next = mid->prev = wrap;
+    ls_debug_printf("Span `wrap` (%d-%d) inserted before mid for next first tests.\n", wrap->begin, wrap->end);
+
+    step = LS_STEPPER_STEPS_PER_ROTATION * 4 / 8;
+    passed = passed && ls_map_span_next(step, LS_STEPPER_DIRECTION_FORWARD, wrap) == mid;
+    ls_debug_printf("Two spans (wrap and mid): mid is next for step %d moving forward: %s\n", step, passed ? "pass" : "FAIL");
+    step = LS_STEPPER_STEPS_PER_ROTATION * 2 / 8;
+    passed = passed && ls_map_span_next(step, LS_STEPPER_DIRECTION_FORWARD, wrap) == mid;
+    ls_debug_printf("Two spans (wrap and mid): mid is next for step %d moving forward: %s\n", step, passed ? "pass" : "FAIL");
+    passed = passed && ls_map_span_next(step, LS_STEPPER_DIRECTION_REVERSE, wrap) == wrap;
+    ls_debug_printf("Two spans (wrap and mid): wrap is next for step %d moving backward: %s\n", step, passed ? "pass" : "FAIL");
+    step = LS_STEPPER_STEPS_PER_ROTATION * 6 / 8;
+    passed = passed && ls_map_span_next(step, LS_STEPPER_DIRECTION_FORWARD, wrap) == wrap;
+    ls_debug_printf("Two spans (wrap and mid): wrap is next for step %d moving forward: %s\n", step, passed ? "pass" : "FAIL");
+    passed = passed && ls_map_span_next(step, LS_STEPPER_DIRECTION_REVERSE, wrap) == mid;
+    ls_debug_printf("Two spans (wrap and mid): mid is next for step %d moving backward: %s\n", step, passed ? "pass" : "FAIL");
+
+    ls_debug_printf("Spannode testing summary: %s\n", passed ? "pass" : "FAIL");
+    free(mid);
+    free(wrap);
+}
+#endif

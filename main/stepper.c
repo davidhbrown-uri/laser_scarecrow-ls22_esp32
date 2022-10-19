@@ -49,7 +49,7 @@
 //  - 50,000 for the fastest step
 //  - 5,500,000 for the slowest step
 // The timers are 64-bit, so counting this number of steps should not be an issue
-// Tather than aiming for 1ms pulses, toggling at the total timer count for
+// Rather than aiming for 1ms pulses, toggling at the total timer count for
 // a square(ish) wave would make sense.
 
 volatile BaseType_t IRAM_ATTR ls_stepper_steps_remaining;
@@ -61,8 +61,8 @@ static bool _ls_stepper_enable_skipping = false;
 static int _ls_stepper_steps_per_second_max = LS_STEPPER_STEPS_PER_SECOND_DEFAULT;
 
 static int _ls_stepper_speed_when_skipping = LS_STEPPER_STEPS_PER_SECOND_MAX;
-static int _ls_stepper_speed_not_skipping;
-static int _ls_stepper_speed_current_rate;
+static int _ls_stepper_speed_not_skipping = LS_STEPPER_STEPS_PER_SECOND_DEFAULT;
+static int _ls_stepper_speed_current_rate = LS_STEPPER_STEPS_PER_SECOND_MIN;
 
 // how many steps it will take to decelerate from full speed
 static int _ls_stepper_steps_to_decelerate(int current_rate)
@@ -163,27 +163,30 @@ void ls_stepper_init(void)
 
 static void _ls_stepper_set_speed(void)
 {
-    bool skipping = _ls_stepper_enable_skipping && !ls_map_is_enabled_at(ls_stepper_position);
+    // if doing random movements and outside a span, allow faster movement (skipping)
     if (_ls_stepper_enable_skipping)
     {
-        ls_stepper_set_maximum_steps_per_second(skipping ? _ls_stepper_speed_when_skipping : _ls_stepper_speed_not_skipping);
+        ls_stepper_set_maximum_steps_per_second(ls_map_is_enabled_at(ls_stepper_position) ? _ls_stepper_speed_not_skipping : _ls_stepper_speed_when_skipping);
     }
-    if (skipping)
+    int steps_to_decelerate = _ls_stepper_steps_to_decelerate(_ls_stepper_speed_current_rate);
+
+    bool could_accelerate = (int)ls_stepper_steps_remaining > steps_to_decelerate && _ls_stepper_speed_current_rate < _ls_stepper_steps_per_second_max;
+    bool should_decelerate = (int)ls_stepper_steps_remaining < steps_to_decelerate || _ls_stepper_speed_current_rate > _ls_stepper_steps_per_second_max;
+    // are enough steps remaining to accelerate?
+    if (could_accelerate)
     {
-        ls_stepper_steps_remaining = _constrain(ls_stepper_steps_remaining + _ls_stepper_speed_current_rate / pdMS_TO_TICKS(1000),
-                                                0, _ls_stepper_steps_to_decelerate(_ls_stepper_speed_when_skipping));
+        _ls_stepper_speed_current_rate += LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_TICK;
     }
-    if (!skipping //&& ls_stepper_steps_remaining < ls_stepper_steps_taken // accelerate at least halfway is too much on short moves
-        && (ls_stepper_steps_remaining < _ls_stepper_steps_to_decelerate(_ls_stepper_speed_current_rate) || _ls_stepper_speed_current_rate > _ls_stepper_steps_per_second_max))
+    if (should_decelerate)
     {
         // decelerate
         _ls_stepper_speed_current_rate -= LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_TICK;
     }
-    // accelerate?
-    else if (_ls_stepper_speed_current_rate < _ls_stepper_steps_per_second_max)
-    {
-        _ls_stepper_speed_current_rate += LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_TICK;
-    }
+    #ifdef LSDEBUG_ACCELERATION
+        ls_debug_printf("Current rate/max: %d/%d; steps to decelerate: %d; steps remaining: %d; %c %c\n", _ls_stepper_speed_current_rate, _ls_stepper_steps_per_second_max, steps_to_decelerate, ls_stepper_steps_remaining, 
+        could_accelerate ? '+' : ' ', should_decelerate ? '-' : ' ');
+    #endif
+    // but stay within bounds
     _ls_stepper_speed_current_rate = _constrain(_ls_stepper_speed_current_rate, LS_STEPPER_STEPS_PER_SECOND_MIN, _ls_stepper_steps_per_second_max);
 
     ESP_ERROR_CHECK(timer_set_alarm_value(TIMER_GROUP_0, TIMER_0, APB_CLK_FREQ / LS_STEPPER_TIMER_DIVIDER / _ls_stepper_speed_current_rate));
@@ -290,15 +293,34 @@ void ls_stepper_task(void *pvParameter)
             gpio_set_level(LSGPIO_STEPPERSLEEP, 1);
             if (ls_stepper_steps_remaining <= 0)
             {
-                uint32_t random = esp_random();
-                ls_stepper_steps_taken = 0;
-                ls_stepper_direction = ((uint8_t)random & 0xFF) > LS_STEPPER_MOVEMENT_REVERSE_PER255 ? false : true;
-                gpio_set_level(LSGPIO_STEPPERDIRECTION, ls_stepper_direction ? 1 : 0);
-                ls_stepper_steps_remaining = LS_STEPPER_MOVEMENT_STEPS_MIN + ((random >> 16) * (ls_settings_get_stepper_random_max() - LS_STEPPER_MOVEMENT_STEPS_MIN) / 65536);
+                /** @todo check for laser disabled by map at this step; if so, set movement to find spot LS_STEPPER_MOVEMENT_REVERSE_PER255 into nearest span */
+                if (LS_MAP_STATUS_OK == ls_map_get_status() && !ls_map_is_enabled_at(ls_stepper_position))
+                { // ended outside active span
+                    struct ls_map_SpanNode *next_span = ls_map_span_next(ls_stepper_position, ls_stepper_direction, ls_map_span_first);
+                    int32_t span_length = next_span->end - next_span->begin + (next_span->begin > next_span->end ? LS_STEPPER_STEPS_PER_ROTATION : 0);
+                    int32_t target = (next_span->begin + (span_length * LS_STEPPER_MOVEMENT_REVERSE_PER255 / 255)) % LS_STEPPER_STEPS_PER_ROTATION;
+                    int32_t move = target - ls_stepper_position;
+                    ls_stepper_direction = move < 0 ? LS_STEPPER_DIRECTION_REVERSE : LS_STEPPER_DIRECTION_FORWARD;
+                    ls_stepper_steps_remaining = move >= 0 ? move : -move;
 #ifdef LSDEBUG_STEPPER
-                ls_debug_printf("From %d, moving %d steps %s\n", ls_stepper_position, ls_stepper_steps_remaining, ls_stepper_direction ? "-->" : "<--");
+                    ls_debug_printf("Laser disabled at end of random move; moving to %d in span (%d-%d) ", target, next_span->begin, next_span->end);
 #endif
-            }
+                }
+                else
+                {
+                    uint32_t random = esp_random();
+                    ls_stepper_direction = ((uint8_t)random & 0xFF) > LS_STEPPER_MOVEMENT_REVERSE_PER255 ? false : true;
+                    ls_stepper_steps_remaining = LS_STEPPER_MOVEMENT_STEPS_MIN + ((random >> 16) * (ls_settings_get_stepper_random_max() - LS_STEPPER_MOVEMENT_STEPS_MIN) / 65536);
+#ifdef LSDEBUG_STEPPER
+                    ls_debug_printf("Laser enabled at end of random move; moving randomly ");
+#endif
+                } // within active area (or no map)
+                ls_stepper_steps_taken = 0;
+                gpio_set_level(LSGPIO_STEPPERDIRECTION, ls_stepper_direction ? 1 : 0);
+#ifdef LSDEBUG_STEPPER
+                ls_debug_printf("from %d, moving %d steps %s\n", ls_stepper_position, ls_stepper_steps_remaining, ls_stepper_direction ? "-->" : "<--");
+#endif
+            } // finished move
             _ls_stepper_set_speed();
             break;
         case LS_STEPPER_ACTION_SLEEP:

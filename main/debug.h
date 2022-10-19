@@ -38,6 +38,9 @@ extern SemaphoreHandle_t print_mux; // in ls2022_esp32.c
 
 //#define LSDEBUG_STEPPER
 
+// caution: debugging acceleration is exceptionally verbose
+//#define LSDEBUG_ACCELERATION
+
 //#define LSDEBUG_HOMING
 
 //#define LSDEBUG_STATES
