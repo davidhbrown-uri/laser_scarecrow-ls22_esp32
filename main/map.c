@@ -22,6 +22,7 @@
 #include "tapemode.h"
 #include "stepper.h"
 #include "buzzer.h"
+#include "math.h"
 
 #define LS_MAP_ENTRIES_REQUIRED (LS_STEPPER_STEPS_PER_ROTATION / 32 / LS_MAP_RESOLUTION)
 static uint32_t IRAM_ATTR _ls_map_data[LS_MAP_ENTRIES_REQUIRED];
@@ -423,6 +424,14 @@ int ls_map_find_spans()
         }
     }
 
+    if (ls_map_span_first->next == ls_map_span_first && max_span_length < LS_STEPPER_STEPS_PER_ROTATION / 3)
+    {
+#ifdef LSDEBUG_MAP
+        ls_debug_printf("Only one small span; move forward or backwards with roughly equal probability.\n");
+#endif
+        ls_stepper_set_random_reverse_per255((uint8_t)127);
+    }
+    ls_stepper_set_move_strategy(ls_stepper_move_strategy_next_span);
     return max_span_length;
 }
 
@@ -471,6 +480,37 @@ struct ls_map_SpanNode *ls_map_span_next(int32_t step, enum ls_stepper_direction
 
     // should not happen?
     return starting_span;
+}
+
+void ls_stepper_move_strategy_next_span(struct ls_stepper_move_t *move)
+{
+    // if still in a span after move, just do a random move.
+    if (ls_map_is_enabled_at(ls_stepper_get_position()))
+    {
+        ls_stepper_move_strategy_random(move);
+        return;
+    }
+    // ended outside active span, target the next span.
+    struct ls_map_SpanNode *next_span = ls_map_span_next(ls_stepper_get_position(), ls_stepper_get_direction(), ls_map_span_first);
+    int32_t span_length = next_span->end - next_span->begin + (next_span->begin > next_span->end ? LS_STEPPER_STEPS_PER_ROTATION : 0);
+    // int32_t target = (next_span->begin + (span_length * (255-_ls_stepper_random_reverse_per255) / 255)) ;
+    // add half a random move
+    uint32_t random = esp_random();
+    // target +=
+    //     ((random >> 16) * (ls_settings_get_stepper_random_max() - LS_STEPPER_MOVEMENT_STEPS_MIN) / 65536)
+    //     / (((uint8_t)random & 0xFF) > _ls_stepper_random_reverse_per255 ? -2 : 2);
+    // favor edges by squaring the span_length when selecting an offset from the middle??
+    double rand0to1 = pow((double)(random >> 16) / 65536.0, 0.5);
+    int32_t target = (next_span->begin + span_length / 2) + (random & 1 ? 1 : -1) * (int32_t)floor((double)span_length / 2.0 * rand0to1);
+    // int32_t target = next_span->begin + (random >> 16) * span_length / 65536; // any point within span
+    //  constrain to 0..STEPS_PER_ROTATION
+    target = target % LS_STEPPER_STEPS_PER_ROTATION;
+    int32_t steps = target - ls_stepper_get_position();
+    move->direction = steps < 0 ? LS_STEPPER_DIRECTION_REVERSE : LS_STEPPER_DIRECTION_FORWARD;
+    move->steps = abs(steps);
+#ifdef LSDEBUG_STEPPER
+    ls_debug_printf("Laser disabled at end of random move; moving to %d in span (%d-%d) ", target, next_span->begin, next_span->end);
+#endif
 }
 
 #ifdef LS_TEST_SPANNODE

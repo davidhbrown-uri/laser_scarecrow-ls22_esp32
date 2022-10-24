@@ -36,6 +36,19 @@ typedef struct ls_stepper_action_message {
     int32_t steps;
 }ls_stepper_action_message;
 
+typedef struct ls_stepper_move_t {
+    bool direction;
+    int32_t steps;
+}ls_stepper_move_t;
+
+
+typedef void (*StepperMoveStrategy)(struct ls_stepper_move_t *move);
+void ls_stepper_move_strategy_random(struct ls_stepper_move_t *move);
+
+StepperMoveStrategy _ls_stepper_move_strategy;
+struct ls_stepper_move_t ls_stepper_move;
+
+
 QueueHandle_t ls_stepper_queue;
 // A4988 datasheet gives decay mode and other information while DIR=H, so make FORWARD==1
 enum ls_stepper_direction {LS_STEPPER_DIRECTION_REVERSE, LS_STEPPER_DIRECTION_FORWARD} ls_stepper_direction;
@@ -47,8 +60,12 @@ void ls_stepper_init(void);
 
 void ls_stepper_task(void *pvParameter);
 
+void ls_stepper_set_move_strategy(StepperMoveStrategy strategy);
+
 bool ls_stepper_is_stopped(void);
 #define ls_stepper_is_moving() (!ls_stepper_is_stopped())
+
+enum ls_stepper_direction ls_stepper_get_direction();
 
 BaseType_t ls_stepper_get_steps_taken(void);
 
@@ -60,6 +77,9 @@ void ls_stepper_forward(uint16_t steps);
 void ls_stepper_reverse(uint16_t steps);
 void ls_stepper_random(void);
 void ls_stepper_sleep(void);
+
+void ls_stepper_set_random_reverse_per255(uint8_t value);
+
 #define ls_stepper_off() ls_stepper_sleep()
 
 void ls_stepper_set_maximum_steps_per_second(int);

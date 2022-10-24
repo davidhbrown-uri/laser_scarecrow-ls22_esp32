@@ -61,7 +61,7 @@ void _ls_state_map_build_read_and_set_map(int *enable_count, int *disable_count,
 
 int ls_map_find_spans(); 
 struct ls_map_SpanNode* ls_map_span_next(int32_t step, enum ls_stepper_direction direction, struct ls_map_SpanNode* starting_span);
-
+void ls_stepper_move_strategy_next_span(struct ls_stepper_move_t *move);
 
 #ifdef LS_TEST_SPANNODE
 void ls_map_test_spannode();

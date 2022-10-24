@@ -38,6 +38,10 @@ extern SemaphoreHandle_t print_mux; // in ls2022_esp32.c
 
 //#define LSDEBUG_STEPPER
 
+// note: debug coverage output is the position of the arm multiple times per second
+//       should probably be only output if used.
+#define LSDEBUG_COVERAGE
+
 // caution: debugging acceleration is exceptionally verbose
 //#define LSDEBUG_ACCELERATION
 
@@ -51,7 +55,7 @@ extern SemaphoreHandle_t print_mux; // in ls2022_esp32.c
 
 //#define LSDEBUG_BUZZER
 
-//#define LSDEBUG_MAP
+#define LSDEBUG_MAP
 
 //#define LSDEBUG_LIGHTSENSE
 
@@ -63,4 +67,9 @@ extern SemaphoreHandle_t print_mux; // in ls2022_esp32.c
 
 //#define LSDEBUG_TILT
 
+#endif
+
+
+#ifdef LSDEBUG_COVERAGE
+void ls_coverage_debug_task(void *pvParameter);
 #endif

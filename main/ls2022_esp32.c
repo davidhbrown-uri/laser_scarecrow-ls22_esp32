@@ -139,15 +139,18 @@ void app_main(void)
     // lowest priority (1-9)
     xTaskCreate(&ls_tilt_task, "tilt_task", configMINIMAL_STACK_SIZE * 3, NULL, 7, NULL);
     xTaskCreate(&ls_buzzer_handler_task, "buzzer_handler", configMINIMAL_STACK_SIZE * 2, NULL, 5, NULL);
-    xTaskCreate(&ls_servo_task, "servo_task", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
+    xTaskCreate(&ls_servo_task, "servo_task", configMINIMAL_STACK_SIZE * 3, NULL, 3, NULL);
+    xTaskCreate(&ls_lightsense_read_task, "lightsense_read", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
 
 #ifdef LSDEBUG_TAPEMODE
-    xTaskCreate(&ls_tapemode_debug_task, "tapemode_debug_task", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
+    xTaskCreate(&ls_tapemode_debug_task, "tapemode_debug_task", configMINIMAL_STACK_SIZE * 3, NULL, 2, NULL);
 #endif
 #ifdef LSDEBUG_STEPPER
-    xTaskCreate(&ls_stepper_debug_task, "stepper_debug", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
+    xTaskCreate(&ls_stepper_debug_task, "stepper_debug", configMINIMAL_STACK_SIZE * 3, NULL, 2, NULL);
 #endif
-    xTaskCreate(&ls_lightsense_read_task, "lightsense_read", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
+#ifdef LSDEBUG_COVERAGE
+    xTaskCreate(&ls_coverage_debug_task, "coverage_debug", configMINIMAL_STACK_SIZE * 3, NULL, 2, NULL);
+#endif
 
 
     xSemaphoreTake(print_mux, portMAX_DELAY);
