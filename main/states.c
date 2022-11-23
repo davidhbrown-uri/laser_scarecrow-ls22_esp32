@@ -815,11 +815,11 @@ ls_State ls_state_map_build(ls_event event)
             } // handle bad map
             else
             {
-                int max_span_enabled = ls_map_find_spans();
-                ls_settings_set_stepper_random_max(max_span_enabled / 2);
+                int32_t total = ls_map_find_spans();
+                ls_stepper_set_random_strategy(ls_stepper_random_strategy_map_spans);
                 ls_map_set_status(LS_MAP_STATUS_OK);
 #ifdef LSDEBUG_MAP
-                ls_debug_printf("Set LS_MAP_STATUS_OK; longest enabled span is %d steps.\n", max_span_enabled);
+                ls_debug_printf("Set LS_MAP_STATUS_OK; random map span strategy has %d steps in total.\n", total);
 #endif
             }
             ls_tape_sensor_disable();

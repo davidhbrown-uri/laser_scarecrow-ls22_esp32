@@ -43,9 +43,9 @@ typedef struct ls_stepper_move_t {
 
 
 typedef void (*StepperMoveStrategy)(struct ls_stepper_move_t *move);
-void ls_stepper_move_strategy_random(struct ls_stepper_move_t *move);
+void ls_stepper_random_strategy_default(struct ls_stepper_move_t *move);
 
-StepperMoveStrategy _ls_stepper_move_strategy;
+StepperMoveStrategy _ls_stepper_random_strategy;
 struct ls_stepper_move_t ls_stepper_move;
 
 
@@ -60,7 +60,7 @@ void ls_stepper_init(void);
 
 void ls_stepper_task(void *pvParameter);
 
-void ls_stepper_set_move_strategy(StepperMoveStrategy strategy);
+void ls_stepper_set_random_strategy(StepperMoveStrategy strategy);
 
 bool ls_stepper_is_stopped(void);
 #define ls_stepper_is_moving() (!ls_stepper_is_stopped())

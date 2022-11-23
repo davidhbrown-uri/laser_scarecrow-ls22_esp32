@@ -26,6 +26,9 @@
 
 #define LS_MAP_ENTRIES_REQUIRED (LS_STEPPER_STEPS_PER_ROTATION / 32 / LS_MAP_RESOLUTION)
 static uint32_t IRAM_ATTR _ls_map_data[LS_MAP_ENTRIES_REQUIRED];
+
+static int32_t _ls_map_all_spans_total_steps = 0;
+
 // http://www.mathcs.emory.edu/~cheung/Courses/255/Syllabus/1-C-intro/bit-array.html
 #define ls_map_set_bit(map_index) (_ls_map_data[(map_index / 32)] |= (1 << (map_index % 32)))
 #define ls_map_clear_bit(map_index) (_ls_map_data[(map_index / 32)] &= ~(1 << (map_index % 32)))
@@ -330,15 +333,35 @@ void _ls_state_map_build_read_and_set_map(int *enable_count, int *disable_count,
 }
 
 /**
+ * @brief Calculate the number of steps included in a span
+ * 
+ * @param span 
+ * @return int32_t 
+ */
+int32_t _ls_map_span_length(struct ls_map_SpanNode *span)
+{
+    return 1 // length is inclusive of endpoints
+    + span->end - span->begin // steps between endpoints 
+    + (span->begin > span->end ? LS_STEPPER_STEPS_PER_ROTATION : 0); // in case we span home
+}
+
+bool _ls_map_is_step_in_span(int32_t step, struct ls_map_SpanNode *span)
+{
+    return span->end > span->begin ? // is this a normal or wrapped span?
+        (step >= span->begin && step <= span->end) : // normal spans
+        (step >= span->begin || step <= span->end); // handle a wrapping span
+}
+
+/**
  * @brief Discover the active spans in the tape map
  *
  * The tape mapping must have succeeded.
  *
- * @return int length of longest span
+ * @return int total length of all spans
  */
 int ls_map_find_spans()
 {
-    int max_span_length = 0;
+    _ls_map_all_spans_total_steps = 0;
     // create the first span with invalid begin/end and loop to itself
     ls_map_span_first = (struct ls_map_SpanNode *)malloc(sizeof(struct ls_map_SpanNode));
     ls_map_span_first->begin = ls_map_span_first->end = LS_MAP_SPANNODE_INVALID_POSITION;
@@ -405,34 +428,39 @@ int ls_map_find_spans()
         { // not enabled
             if (in_span)
             {
-                // check if this is the longest span
-                int current_span_length = current_span->end - current_span->begin + 1;
-                if (current_span_length < 0)
-                {
-                    current_span_length += LS_STEPPER_STEPS_PER_ROTATION;
-                }
-                if (current_span_length > max_span_length)
-                {
-                    max_span_length = current_span_length;
-                }
+                int current_span_length = _ls_map_span_length(current_span);
 #ifdef LSDEBUG_MAP
-                ls_debug_printf("Found span of %d steps from %d to %d; longest span is currently %d.\n", current_span_length,
-                                current_span->begin, current_span->end, max_span_length);
+                ls_debug_printf("Found span %d..%d (%d steps long).\n",
+                                current_span->begin, current_span->end, current_span_length);
 #endif
+            _ls_map_all_spans_total_steps += current_span_length;
             } // if ending a span
             in_span = false;
         }
     }
+    return _ls_map_all_spans_total_steps;
+}
 
-    if (ls_map_span_first->next == ls_map_span_first && max_span_length < LS_STEPPER_STEPS_PER_ROTATION / 3)
+
+/**
+ * @brief Return the span at the indicated step or the first span if  step not in a span
+ * 
+ * @param step 
+ * @return struct ls_map_SpanNode* 
+ */
+struct ls_map_SpanNode *_ls_map_span_at(int32_t step, struct ls_map_SpanNode *first_span)
+{
+    step %= LS_STEPPER_STEPS_PER_ROTATION;
+    // short-circuit if there is only one span:
+    if (first_span->next == first_span || first_span->prev == first_span)
     {
-#ifdef LSDEBUG_MAP
-        ls_debug_printf("Only one small span; move forward or backwards with roughly equal probability.\n");
-#endif
-        ls_stepper_set_random_reverse_per255((uint8_t)127);
+        return first_span;
     }
-    ls_stepper_set_move_strategy(ls_stepper_move_strategy_next_span);
-    return max_span_length;
+    struct ls_map_SpanNode *span = first_span;
+    while(! _ls_map_is_step_in_span(step, span)) {
+        span = span->next;
+    }
+    return span;
 }
 
 struct ls_map_SpanNode *ls_map_span_next(int32_t step, enum ls_stepper_direction direction, struct ls_map_SpanNode *starting_span)
@@ -482,17 +510,36 @@ struct ls_map_SpanNode *ls_map_span_next(int32_t step, enum ls_stepper_direction
     return starting_span;
 }
 
-void ls_stepper_move_strategy_next_span(struct ls_stepper_move_t *move)
+void ls_stepper_random_strategy_map_spans(struct ls_stepper_move_t *move)
 {
-    // if still in a span after move, just do a random move.
+    // if still in a span after move, do a random relative move
     if (ls_map_is_enabled_at(ls_stepper_get_position()))
     {
-        ls_stepper_move_strategy_random(move);
+        struct ls_map_SpanNode *span = _ls_map_span_at(ls_stepper_get_position(), ls_map_span_first);
+        int32_t span_length = _ls_map_span_length(span);
+    uint32_t random = esp_random();
+    uint32_t min_steps = 1 + span_length/20;
+    int32_t span_percent = 100 * span_length / _ls_map_all_spans_total_steps;
+    // steps of half the span length cover a single span well but favor shorter spans
+    // increasing max_steps for shorter spans should avoid this bias
+    // max steps: 100% span => 0.5x; 50% span => 0.57x; 20% span => .63x
+    uint32_t max_steps = span_length * 100 / (150+span_percent/2);
+    // on longer spans, we want a forward bias to avoid getting "stuck" for too long
+    uint8_t fwd_per_255 = (127 + (25 - span_percent / 4));
+    move->direction = ((uint8_t)random & 0xFF) > fwd_per_255 ? false : true;
+    move->steps = min_steps + ((random >> 16) * (max_steps - min_steps) / 65536);
+#ifdef LSDEBUG_STEPPER_RANDOM
+    ls_debug_printf("RS_MapSpans: moving %s%d within span [%d..%d] -- %d%% fwd; %d-%d step range; \n",
+     (move->direction? "+" : "-"), move->steps, 
+     span->begin, span->end,
+     fwd_per_255 * 100 / 255, min_steps, max_steps
+   );
+#endif
         return;
     }
     // ended outside active span, target the next span.
     struct ls_map_SpanNode *next_span = ls_map_span_next(ls_stepper_get_position(), ls_stepper_get_direction(), ls_map_span_first);
-    int32_t span_length = next_span->end - next_span->begin + (next_span->begin > next_span->end ? LS_STEPPER_STEPS_PER_ROTATION : 0);
+    int32_t span_length = _ls_map_span_length(next_span);
     // int32_t target = (next_span->begin + (span_length * (255-_ls_stepper_random_reverse_per255) / 255)) ;
     // add half a random move
     uint32_t random = esp_random();
@@ -508,8 +555,8 @@ void ls_stepper_move_strategy_next_span(struct ls_stepper_move_t *move)
     int32_t steps = target - ls_stepper_get_position();
     move->direction = steps < 0 ? LS_STEPPER_DIRECTION_REVERSE : LS_STEPPER_DIRECTION_FORWARD;
     move->steps = abs(steps);
-#ifdef LSDEBUG_STEPPER
-    ls_debug_printf("Laser disabled at end of random move; moving to %d in span (%d-%d) ", target, next_span->begin, next_span->end);
+#ifdef LSDEBUG_STEPPER_RANDOM
+    ls_debug_printf("RS_MapSpans: Laser disabled at end of random move; moving to %d in next span (%d..%d) ", target, next_span->begin, next_span->end);
 #endif
 }
 
@@ -560,6 +607,17 @@ void ls_map_test_spannode()
     ls_debug_printf("Two spans (wrap and mid): wrap is next for step %d moving forward: %s\n", step, passed ? "pass" : "FAIL");
     passed = passed && ls_map_span_next(step, LS_STEPPER_DIRECTION_REVERSE, wrap) == mid;
     ls_debug_printf("Two spans (wrap and mid): mid is next for step %d moving backward: %s\n", step, passed ? "pass" : "FAIL");
+
+    step = LS_STEPPER_STEPS_PER_ROTATION * 0 / 8;
+    passed = passed && _ls_map_span_at(step, wrap) == wrap;
+    ls_debug_printf("Two spans (wrap and mid): wrap is the span at step %d: %s\n", step, passed ? "pass" : "FAIL");
+    step = LS_STEPPER_STEPS_PER_ROTATION * 4 / 8;
+    passed = passed && _ls_map_span_at(step, wrap) == mid;
+    ls_debug_printf("Two spans (wrap and mid): mid is the span at step %d: %s\n", step, passed ? "pass" : "FAIL");
+    step = LS_STEPPER_STEPS_PER_ROTATION * 15 / 16;
+    passed = passed && _ls_map_span_at(step, wrap) == wrap;
+    ls_debug_printf("Two spans (wrap and mid): wrap is the span at step %d: %s\n", step, passed ? "pass" : "FAIL");
+
 
     ls_debug_printf("Spannode testing summary: %s\n", passed ? "pass" : "FAIL");
     free(mid);

@@ -26,7 +26,7 @@ void ls_coverage_debug_task(void *pvParameter)
         {
             ls_debug_printf("%d\n", ls_stepper_get_position());
         }
-        vTaskDelay(pdMS_TO_TICKS(300));
+        vTaskDelay(pdMS_TO_TICKS(200));
     }
 }
 #endif

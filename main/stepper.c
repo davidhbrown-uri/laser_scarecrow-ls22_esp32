@@ -149,7 +149,7 @@ void ls_stepper_init(void)
     ls_stepper_queue = xQueueCreate(8, sizeof(ls_stepper_action_message));
     ls_stepper_steps_remaining = 0;
     ls_stepper_steps_taken = 0;
-    ls_stepper_set_move_strategy(ls_stepper_move_strategy_random);
+    ls_stepper_set_random_strategy(ls_stepper_random_strategy_default);
     ls_stepper_move.direction = LS_STEPPER_DIRECTION_FORWARD;
     ls_stepper_move.steps = 0;
     timer_config_t stepper_step_timer_config = {
@@ -300,7 +300,7 @@ void ls_stepper_task(void *pvParameter)
             if (ls_stepper_steps_remaining <= 0)
             {
                 // invoke the current move strategy
-                (*_ls_stepper_move_strategy)(&ls_stepper_move);
+                (*_ls_stepper_random_strategy)(&ls_stepper_move);
                 ls_stepper_direction = ls_stepper_move.direction;
                 ls_stepper_steps_remaining = ls_stepper_move.steps;
                 ls_stepper_steps_taken = 0;
@@ -323,9 +323,9 @@ void ls_stepper_task(void *pvParameter)
     }
 }
 
-void ls_stepper_set_move_strategy(StepperMoveStrategy strategy)
+void ls_stepper_set_random_strategy(StepperMoveStrategy strategy)
 {
-    _ls_stepper_move_strategy = strategy;
+    _ls_stepper_random_strategy = strategy;
 };
 
 void ls_stepper_stop(void)
@@ -433,12 +433,13 @@ void ls_stepper_debug_task(void *pvParameter)
 #endif
 
 // default stepper move strategy
-void ls_stepper_move_strategy_random(struct ls_stepper_move_t *move)
+void ls_stepper_random_strategy_default(struct ls_stepper_move_t *move)
 {
     uint32_t random = esp_random();
     move->direction = ((uint8_t)random & 0xFF) > _ls_stepper_random_reverse_per255 ? false : true;
     move->steps = LS_STEPPER_MOVEMENT_STEPS_MIN + ((random >> 16) * (ls_settings_get_stepper_random_max() - LS_STEPPER_MOVEMENT_STEPS_MIN) / 65536);
-#ifdef LSDEBUG_STEPPER
-    ls_debug_printf("Laser enabled at end of random move; moving randomly ");
+#ifdef LSDEBUG_STEPPER_RANDOM
+    ls_debug_printf("Default strategy: At end of random move; moving randomly %s%d\n", 
+    move->direction?"+":"-", move->steps);
 #endif
 };
