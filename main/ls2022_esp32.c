@@ -86,12 +86,6 @@ void app_main(void)
     print_mux = xSemaphoreCreateMutex();
     printf("Initializing I2C...\n");
     ls_i2c_init();
-    if(ls_i2c_accelerometer_device() == LS_I2C_ACCELEROMETER_MPU6050)
-    {
-        printf("November '21 test board detected via MPU6050 accelerometer\n");
-
-        ls_config_set_gpio_nov21();
-    }
     printf("Initializing GPIO...\n");
     ls_gpio_initialize();
     adc_chars = calloc(1, sizeof(esp_adc_cal_characteristics_t));

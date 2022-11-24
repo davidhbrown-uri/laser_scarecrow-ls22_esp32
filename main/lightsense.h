@@ -18,6 +18,8 @@
 #pragma once
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
+#include "esp_adc_cal.h"
+
 
 enum ls_lightsense_mode_t {
     LS_LIGHTSENSE_MODE_NIGHT,
@@ -32,7 +34,7 @@ enum ls_lightsense_level_t {
 };
 
 enum ls_lightsense_mode_t ls_lightsense_current_mode(void);
-int ls_lightsense_read_adc(void);
+int ls_lightsense_read_adc(adc_atten_t attenuation);
 void ls_lightsense_read_task(void *pvParameter);
 
 /* "Calibration" data

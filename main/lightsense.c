@@ -49,11 +49,11 @@ static enum ls_lightsense_level_t _ls_lightsense_level_from_adc(uint32_t adc_rea
     return LS_LIGHTSENSE_LEVEL_INDETERMINATE;
 }
 
-int ls_lightsense_read_adc(void)
+int ls_lightsense_read_adc(adc_atten_t attenuation)
 {
     xSemaphoreTake(adc1_mux, portMAX_DELAY);
     adc1_config_width(ADC_WIDTH_BIT_12);
-    adc1_config_channel_atten(LSADC1_LIGHTSENSE, ADC_ATTEN_DB_11);
+    adc1_config_channel_atten(LSADC1_LIGHTSENSE, attenuation);
     uint32_t adc_reading = 0;
     for (int i = 0; i < 4; i++)
     {
@@ -109,10 +109,24 @@ void ls_lightsense_read_task(void *pvParameter)
     int level_index = 0;
     while (1)
     {
-        int adc_reading = ls_lightsense_read_adc();
+        adc_atten_t atten = LS_LIGHTSENSE_ADC_ATTEN;
+#ifdef LSDEBUG_LIGHTSENSE_ATTEN
+        for(atten = ADC_ATTEN_0db; atten < ADC_ATTEN_MAX; atten++) {
+#endif
+        int adc_reading = ls_lightsense_read_adc(atten);
+#ifdef LSDEBUG_LIGHTSENSE_ATTEN
+        if(LS_LIGHTSENSE_ADC_ATTEN == atten) {
+#endif
         levels[level_index] = _ls_lightsense_level_from_adc(adc_reading);
+#ifdef LSDEBUG_LIGHTSENSE_ATTEN
+        }
+#endif
 #ifdef LSDEBUG_LIGHTSENSE
-        ls_debug_printf("Light sense adc=%d; level=%d\n", adc_reading, (int)levels[level_index]);
+        ls_debug_printf("Light sense adc=%d at atten=%d; level=%d\n", adc_reading, atten, (u_int8_t)levels[level_index]);
+#endif
+#ifdef LSDEBUG_LIGHTSENSE_ATTEN
+        }
+        ls_debug_printf("\n");
 #endif
         bool all_agree = true;
         for (int i = 1; all_agree && i < LS_LIGHTSENSE_READINGS_TO_SWITCH; i++)
@@ -143,10 +157,8 @@ void ls_lightsense_read_task(void *pvParameter)
             }
         }
         // move to next level reading
-        if (++level_index > LS_LIGHTSENSE_READINGS_TO_SWITCH)
-        {
-            level_index = 0;
-        }
+        level_index++;
+        level_index %= LS_LIGHTSENSE_READINGS_TO_SWITCH;
         vTaskDelay(pdMS_TO_TICKS(LS_LIGHTSENSE_READING_INTERVAL_MS));
     }
 }

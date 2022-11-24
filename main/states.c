@@ -433,7 +433,7 @@ ls_State ls_state_settings(ls_event event)
     BaseType_t control_value;
 
     // somewhat awkward patch for #44 https://github.com/davidhbrown-uri/laser_scarecrow-ls22_esp32/issues/44
-    if (LS_CONTROLS_STATUS_DISCONNECTED == ls_controls_get_current_status())
+    if (LS_CONTROLS_STATUS_OFF == ls_controls_get_current_status())
     {
         event.type = LSEVT_CONTROLS_DISCONNECTED;
     }
