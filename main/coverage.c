@@ -1,16 +1,17 @@
 /**
  * @file coverage.c
  * @author David Brown
- * @brief 
+ * @brief
  * @version 0.1
  * @date 2022-12-27
- * 
+ *
  * @copyright Copyright (c) 2022
- * 
+ *
  */
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <sys/time.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "coverage.h"
@@ -20,7 +21,8 @@
 #include "buzzer.h"
 #endif
 
-bool _coverage_ready = false;
+static bool _coverage_ready = false;
+static struct timeval _ls_coverage_most_recent;
 bool ls_coverage_is_ready(void)
 {
     return _coverage_ready;
@@ -31,34 +33,17 @@ double _span_coverage_percent_of_ideal(struct ls_map_SpanNode *span)
     return ((double)span->coverage) * 100000.0 / LS_COVERAGE_POSITIONS_COUNT / ((double)span->permil);
 }
 
-/*
-void _set_span_coverage(void)
+void ls_coverage_initialize(void)
 {
     struct ls_map_SpanNode *currentSpan = ls_map_span_first;
+    gettimeofday(&_ls_coverage_most_recent, NULL);
     do
     {
         currentSpan->coverage = 0;
         currentSpan = currentSpan->next;
     } while (currentSpan != ls_map_span_first);
-    if (ls_coverage_is_ready())
-    {
-        for (int i = 0; i < LS_COVERAGE_POSITIONS_COUNT; i++)
-        {
-            currentSpan = ls_map_span_at(ls_laser_positions[i]);
-            currentSpan->coverage++;
-        }
-    }
-#ifdef LSDEBUG_COVERAGE
-    ls_debug_printf("Span coverage:\n");
-    currentSpan = ls_map_span_first;
-    do
-    {
-        ls_debug_printf("%d-%d [%d‰] seen %d times (%1.2f%%)\n", currentSpan->begin, currentSpan->end, currentSpan->permil, currentSpan->coverage, _span_coverage_percent_of_ideal(currentSpan));
-        currentSpan = currentSpan->next;
-    } while (currentSpan != ls_map_span_first);
-#endif
+    _coverage_ready = false;
 }
-*/
 
 struct ls_map_SpanNode *ls_coverage_next_span(void)
 {
@@ -85,18 +70,30 @@ struct ls_map_SpanNode *ls_coverage_next_span(void)
 
 void ls_coverage_task(void *pvParameter)
 {
+#ifdef LSDEBUG_COVERAGE
+/* as of 2022-12-27 does not seem to be leaking memory. I hadn't thought I was allocating anything dynamically, but confirmation was nice
+Power-on: Beginning ls_coverage_task with 268188 heap memory free.
+Controls: Beginning ls_coverage_task with 267732 heap memory free.
+Controls: Beginning ls_coverage_task with 267732 heap memory free.
+Controls: Beginning ls_coverage_task with 267732 heap memory free.
+Wake-up:  Beginning ls_coverage_task with 267732 heap memory free.
+*/
+    ls_debug_printf("\nBeginning ls_coverage_task with %d heap memory free.\n", xPortGetFreeHeapSize());
+#endif
     int gpio = lsgpio_laserpowerenable();
     BaseType_t outreg = gpio < 32 ? GPIO_OUT_REG : GPIO_OUT1_REG;
     gpio_num_t pin = (gpio_num_t)(gpio & 0x1F);
     int index = 0;
-    struct ls_map_SpanNode *currentSpan = ls_map_span_first;
-    do
+    struct timeval tv_now;
+    gettimeofday(&tv_now, NULL);
+    int64_t elapsed_sec = tv_now.tv_sec - _ls_coverage_most_recent.tv_sec;
+    if (!ls_coverage_is_ready() || elapsed_sec > LS_COVERAGE_POSITIONS_INVALID_AFTER_SEC)
     {
-        currentSpan->coverage = 0;
-        currentSpan = currentSpan->next;
-    } while (currentSpan != ls_map_span_first);
-    _coverage_ready = false;
-
+#ifdef LSDEBUG_COVERAGE
+        ls_debug_printf("\nInitializing coverage after %d seconds elapsed.\n", (int) elapsed_sec);
+#endif
+        ls_coverage_initialize();
+    }
     while (1)
     {
         if ((GPIO_REG_READ(outreg) >> pin) & 1U)
@@ -104,11 +101,13 @@ void ls_coverage_task(void *pvParameter)
 #ifdef LSDEBUG_COVERAGE
             ls_buzzer_tone(ls_stepper_get_position() * 2 + 1000);
 #endif
-            if(_coverage_ready) {
-                ls_map_span_at(ls_laser_positions[index])->coverage--; //decrement the oldest reading's span only if we've already filled the ring
+            gettimeofday(&_ls_coverage_most_recent, NULL);
+            if (_coverage_ready)
+            {
+                ls_map_span_at(ls_laser_positions[index])->coverage--; // decrement the oldest reading's span only if we've already filled the ring
             }
             ls_laser_positions[index] = ls_stepper_get_position();
-            ls_map_span_at(ls_laser_positions[index])->coverage++; //increment the current reading's span 
+            ls_map_span_at(ls_laser_positions[index])->coverage++; // increment the current reading's span
             index++;
             if (index >= LS_COVERAGE_POSITIONS_COUNT)
             {

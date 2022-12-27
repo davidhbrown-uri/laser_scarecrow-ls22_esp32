@@ -593,7 +593,7 @@ void ls_stepper_random_move_within_new_span(struct ls_stepper_move_t *move, stru
     move->direction = steps < 0 ? LS_STEPPER_DIRECTION_REVERSE : LS_STEPPER_DIRECTION_FORWARD;
     move->steps = abs(steps);
 #ifdef LSDEBUG_STEPPER_RANDOM
-    ls_debug_printf("RS_MapSpans: Laser disabled at end of random move; moving to %d in next span (%d..%d) ", target, span->begin, span->end);
+    ls_debug_printf("RS_MapSpans: Laser disabled at end of random move; moving to %d in next span (%d..%d)\n", target, span->begin, span->end);
 #endif
 }
 

@@ -10,8 +10,12 @@
  */
 #include "stepper.h"
 
+// record 256 positions where laser was on
 #define LS_COVERAGE_POSITIONS_COUNT 256
+// check for position every so often
 #define LS_COVERAGE_POSITIONS_MS 500
+// if this much time has elapsed since the task last was running and the task is started, clear old position data
+#define LS_COVERAGE_POSITIONS_INVALID_AFTER_SEC 180 
 
 #ifdef LSDEBUG_COVERAGE_MEASURE
 void ls_coverage_debug_task(void *pvParameter);
