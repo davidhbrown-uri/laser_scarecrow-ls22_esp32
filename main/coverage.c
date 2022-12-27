@@ -85,6 +85,7 @@ void ls_coverage_task(void *pvParameter)
         currentSpan->coverage = 0;
         currentSpan = currentSpan->next;
     } while (currentSpan != ls_map_span_first);
+    _coverage_ready = false;
 
     while (1)
     {
