@@ -11,7 +11,7 @@
 #include "stepper.h"
 
 #define LS_COVERAGE_POSITIONS_COUNT 256
-#define LS_COVERAGE_POSITIONS_MS 1000
+#define LS_COVERAGE_POSITIONS_MS 500
 
 #ifdef LSDEBUG_COVERAGE_MEASURE
 void ls_coverage_debug_task(void *pvParameter);
