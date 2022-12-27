@@ -22,6 +22,10 @@
 
 #define STEPPER_TIMER_DIVIDER (40)
 
+typedef int32_t ls_stepper_position_t;
+
+
+
 enum ls_stepper_action {
     LS_STEPPER_ACTION_IDLE, // 0
     LS_STEPPER_ACTION_FORWARD_STEPS, // 1
@@ -42,6 +46,8 @@ typedef struct ls_stepper_move_t {
 }ls_stepper_move_t;
 
 
+
+
 typedef void (*StepperMoveStrategy)(struct ls_stepper_move_t *move);
 void ls_stepper_random_strategy_default(struct ls_stepper_move_t *move);
 
@@ -54,7 +60,7 @@ QueueHandle_t ls_stepper_queue;
 enum ls_stepper_direction {LS_STEPPER_DIRECTION_REVERSE, LS_STEPPER_DIRECTION_FORWARD} ls_stepper_direction;
 
 // don't need 32 bits, but IRAM read/write must be 32-bit
-static IRAM_ATTR volatile int32_t ls_stepper_position;
+static IRAM_ATTR volatile ls_stepper_position_t ls_stepper_position;
 
 void ls_stepper_init(void);
 
@@ -69,7 +75,7 @@ enum ls_stepper_direction ls_stepper_get_direction();
 
 BaseType_t ls_stepper_get_steps_taken(void);
 
-int32_t ls_stepper_get_position(void);
+ls_stepper_position_t ls_stepper_get_position(void);
 void ls_stepper_set_home_position(void);
 
 void ls_stepper_stop(void);

@@ -32,7 +32,7 @@
 extern SemaphoreHandle_t print_mux; // in ls2022_esp32.c
 
 //variadic macro help from https://gcc.gnu.org/onlinedocs/cpp/Variadic-Macros.html
-#define ls_debug_printf(args...) { xSemaphoreTake(print_mux, 1); printf(args); xSemaphoreGive(print_mux); }
+#define ls_debug_printf(args...) { xSemaphoreTake(print_mux, 5); printf(args); xSemaphoreGive(print_mux); }
 
 // Uncomment any desired classes of debug output to enable output via ls_debug_printf
 
@@ -40,11 +40,13 @@ extern SemaphoreHandle_t print_mux; // in ls2022_esp32.c
 //#define LSDEBUG_STEPPER
 
 // output (less) about selection of random movement targets
-//#define LSDEBUG_STEPPER_RANDOM
+#define LSDEBUG_STEPPER_RANDOM
 
-// note: debug coverage output is the position of the arm multiple times per second
-//       should probably be only output if used.
 #define LSDEBUG_COVERAGE
+// LSDEBUG_COVERAGE_POSITIONS outputs most recent list whenever the ring buffer cycled 
+//#define LSDEBUG_COVERAGE_POSITIONS
+// LSDEBUG_COVERAGE_MEASURE output is the position of the arm multiple times per second
+//#define LSDEBUG_COVERAGE_MEASURE
 
 // caution: debugging acceleration is exceptionally verbose
 //#define LSDEBUG_ACCELERATION
@@ -71,9 +73,4 @@ extern SemaphoreHandle_t print_mux; // in ls2022_esp32.c
 
 //#define LSDEBUG_TILT
 
-#endif
-
-
-#ifdef LSDEBUG_COVERAGE
-void ls_coverage_debug_task(void *pvParameter);
 #endif

@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include "config.h"
 #include "stepper.h"
+#include "coverage.h"
 #include "freertos/FreeRTOS.h"
 
 #define LS_TEST_SPANNODE
@@ -37,8 +38,15 @@ enum ls_map_status_t {
     LS_STATE_MAP_READING_INIT
 }ls_state_map_reading;
 
+/**
+ * @brief 
+ * 
+ */
 struct ls_map_SpanNode {
-    int32_t begin, end;
+    ls_stepper_position_t begin, end;
+    uint32_t permil;
+    int32_t coverage;
+    char letter;
     struct ls_map_SpanNode* next;
     struct ls_map_SpanNode* prev;
 };
@@ -48,9 +56,9 @@ struct ls_map_SpanNode* ls_map_span_first;
 
 #define ls_map_is_excessive_misreads(misreads) (((misreads * 100) / (LS_STEPPER_STEPS_PER_ROTATION / LS_MAP_RESOLUTION)) > LS_MAP_ALLOWABLE_MISREAD_PERCENT)
 
-uint32_t IRAM_ATTR ls_map_is_enabled_at(int32_t);
-void ls_map_enable_at(int32_t);
-void ls_map_disable_at(int32_t);
+uint32_t IRAM_ATTR ls_map_is_enabled_at(ls_stepper_position_t);
+void ls_map_enable_at(ls_stepper_position_t);
+void ls_map_disable_at(ls_stepper_position_t);
 void ls_map_set_status(enum ls_map_status_t);
 enum ls_map_status_t ls_map_get_status(void);
 
@@ -60,7 +68,8 @@ void _ls_state_map_build_set_map(int *enable_count, int *disable_count, int *mis
 void _ls_state_map_build_read_and_set_map(int *enable_count, int *disable_count, int *misread_count);
 
 int ls_map_find_spans(); 
-struct ls_map_SpanNode* ls_map_span_next(int32_t step, enum ls_stepper_direction direction, struct ls_map_SpanNode* starting_span);
+struct ls_map_SpanNode* ls_map_span_next(ls_stepper_position_t step, enum ls_stepper_direction direction, struct ls_map_SpanNode* starting_span);
+struct ls_map_SpanNode* ls_map_span_at(ls_stepper_position_t step);
 void ls_stepper_random_strategy_map_spans(struct ls_stepper_move_t *move);
 
 #ifdef LS_TEST_SPANNODE

@@ -40,6 +40,7 @@
 #include "tapemode.h"
 #include "tape.h"
 #include "map.h"
+#include "coverage.h"
 #include "lightsense.h"
 #include "servo.h"
 #include "settings.h"
@@ -115,7 +116,6 @@ void app_main(void)
     ls_stepper_init();
     ls_servo_init();
     ls_state_init();
-
     // do not set magnet ISR up before event queue
     ls_magnet_isr_begin();
 
@@ -140,6 +140,7 @@ void app_main(void)
     xTaskCreate(&ls_tilt_task, "tilt_task", configMINIMAL_STACK_SIZE * 3, NULL, 7, NULL);
     xTaskCreate(&ls_buzzer_handler_task, "buzzer_handler", configMINIMAL_STACK_SIZE * 2, NULL, 5, NULL);
     xTaskCreate(&ls_servo_task, "servo_task", configMINIMAL_STACK_SIZE * 3, NULL, 3, NULL);
+//    xTaskCreate(&ls_coverage_task, "coverage_task", configMINIMAL_STACK_SIZE * 3, NULL, 2, NULL); // cannot do before map is ready
     xTaskCreate(&ls_lightsense_read_task, "lightsense_read", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
 
 #ifdef LSDEBUG_TAPEMODE
@@ -148,7 +149,7 @@ void app_main(void)
 #ifdef LSDEBUG_STEPPER
     xTaskCreate(&ls_stepper_debug_task, "stepper_debug", configMINIMAL_STACK_SIZE * 3, NULL, 2, NULL);
 #endif
-#ifdef LSDEBUG_COVERAGE
+#ifdef LSDEBUG_COVERAGE_MEASURE
     xTaskCreate(&ls_coverage_debug_task, "coverage_debug", configMINIMAL_STACK_SIZE * 3, NULL, 2, NULL);
 #endif
 

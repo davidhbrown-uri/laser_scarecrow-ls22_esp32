@@ -33,9 +33,12 @@
 #include "selftest.h"
 #include "util.h"
 #include "controls.h"
+#include "coverage.h"
 
 extern SemaphoreHandle_t print_mux;
 extern QueueHandle_t ls_event_queue;
+
+extern TaskHandle_t ls_coverage_task_handle;
 
 TimerHandle_t _ls_state_rehome_timer;
 
@@ -279,6 +282,7 @@ ls_State ls_state_active(ls_event event)
         {
             ls_laser_set_mode_mapped();
             xTimerReset(_ls_state_rehome_timer, pdMS_TO_TICKS(5000));
+            xTaskCreate(&ls_coverage_task, "coverage_task", configMINIMAL_STACK_SIZE * 3, NULL, 2, &ls_coverage_task_handle); // cannot do before map is ready
         }
         else
         {
@@ -350,6 +354,7 @@ ls_State ls_state_active(ls_event event)
     // /exit behaviors:
     if (successor.func != ls_state_active)
     {
+        vTaskDelete(ls_coverage_task_handle);
         ls_stepper_stop();
         ls_servo_off();
         ls_laser_set_mode_off();
