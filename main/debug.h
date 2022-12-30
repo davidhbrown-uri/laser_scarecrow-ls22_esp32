@@ -8,7 +8,7 @@
 #include "freertos/semphr.h"
 
 
-#define LSDEBUG_ENABLE
+//#define LSDEBUG_ENABLE
 
 /*
     Control software for URI Laser Scarecrow, 2022 Model

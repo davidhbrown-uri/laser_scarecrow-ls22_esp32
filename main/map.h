@@ -22,7 +22,7 @@
 #include "coverage.h"
 #include "freertos/FreeRTOS.h"
 
-#define LS_TEST_SPANNODE
+//#define LS_TEST_SPANNODE
 
 enum ls_map_status_t {
     LS_MAP_STATUS_NOT_BUILT,

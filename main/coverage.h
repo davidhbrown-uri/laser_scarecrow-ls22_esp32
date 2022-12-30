@@ -20,7 +20,6 @@
 #ifdef LSDEBUG_COVERAGE_MEASURE
 void ls_coverage_debug_task(void *pvParameter);
 #endif
-TaskHandle_t ls_coverage_task_handle;
 
 // a ring buffer of the most recent positions where the laser was shining
 ls_stepper_position_t ls_laser_positions[LS_COVERAGE_POSITIONS_COUNT];

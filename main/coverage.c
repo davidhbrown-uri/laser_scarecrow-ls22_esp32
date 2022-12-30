@@ -23,6 +23,8 @@
 
 static bool _coverage_ready = false;
 static struct timeval _ls_coverage_most_recent;
+static int _ls_coverage_positions_index;
+
 bool ls_coverage_is_ready(void)
 {
     return _coverage_ready;
@@ -43,6 +45,7 @@ void ls_coverage_initialize(void)
         currentSpan = currentSpan->next;
     } while (currentSpan != ls_map_span_first);
     _coverage_ready = false;
+    _ls_coverage_positions_index = 0;
 }
 
 struct ls_map_SpanNode *ls_coverage_next_span(void)
@@ -83,7 +86,6 @@ Wake-up:  Beginning ls_coverage_task with 267732 heap memory free.
     int gpio = lsgpio_laserpowerenable();
     BaseType_t outreg = gpio < 32 ? GPIO_OUT_REG : GPIO_OUT1_REG;
     gpio_num_t pin = (gpio_num_t)(gpio & 0x1F);
-    int index = 0;
     struct timeval tv_now;
     gettimeofday(&tv_now, NULL);
     int64_t elapsed_sec = tv_now.tv_sec - _ls_coverage_most_recent.tv_sec;
@@ -104,14 +106,14 @@ Wake-up:  Beginning ls_coverage_task with 267732 heap memory free.
             gettimeofday(&_ls_coverage_most_recent, NULL);
             if (_coverage_ready)
             {
-                ls_map_span_at(ls_laser_positions[index])->coverage--; // decrement the oldest reading's span only if we've already filled the ring
+                ls_map_span_at(ls_laser_positions[_ls_coverage_positions_index])->coverage--; // decrement the oldest reading's span only if we've already filled the ring
             }
-            ls_laser_positions[index] = ls_stepper_get_position();
-            ls_map_span_at(ls_laser_positions[index])->coverage++; // increment the current reading's span
-            index++;
-            if (index >= LS_COVERAGE_POSITIONS_COUNT)
+            ls_laser_positions[_ls_coverage_positions_index] = ls_stepper_get_position();
+            ls_map_span_at(ls_laser_positions[_ls_coverage_positions_index])->coverage++; // increment the current reading's span
+            _ls_coverage_positions_index++;
+            if (_ls_coverage_positions_index >= LS_COVERAGE_POSITIONS_COUNT)
             {
-                index = 0;
+                _ls_coverage_positions_index = 0;
                 _coverage_ready = true;
 #ifdef LSDEBUG_COVERAGE_POSITIONS
                 ls_buzzer_effect(LS_BUZZER_PLAY_HOME_SUCCESS);
@@ -159,7 +161,7 @@ void ls_coverage_debug_task(void *pvParameter)
         state = (GPIO_REG_READ(outreg) >> pin) & 1U;
         if (1 == state)
         {
-            ls_debug_printf("%d\n", ls_stepper_get_position());
+            ls_debug_printf("@%d\n", ls_stepper_get_position());
         }
         vTaskDelay(pdMS_TO_TICKS(200));
     }

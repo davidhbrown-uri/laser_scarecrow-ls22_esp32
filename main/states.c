@@ -38,7 +38,7 @@
 extern SemaphoreHandle_t print_mux;
 extern QueueHandle_t ls_event_queue;
 
-extern TaskHandle_t ls_coverage_task_handle;
+static TaskHandle_t ls_coverage_task_handle;
 
 TimerHandle_t _ls_state_rehome_timer;
 
@@ -277,6 +277,7 @@ ls_State ls_state_active(ls_event event)
         ls_stepper_set_maximum_steps_per_second(ls_settings_get_stepper_speed());
         ls_stepper_random();
         ls_servo_random();
+        ls_coverage_task_handle = NULL;
 
         if (ls_map_get_status() == LS_MAP_STATUS_OK)
         {
@@ -354,7 +355,11 @@ ls_State ls_state_active(ls_event event)
     // /exit behaviors:
     if (successor.func != ls_state_active)
     {
-        vTaskDelete(ls_coverage_task_handle);
+        if (NULL != ls_coverage_task_handle)
+        {
+            vTaskDelete(ls_coverage_task_handle);
+            ls_coverage_task_handle = NULL; // probably not necessary now, but just in case
+        }
         ls_stepper_stop();
         ls_servo_off();
         ls_laser_set_mode_off();
@@ -568,7 +573,7 @@ ls_State ls_state_secondary_settings(ls_event event)
         int index = _map(_constrain(control_value, LS_CONTROLS_READING_BOTTOM, LS_CONTROLS_READING_TOP),
                          LS_CONTROLS_READING_BOTTOM, LS_CONTROLS_READING_TOP, 0, 10);
 #ifdef LSDEBUG_SETTINGS
-            ls_debug_printf("Setting lightsense thresholds to index %d.\n", index);
+        ls_debug_printf("Setting lightsense thresholds to index %d.\n", index);
 #endif
         // calculate/set threshold values
         // ls_settings_set_light_thresholds_from_0to10(index);
@@ -820,12 +825,14 @@ ls_State ls_state_map_build(ls_event event)
             } // handle bad map
             else
             {
+#ifdef LSDEBUG_MAP
                 int32_t total = ls_map_find_spans();
+                ls_debug_printf("Set LS_MAP_STATUS_OK; random map span strategy has %d steps in total.\n", total);
+#else
+                ls_map_find_spans();
+#endif
                 ls_stepper_set_random_strategy(ls_stepper_random_strategy_map_spans);
                 ls_map_set_status(LS_MAP_STATUS_OK);
-#ifdef LSDEBUG_MAP
-                ls_debug_printf("Set LS_MAP_STATUS_OK; random map span strategy has %d steps in total.\n", total);
-#endif
             }
             ls_tape_sensor_disable();
         } // done building map
@@ -943,9 +950,9 @@ ls_State ls_state_error_noaccel(ls_event event)
     ls_buzzer_effect(LS_BUZZER_PLAY_TILT_FAIL);
     vTaskDelay(pdMS_TO_TICKS(500));
     // if this is the first attempt just try to restart
-    if(esp_reset_reason() != ESP_RST_SW)
+    if (esp_reset_reason() != ESP_RST_SW)
     {
-    esp_restart(); // software reset of the chip; starts execution again
+        esp_restart(); // software reset of the chip; starts execution again
     }
     // otherwise play the warning tone, too, and wait to try again
     ls_buzzer_effect(LS_BUZZER_ALTERNATE_HIGH);

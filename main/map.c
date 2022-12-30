@@ -611,6 +611,7 @@ void ls_stepper_random_strategy_map_spans(struct ls_stepper_move_t *move)
     ls_stepper_random_move_within_new_span(move, next_span);
 }
 
+#ifdef LSDEBUG_ENABLE    
 #ifdef LS_TEST_SPANNODE
 void ls_map_test_spannode()
 {
@@ -675,4 +676,5 @@ vTaskDelay(1);
     free(mid);
     free(wrap);
 }
+#endif
 #endif
