@@ -15,7 +15,7 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-#define VERSION_MESSAGE "URI Laser Scarecrow 2022 version 1.1.1 (June 26, 2022)\n"
+#define VERSION_MESSAGE "URI Laser Scarecrow 2022 version 1.2.0 (Dec 27, 2022)\n"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -40,6 +40,7 @@
 #include "tapemode.h"
 #include "tape.h"
 #include "map.h"
+#include "coverage.h"
 #include "lightsense.h"
 #include "servo.h"
 #include "settings.h"
@@ -80,6 +81,7 @@ static void print_char_val_type(esp_adc_cal_value_t val_type)
  */
 void app_main(void)
 {
+
     vTaskDelay(pdMS_TO_TICKS(2000)); // let voltages settle, USB connect
     adc1_mux = xSemaphoreCreateMutex();
     adc2_mux = xSemaphoreCreateMutex();
@@ -108,11 +110,14 @@ void app_main(void)
     ls_stepper_init();
     ls_servo_init();
     ls_state_init();
-
     // do not set magnet ISR up before event queue
     ls_magnet_isr_begin();
 
     printf("Initialized queues / semaphores / IRQs\n");
+
+#ifdef LS_TEST_SPANNODE
+    ls_map_test_spannode();
+#endif
 
     // higher priority tasks get higher priority values
 
@@ -128,15 +133,19 @@ void app_main(void)
     // lowest priority (1-9)
     xTaskCreate(&ls_tilt_task, "tilt_task", configMINIMAL_STACK_SIZE * 3, NULL, 7, NULL);
     xTaskCreate(&ls_buzzer_handler_task, "buzzer_handler", configMINIMAL_STACK_SIZE * 2, NULL, 5, NULL);
-    xTaskCreate(&ls_servo_task, "servo_task", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
+    xTaskCreate(&ls_servo_task, "servo_task", configMINIMAL_STACK_SIZE * 3, NULL, 3, NULL);
+//    xTaskCreate(&ls_coverage_task, "coverage_task", configMINIMAL_STACK_SIZE * 3, NULL, 2, NULL); // cannot do before map is ready
+    xTaskCreate(&ls_lightsense_read_task, "lightsense_read", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
 
 #ifdef LSDEBUG_TAPEMODE
-    xTaskCreate(&ls_tapemode_debug_task, "tapemode_debug_task", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
+    xTaskCreate(&ls_tapemode_debug_task, "tapemode_debug_task", configMINIMAL_STACK_SIZE * 3, NULL, 2, NULL);
 #endif
 #ifdef LSDEBUG_STEPPER
-    xTaskCreate(&ls_stepper_debug_task, "stepper_debug", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
+    xTaskCreate(&ls_stepper_debug_task, "stepper_debug", configMINIMAL_STACK_SIZE * 3, NULL, 2, NULL);
 #endif
-    xTaskCreate(&ls_lightsense_read_task, "lightsense_read", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
+#ifdef LSDEBUG_COVERAGE_MEASURE
+    xTaskCreate(&ls_coverage_debug_task, "coverage_debug", configMINIMAL_STACK_SIZE * 3, NULL, 2, NULL);
+#endif
 
 
     xSemaphoreTake(print_mux, portMAX_DELAY);

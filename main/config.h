@@ -101,7 +101,10 @@ gpio_num_t lsgpio_servopulse(void);
 #define LS_SERVO_SELFTEST_HOLD_MS 5000
 
 // default parameters for the stepper movement
-#define LS_STEPPER_STEPS_PER_ROTATION 3200
+/// stepper motor is a standard 200-step-per-rotation motor
+#define LS_STEPPER_FULLSTEPS_PER_ROTATION 200
+#define LS_STEPPER_MICROSTEPS_PER_STEP 16
+#define LS_STEPPER_STEPS_PER_ROTATION (LS_STEPPER_FULLSTEPS_PER_ROTATION * LS_STEPPER_MICROSTEPS_PER_STEP)
 #define LS_STEPPER_MOVEMENT_STEPS_MIN 160
 #define LS_STEPPER_MOVEMENT_STEPS_MAX (LS_STEPPER_STEPS_PER_ROTATION / 2)
 #define LS_STEPPER_MOVEMENT_REVERSE_PER255 96
@@ -149,8 +152,10 @@ gpio_num_t lsgpio_servopulse(void);
 #define LS_TAPEMODE_THRESHOLD_4 2525
 #define LS_TAPEMODE_THRESHOLD_5 3525
 
+// we want two tape map entries per fullstep (microstepping must be 2 or larger)
+#define LS_MAP_ENTRY_COUNT (LS_STEPPER_FULLSTEPS_PER_ROTATION * 2)
 // map resolution: read tape sensor every n steps
-#define LS_MAP_RESOLUTION (LS_STEPPER_STEPS_PER_ROTATION / 400)
+#define LS_MAP_RESOLUTION (LS_STEPPER_STEPS_PER_ROTATION / LS_MAP_ENTRY_COUNT)
 #define LS_MAP_ALLOWABLE_MISREAD_PERCENT 12
 #define LS_MAP_HISTOGRAM_BINCOUNT 32
 

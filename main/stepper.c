@@ -34,6 +34,7 @@
 #include "map.h"
 #include "util.h"
 #include "settings.h"
+#include "math.h"
 
 #define LS_STEPPER_TIMER_DIVIDER (20)
 // see https://docs.espressif.com/projects/esp-idf/en/v4.4/esp32/api-reference/peripherals/timer.html
@@ -49,7 +50,7 @@
 //  - 50,000 for the fastest step
 //  - 5,500,000 for the slowest step
 // The timers are 64-bit, so counting this number of steps should not be an issue
-// Tather than aiming for 1ms pulses, toggling at the total timer count for
+// Rather than aiming for 1ms pulses, toggling at the total timer count for
 // a square(ish) wave would make sense.
 
 volatile BaseType_t IRAM_ATTR ls_stepper_steps_remaining;
@@ -61,8 +62,10 @@ static bool _ls_stepper_enable_skipping = false;
 static int _ls_stepper_steps_per_second_max = LS_STEPPER_STEPS_PER_SECOND_DEFAULT;
 
 static int _ls_stepper_speed_when_skipping = LS_STEPPER_STEPS_PER_SECOND_MAX;
-static int _ls_stepper_speed_not_skipping;
-static int _ls_stepper_speed_current_rate;
+static int _ls_stepper_speed_not_skipping = LS_STEPPER_STEPS_PER_SECOND_DEFAULT;
+static int _ls_stepper_speed_current_rate = LS_STEPPER_STEPS_PER_SECOND_MIN;
+
+static uint8_t _ls_stepper_random_reverse_per255 = LS_STEPPER_MOVEMENT_REVERSE_PER255;
 
 // how many steps it will take to decelerate from full speed
 static int _ls_stepper_steps_to_decelerate(int current_rate)
@@ -146,6 +149,9 @@ void ls_stepper_init(void)
     ls_stepper_queue = xQueueCreate(8, sizeof(ls_stepper_action_message));
     ls_stepper_steps_remaining = 0;
     ls_stepper_steps_taken = 0;
+    ls_stepper_set_random_strategy(ls_stepper_random_strategy_default);
+    ls_stepper_move.direction = LS_STEPPER_DIRECTION_FORWARD;
+    ls_stepper_move.steps = 0;
     timer_config_t stepper_step_timer_config = {
         .divider = LS_STEPPER_TIMER_DIVIDER,
         .counter_dir = TIMER_COUNT_UP,
@@ -163,27 +169,30 @@ void ls_stepper_init(void)
 
 static void _ls_stepper_set_speed(void)
 {
-    bool skipping = _ls_stepper_enable_skipping && !ls_map_is_enabled_at(ls_stepper_position);
+    // if doing random movements and outside a span, allow faster movement (skipping)
     if (_ls_stepper_enable_skipping)
     {
-        ls_stepper_set_maximum_steps_per_second(skipping ? _ls_stepper_speed_when_skipping : _ls_stepper_speed_not_skipping);
+        ls_stepper_set_maximum_steps_per_second(ls_map_is_enabled_at(ls_stepper_position) ? _ls_stepper_speed_not_skipping : _ls_stepper_speed_when_skipping);
     }
-    if (skipping)
+    int steps_to_decelerate = _ls_stepper_steps_to_decelerate(_ls_stepper_speed_current_rate);
+
+    bool could_accelerate = (int)ls_stepper_steps_remaining > steps_to_decelerate && _ls_stepper_speed_current_rate < _ls_stepper_steps_per_second_max;
+    bool should_decelerate = (int)ls_stepper_steps_remaining < steps_to_decelerate || _ls_stepper_speed_current_rate > _ls_stepper_steps_per_second_max;
+    // are enough steps remaining to accelerate?
+    if (could_accelerate)
     {
-        ls_stepper_steps_remaining = _constrain(ls_stepper_steps_remaining + _ls_stepper_speed_current_rate / pdMS_TO_TICKS(1000),
-                                                0, _ls_stepper_steps_to_decelerate(_ls_stepper_speed_when_skipping));
+        _ls_stepper_speed_current_rate += LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_TICK;
     }
-    if (!skipping //&& ls_stepper_steps_remaining < ls_stepper_steps_taken // accelerate at least halfway is too much on short moves
-        && (ls_stepper_steps_remaining < _ls_stepper_steps_to_decelerate(_ls_stepper_speed_current_rate) || _ls_stepper_speed_current_rate > _ls_stepper_steps_per_second_max))
+    if (should_decelerate)
     {
         // decelerate
         _ls_stepper_speed_current_rate -= LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_TICK;
     }
-    // accelerate?
-    else if (_ls_stepper_speed_current_rate < _ls_stepper_steps_per_second_max)
-    {
-        _ls_stepper_speed_current_rate += LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_TICK;
-    }
+#ifdef LSDEBUG_ACCELERATION
+    ls_debug_printf("Current rate/max: %d/%d; steps to decelerate: %d; steps remaining: %d; %c %c\n", _ls_stepper_speed_current_rate, _ls_stepper_steps_per_second_max, steps_to_decelerate, ls_stepper_steps_remaining,
+                    could_accelerate ? '+' : ' ', should_decelerate ? '-' : ' ');
+#endif
+    // but stay within bounds
     _ls_stepper_speed_current_rate = _constrain(_ls_stepper_speed_current_rate, LS_STEPPER_STEPS_PER_SECOND_MIN, _ls_stepper_steps_per_second_max);
 
     ESP_ERROR_CHECK(timer_set_alarm_value(TIMER_GROUP_0, TIMER_0, APB_CLK_FREQ / LS_STEPPER_TIMER_DIVIDER / _ls_stepper_speed_current_rate));
@@ -290,15 +299,16 @@ void ls_stepper_task(void *pvParameter)
             gpio_set_level(LSGPIO_STEPPERENABLE, STEPPERENABLE_ENABLE);
             if (ls_stepper_steps_remaining <= 0)
             {
-                uint32_t random = esp_random();
+                // invoke the current move strategy
+                (*_ls_stepper_random_strategy)(&ls_stepper_move);
+                ls_stepper_direction = ls_stepper_move.direction;
+                ls_stepper_steps_remaining = ls_stepper_move.steps;
                 ls_stepper_steps_taken = 0;
-                ls_stepper_direction = ((uint8_t)random & 0xFF) > LS_STEPPER_MOVEMENT_REVERSE_PER255 ? false : true;
                 gpio_set_level(LSGPIO_STEPPERDIRECTION, ls_stepper_direction ? 1 : 0);
-                ls_stepper_steps_remaining = LS_STEPPER_MOVEMENT_STEPS_MIN + ((random >> 16) * (ls_settings_get_stepper_random_max() - LS_STEPPER_MOVEMENT_STEPS_MIN) / 65536);
 #ifdef LSDEBUG_STEPPER
-                ls_debug_printf("From %d, moving %d steps %s\n", ls_stepper_position, ls_stepper_steps_remaining, ls_stepper_direction ? "-->" : "<--");
+                ls_debug_printf("from %d, moving %d steps %s\n", ls_stepper_position, ls_stepper_steps_remaining, ls_stepper_direction ? "-->" : "<--");
 #endif
-            }
+            } // finished move
             _ls_stepper_set_speed();
             break;
         case LS_STEPPER_ACTION_SLEEP:
@@ -312,6 +322,11 @@ void ls_stepper_task(void *pvParameter)
         vTaskDelay(1);
     }
 }
+
+void ls_stepper_set_random_strategy(StepperMoveStrategy strategy)
+{
+    _ls_stepper_random_strategy = strategy;
+};
 
 void ls_stepper_stop(void)
 {
@@ -375,10 +390,15 @@ void ls_stepper_sleep(void)
     xQueueSend(ls_stepper_queue, (void *)&message, 0);
 }
 
-int32_t IRAM_ATTR ls_stepper_get_position(void)
+ls_stepper_position_t IRAM_ATTR ls_stepper_get_position(void)
 {
     return ls_stepper_position;
 };
+
+enum ls_stepper_direction ls_stepper_get_direction()
+{
+    return ls_stepper_direction;
+}
 void IRAM_ATTR ls_stepper_set_home_position(void)
 {
     ls_stepper_position = 0;
@@ -394,6 +414,11 @@ BaseType_t ls_stepper_get_steps_taken(void)
     return ls_stepper_steps_taken;
 }
 
+void ls_stepper_set_random_reverse_per255(uint8_t value)
+{
+    _ls_stepper_random_reverse_per255 = value;
+}
+
 #ifdef LSDEBUG_STEPPER
 void ls_stepper_debug_task(void *pvParameter)
 {
@@ -406,3 +431,15 @@ void ls_stepper_debug_task(void *pvParameter)
     }
 }
 #endif
+
+// default stepper move strategy
+void ls_stepper_random_strategy_default(struct ls_stepper_move_t *move)
+{
+    uint32_t random = esp_random();
+    move->direction = ((uint8_t)random & 0xFF) > _ls_stepper_random_reverse_per255 ? false : true;
+    move->steps = LS_STEPPER_MOVEMENT_STEPS_MIN + ((random >> 16) * (ls_settings_get_stepper_random_max() - LS_STEPPER_MOVEMENT_STEPS_MIN) / 65536);
+#ifdef LSDEBUG_STEPPER_RANDOM
+    ls_debug_printf("Default strategy: At end of random move; moving randomly %s%d\n", 
+    move->direction?"+":"-", move->steps);
+#endif
+};
