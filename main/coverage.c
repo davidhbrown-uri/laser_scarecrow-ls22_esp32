@@ -83,9 +83,8 @@ Wake-up:  Beginning ls_coverage_task with 267732 heap memory free.
 */
     ls_debug_printf("\nBeginning ls_coverage_task with %d heap memory free.\n", xPortGetFreeHeapSize());
 #endif
-    int gpio = lsgpio_laserpowerenable();
-    BaseType_t outreg = gpio < 32 ? GPIO_OUT_REG : GPIO_OUT1_REG;
-    gpio_num_t pin = (gpio_num_t)(gpio & 0x1F);
+    BaseType_t outreg = LSGPIO_LASERPOWERENABLE < 32 ? GPIO_OUT_REG : GPIO_OUT1_REG;
+    gpio_num_t pin = (gpio_num_t)(LSGPIO_LASERPOWERENABLE & 0x1F);
     struct timeval tv_now;
     gettimeofday(&tv_now, NULL);
     int64_t elapsed_sec = tv_now.tv_sec - _ls_coverage_most_recent.tv_sec;
