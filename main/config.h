@@ -81,7 +81,7 @@ gpio_num_t lsgpio_servopulse(void);
 #define LSI2C_PORT I2C_NUM_0
 #define LSI2C_SDA 21
 #define LSI2C_SCL 22
-#define LSI2C_FREQ_HZ 400000
+#define LSI2C_FREQ_HZ 100000
 
 
 // default parameters for the servo
