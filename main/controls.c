@@ -30,9 +30,8 @@ extern SemaphoreHandle_t adc2_mux;
 extern SemaphoreHandle_t print_mux;
 
 static enum ls_controls_status ls_controls_current_status = LS_CONTROLS_STATUS_INVALID;
-// static BaseType_t _ls_controls_current_speed = 0;
-// static BaseType_t _ls_controls_current_topangle = 0;
-// static BaseType_t _ls_controls_current_bottomangle = 0;
+static BaseType_t _ls_controls_current_slider1 = 0;
+static BaseType_t _ls_controls_current_slider2 = 0;
 enum ls_controls_status _ls_controls_status(int adc)
 {
     if (adc < LS_CONTROLS_SWITCH_THRESHOLD_UPPER)
@@ -70,8 +69,7 @@ void ls_controls_task(void *pvParameter)
     uint32_t controls_readings[LS_CONTROLS_TASK_CONTROLS_COUNT];
     bool moved_control[LS_CONTROLS_TASK_CONTROLS_COUNT];
     _ls_controls_task_controls_havent_moved();
-    // int64_t last_connected_at_us_time = 0L; // used to enter secondary controls
-    //  int fastreads = 0;
+    int fastreads = 0;
 
     enum ls_controls_status switch_readings[LS_CONTROLS_TASK_SWITCH_READINGS];
     for (int i = 0; i < LS_CONTROLS_TASK_SWITCH_READINGS; i++)
@@ -96,7 +94,10 @@ void ls_controls_task(void *pvParameter)
         }
         xSemaphoreGive(adc2_mux);
 
-        // update connection status
+#ifdef LSDEBUG_CONTROLS
+        ls_debug_printf("Controls:  switches=%d\t slider1=%d\t slider2=%d\n", controls_readings[0], controls_readings[1], controls_readings[2]);
+#endif
+        // update switch status
 
         switch_reading = (switch_reading + 1) % LS_CONTROLS_TASK_SWITCH_READINGS;
         switch_readings[switch_reading] = _ls_controls_status(controls_readings[0]);
@@ -133,69 +134,47 @@ void ls_controls_task(void *pvParameter)
             }
             xQueueSendToBack(ls_event_queue, (void *)&switch_event, pdMS_TO_TICKS(1000));
         } // if switches changed
-
-#ifdef LSDEBUG_CONTROLS
-        ls_debug_printf("Controls:  switches=%d\t slider1=%d\t slider2=%d\n", controls_readings[0], controls_readings[1], controls_readings[2]);
-#endif
-        /*
-                if (ls_controls_get_current_status() == LS_CONTROLS_STATUS_UPPER && _ls_controls_connected(controls_readings[3]))
+        
+                if (ls_controls_get_current_status() != LS_CONTROLS_STATUS_OFF)
                 {
-                    if (moved_control[0] || _difference_exceeds_threshold(_ls_controls_current_speed, controls_readings[0], LS_CONTROLS_READING_MOVE_THRESHOLD))
-                    {
-                        if (!moved_control[0])
-                        {
-                            fastreads = LS_CONTROLS_FASTREADS_AFTER_MOVE;
-                        }
-                        _ls_controls_task_havent_moved();
-                        moved_control[0] = fastreads > 0;
-                        fastreads--;
-                        _ls_controls_current_speed = controls_readings[0];
-                        ls_event event;
-                        event.type = LSEVT_CONTROLS_SPEED;
-                        event.value = (void *)&_ls_controls_current_speed;
-                        xQueueSendToBack(ls_event_queue, (void *)&event, 0);
-        #ifdef LSDEBUG_CONTROLS
-                        ls_debug_printf("Controls new value speed=%d\n", _ls_controls_current_speed);
-        #endif
-                    }
-                    if (moved_control[1] || _difference_exceeds_threshold(_ls_controls_current_topangle, controls_readings[1], LS_CONTROLS_READING_MOVE_THRESHOLD))
+                    if (moved_control[1] || _difference_exceeds_threshold(_ls_controls_current_slider1, controls_readings[1], LS_CONTROLS_READING_MOVE_THRESHOLD))
                     {
                         if (!moved_control[1])
                         {
                             fastreads = LS_CONTROLS_FASTREADS_AFTER_MOVE;
                         }
-                        _ls_controls_task_havent_moved();
+                        _ls_controls_task_controls_havent_moved();
                         moved_control[1] = fastreads > 0;
                         fastreads--;
-                        _ls_controls_current_topangle = controls_readings[1];
+                        _ls_controls_current_slider1 = controls_readings[1];
                         ls_event event;
-                        event.type = LSEVT_CONTROLS_TOPANGLE;
-                        event.value = (void *)&_ls_controls_current_topangle;
+                        event.type = LSEVT_CONTROLS_SLIDER1;
+                        event.value = (void *)&_ls_controls_current_slider1;
                         xQueueSendToBack(ls_event_queue, (void *)&event, 0);
         #ifdef LSDEBUG_CONTROLS
-                        ls_debug_printf("Controls new value topangle=%d\n", _ls_controls_current_topangle);
+                        ls_debug_printf("Controls new value slider1=%d\n", _ls_controls_current_slider1);
         #endif
                     }
-                    if (moved_control[2] || _difference_exceeds_threshold(_ls_controls_current_bottomangle, controls_readings[2], LS_CONTROLS_READING_MOVE_THRESHOLD))
+                    if (moved_control[2] || _difference_exceeds_threshold(_ls_controls_current_slider2, controls_readings[2], LS_CONTROLS_READING_MOVE_THRESHOLD))
                     {
                         if (!moved_control[2])
                         {
                             fastreads = LS_CONTROLS_FASTREADS_AFTER_MOVE;
                         }
-                        _ls_controls_task_havent_moved();
+                        _ls_controls_task_controls_havent_moved();
                         moved_control[2] = fastreads > 0;
                         fastreads--;
-                        _ls_controls_current_bottomangle = controls_readings[2];
+                        _ls_controls_current_slider2 = controls_readings[2];
                         ls_event event;
-                        event.type = LSEVT_CONTROLS_BOTTOMANGLE;
-                        event.value = (void *)&_ls_controls_current_bottomangle;
+                        event.type = LSEVT_CONTROLS_SLIDER2;
+                        event.value = (void *)&_ls_controls_current_slider2;
                         xQueueSendToBack(ls_event_queue, (void *)&event, 0);
         #ifdef LSDEBUG_CONTROLS
-                        ls_debug_printf("Controls new value bottomangle=%d\n", _ls_controls_current_bottomangle);
+                        ls_debug_printf("Controls new value slider2=%d\n", _ls_controls_current_slider2);
         #endif
                     }
                 }
-            */
+            
         vTaskDelay(ls_controls_current_status == LS_CONTROLS_STATUS_OFF ? pdMS_TO_TICKS(600) : pdMS_TO_TICKS(100));
     } // while 1
 } // ls_controls_task
