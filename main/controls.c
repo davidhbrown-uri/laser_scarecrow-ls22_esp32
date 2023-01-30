@@ -1,6 +1,6 @@
 /*
     Control software for URI Laser Scarecrow, 2022 Model
-    Copyright (C) 2022  David H. Brown
+    Copyright (C) 2022-2023  David H. Brown
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -33,7 +33,23 @@ static enum ls_controls_status ls_controls_current_status = LS_CONTROLS_STATUS_I
 // static BaseType_t _ls_controls_current_speed = 0;
 // static BaseType_t _ls_controls_current_topangle = 0;
 // static BaseType_t _ls_controls_current_bottomangle = 0;
-#define _ls_controls_connected(adc) (adc > LS_CONTROLS_ADC_MIN_CONNECT && adc < LS_CONTROLS_ADC_MAX_CONNECT)
+enum ls_controls_status _ls_controls_status(int adc)
+{
+    if (adc < LS_CONTROLS_SWITCH_THRESHOLD_UPPER)
+    {
+        return LS_CONTROLS_STATUS_OFF;
+    }
+    if (adc < LS_CONTROLS_SWITCH_THRESHOLD_LOWER)
+    {
+        return LS_CONTROLS_STATUS_UPPER;
+    }
+    if (adc < LS_CONTROLS_SWITCH_THRESHOLD_BOTH)
+    {
+        return LS_CONTROLS_STATUS_LOWER;
+    }
+    return LS_CONTROLS_STATUS_BOTH;
+}
+
 enum ls_controls_status ls_controls_get_current_status(void)
 {
     return ls_controls_current_status;
@@ -47,29 +63,20 @@ enum ls_controls_status ls_controls_get_current_status(void)
 void ls_controls_task(void *pvParameter)
 {
 #define LS_CONTROLS_TASK_CONTROLS_COUNT 3
-#define LS_CONTROLS_TASK_CONNECTION_READINGS 4
-    // let's try enabling the pulldown resistor on the switches
-    //  a structure to hold all the GPIO configuration data
-    gpio_config_t io_conf;
-    io_conf.mode = GPIO_MODE_INPUT;
-    io_conf.intr_type = GPIO_INTR_DISABLE;
-    io_conf.pin_bit_mask = (1ULL << LSGPIO_SWITCHES);
-    io_conf.pull_down_en = GPIO_PULLDOWN_ENABLE;
-    io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
-    gpio_config(&io_conf);
-
-    uint8_t connection_reading = 0;
+#define LS_CONTROLS_TASK_SWITCH_READINGS 3
+    uint8_t switch_reading = 0;
     adc2_channel_t controls_channels[] = {LSADC2_SWITCHES, LSADC2_SLIDER1, LSADC2_SLIDER2};
     adc_atten_t controls_atten[] = {LSADCATTEN_SWITCHES, LSADCATTEN_SLIDER, LSADCATTEN_SLIDER};
     uint32_t controls_readings[LS_CONTROLS_TASK_CONTROLS_COUNT];
     bool moved_control[LS_CONTROLS_TASK_CONTROLS_COUNT];
     _ls_controls_task_controls_havent_moved();
-    int64_t last_connected_at_us_time = 0L; // used to enter secondary controls
-    // int fastreads = 0;
-    enum ls_controls_status connection_readings[LS_CONTROLS_TASK_CONNECTION_READINGS];
-    for (int i = 0; i < LS_CONTROLS_TASK_CONNECTION_READINGS; i++)
+    // int64_t last_connected_at_us_time = 0L; // used to enter secondary controls
+    //  int fastreads = 0;
+
+    enum ls_controls_status switch_readings[LS_CONTROLS_TASK_SWITCH_READINGS];
+    for (int i = 0; i < LS_CONTROLS_TASK_SWITCH_READINGS; i++)
     {
-        connection_readings[i] = LS_CONTROLS_STATUS_INVALID;
+        switch_readings[i] = LS_CONTROLS_STATUS_INVALID;
     }
     while (1)
     {
@@ -83,68 +90,50 @@ void ls_controls_task(void *pvParameter)
             for (int i = 0; i < LS_CONTROLS_READINGS_TO_AVERAGE; i++)
             {
                 ESP_ERROR_CHECK(adc2_get_raw(controls_channels[control_number], ADC_WIDTH_12Bit, &adc_reading));
-                adc_sum += adc_reading;
+                adc_sum += (uint32_t)adc_reading;
             }
             controls_readings[control_number] = adc_sum / LS_CONTROLS_READINGS_TO_AVERAGE;
         }
         xSemaphoreGive(adc2_mux);
 
         // update connection status
-        /*
-        connection_reading = (connection_reading + 1) % LS_CONTROLS_TASK_CONNECTION_READINGS;
-        if (controls_readings[0] < LS_CONTROLS_ADC_MAX_DISCONNECT)
+
+        switch_reading = (switch_reading + 1) % LS_CONTROLS_TASK_SWITCH_READINGS;
+        switch_readings[switch_reading] = _ls_controls_status(controls_readings[0]);
+        bool switch_readings_match = true;
+        for (int i = 1; i < LS_CONTROLS_TASK_SWITCH_READINGS; i++)
         {
-            connection_readings[connection_reading] = LS_CONTROLS_STATUS_DISCONNECTED;
+            switch_readings_match = switch_readings_match && switch_readings[i] == switch_readings[0];
         }
-        else if (_ls_controls_connected(controls_readings[3]))
+        if (switch_readings_match && ls_controls_current_status != switch_readings[0])
         {
-            connection_readings[connection_reading] = LS_CONTROLS_STATUS_CONNECTED;
-        }
-        else
-        {
-            connection_readings[connection_reading] = LS_CONTROLS_STATUS_INVALID;
-        }
-        if ((connection_readings[0] == connection_readings[1]) && (connection_readings[0] == connection_readings[2]))
-        {
-            if (ls_controls_current_status != connection_readings[0])
+#ifdef LSDEBUG_CONTROLS
+            ls_debug_printf("Switches changed status from %d to %d\n", ls_controls_current_status, switch_readings[0]);
+#endif
+            ls_controls_current_status = switch_readings[0];
+            ls_event switch_event;
+            switch_event.value = NULL;
+            switch (ls_controls_current_status)
             {
-                ls_controls_current_status = connection_readings[0];
-                ls_event connection_event;
-                connection_event.value = NULL;
-                switch (ls_controls_current_status)
-                {
-                case LS_CONTROLS_STATUS_CONNECTED:
-                    connection_event.type = LSEVT_CONTROLS_CONNECTED;
-#ifdef LSDEBUG_CONTROLS
-                    ls_debug_printf("Controls status CONNECTED about %lld microseconds after last connection\n", esp_timer_get_time()-last_connected_at_us_time);
-#endif
-                    _ls_controls_current_speed = controls_readings[0];
-                    _ls_controls_current_topangle = controls_readings[1];
-                    _ls_controls_current_bottomangle = controls_readings[2];
-                    _ls_controls_task_controls_havent_moved();
-                    if (esp_timer_get_time() - LS_CONTROLS_SECONDARY_US_TIME < last_connected_at_us_time)
-                    {
-                        connection_event.type = LSEVT_CONTROLS_CONNECT_SECONDARY;
-                    }
-                    last_connected_at_us_time = esp_timer_get_time();
-                    break;
-                case LS_CONTROLS_STATUS_DISCONNECTED:
-                    connection_event.type = LSEVT_CONTROLS_DISCONNECTED;
-#ifdef LSDEBUG_CONTROLS
-                    ls_debug_printf("Controls status DISCONNECTED\n");
-#endif
-                    break;
-                case LS_CONTROLS_STATUS_INVALID:
-                    connection_event.type = LSEVT_CONTROLS_DISCONNECTED;
-#ifdef LSDEBUG_CONTROLS
-                    ls_debug_printf("Controls status INVALID\n");
-#endif
-                    break;
-                }
-                xQueueSendToBack(ls_event_queue, (void *)&connection_event, pdMS_TO_TICKS(1000));
+            case LS_CONTROLS_STATUS_OFF:
+                switch_event.type = LSEVT_CONTROLS_OFF;
+                break;
+            case LS_CONTROLS_STATUS_UPPER:
+                switch_event.type = LSEVT_CONTROLS_UPPER;
+                break;
+            case LS_CONTROLS_STATUS_LOWER:
+                switch_event.type = LSEVT_CONTROLS_LOWER;
+                break;
+            case LS_CONTROLS_STATUS_BOTH:
+                switch_event.type = LSEVT_CONTROLS_BOTH;
+                break;
+            case LS_CONTROLS_STATUS_INVALID:
+                switch_event.type = LSEVT_NOOP;
+                break;
             }
-        }
-        */
+            xQueueSendToBack(ls_event_queue, (void *)&switch_event, pdMS_TO_TICKS(1000));
+        } // if switches changed
+
 #ifdef LSDEBUG_CONTROLS
         ls_debug_printf("Controls:  switches=%d\t slider1=%d\t slider2=%d\n", controls_readings[0], controls_readings[1], controls_readings[2]);
 #endif
@@ -207,6 +196,6 @@ void ls_controls_task(void *pvParameter)
                     }
                 }
             */
-        vTaskDelay(ls_controls_current_status == LS_CONTROLS_STATUS_OFF ? pdMS_TO_TICKS(100) : pdMS_TO_TICKS(600));
+        vTaskDelay(ls_controls_current_status == LS_CONTROLS_STATUS_OFF ? pdMS_TO_TICKS(600) : pdMS_TO_TICKS(100));
     } // while 1
 } // ls_controls_task
