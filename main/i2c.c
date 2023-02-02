@@ -170,19 +170,26 @@ enum ls_i2c_accelerometer_device_t ls_i2c_accelerometer_device(void)
     return _ls_i2c_accelerometer_device;
 }
 
+/**
+ * @brief Determine whether the unit has tipped
+ * 
+ * Note that in 2023, the accelerometer is mounted upside-down, so these values are inverted.
+ * 
+ * @return float 
+ */
 float ls_i2c_read_accel_z(void)
 {
     ls_i2c_init();
     switch (ls_i2c_accelerometer_device())
     {
     case LS_I2C_ACCELEROMETER_KXTJ3:
-        return kxtj3_read_accel_z();
+        return 0.0-kxtj3_read_accel_z();
         break;
     case LS_I2C_ACCELEROMETER_LIS2DH12:
-        return lis2dh120_read_accel_z();
+        return 0.0-lis2dh120_read_accel_z();
         break;
     case LS_I2C_ACCELEROMETER_MPU6050:
-        return mpu6050_read_accel_z();
+        return 0.0-mpu6050_read_accel_z();
         break;
     case LS_I2C_ACCELEROMETER_NONE:
         return nanf("");

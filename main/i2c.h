@@ -27,7 +27,7 @@ enum ls_i2c_accelerometer_device_t {
     LS_I2C_ACCELEROMETER_MPU6050
 };
 
-#define LS_I2C_ADDRESS_LIS2DH12 0x18
+#define LS_I2C_ADDRESS_LIS2DH12 0x19
 #define LS_I2C_ADDRESS_KXTJ3 0x0E
 #define LS_I2C_ADDRESS_MPU6050 0x69
 

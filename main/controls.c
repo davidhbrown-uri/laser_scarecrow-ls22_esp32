@@ -29,41 +29,32 @@
 extern SemaphoreHandle_t adc2_mux;
 extern SemaphoreHandle_t print_mux;
 
-// "Knobs" is what's printed next to the external control connector of the January '22 boards,
-// referencing rotary potentiometers used on earlier designs. The external controls are
-// linear sliders in this design, but I still think of them as "knobs."" Sorry. -DHB
-
-#define LS_CONTROLS_WIGGLE_KNOB 0
-#define LS_CONTROLS_ANGLE_KNOB 1
-#define LS_CONTROLS_RANGE_KNOB 2
-#define LS_CONTROLS_CONNECTION_KNOB LSADC_KNOB6
-
 static enum ls_controls_status ls_controls_current_status = LS_CONTROLS_STATUS_INVALID;
-static BaseType_t _ls_controls_current_speed = 0;
-static BaseType_t _ls_controls_current_topangle = 0;
-static BaseType_t _ls_controls_current_bottomangle = 0;
+//static BaseType_t _ls_controls_current_speed = 0;
+//static BaseType_t _ls_controls_current_topangle = 0;
+//static BaseType_t _ls_controls_current_bottomangle = 0;
 #define _ls_controls_connected(adc) (adc > LS_CONTROLS_ADC_MIN_CONNECT && adc < LS_CONTROLS_ADC_MAX_CONNECT)
 enum ls_controls_status ls_controls_get_current_status(void)
 {
     return ls_controls_current_status;
 }
 
-#define _ls_controls_task_knobs_havent_moved()                \
+#define _ls_controls_task_controls_havent_moved()                \
     {                                                         \
-        for (int i = 0; i < LS_CONTROLS_TASK_KNOB_COUNT; i++) \
-            moved_knob[i] = false;                            \
+        for (int i = 0; i < LS_CONTROLS_TASK_CONTROLS_COUNT; i++) \
+            moved_control[i] = false;                            \
     }
 void ls_controls_task(void *pvParameter)
 {
-#define LS_CONTROLS_TASK_KNOB_COUNT 4
-#define LS_CONTROLS_TASK_CONNECTION_READINGS 3
+#define LS_CONTROLS_TASK_CONTROLS_COUNT 3
+#define LS_CONTROLS_TASK_CONNECTION_READINGS 4
     uint8_t connection_reading = 0;
-    adc2_channel_t knob_channels[] = {LSADC2_KNOB3, LSADC2_KNOB4, LSADC2_KNOB5, LSADC2_KNOB6};
-    uint32_t knob_readings[LS_CONTROLS_TASK_KNOB_COUNT];
-    bool moved_knob[LS_CONTROLS_TASK_KNOB_COUNT];
-    _ls_controls_task_knobs_havent_moved();
+    adc2_channel_t controls_channels[] = {LSADC2_SWITCHES, LSADC2_SLIDER1, LSADC2_SLIDER2};
+    uint32_t controls_readings[LS_CONTROLS_TASK_CONTROLS_COUNT];
+    bool moved_control[LS_CONTROLS_TASK_CONTROLS_COUNT];
+    _ls_controls_task_controls_havent_moved();
     int64_t last_connected_at_us_time = 0L; // used to enter secondary controls
-    int fastreads = 0;
+    //int fastreads = 0;
     enum ls_controls_status connection_readings[LS_CONTROLS_TASK_CONNECTION_READINGS];
     for (int i = 0; i < LS_CONTROLS_TASK_CONNECTION_READINGS; i++)
     {
@@ -71,30 +62,31 @@ void ls_controls_task(void *pvParameter)
     }
     while (1)
     {
-        // read knobs
+        // read controls
         xSemaphoreTake(adc2_mux, pdMS_TO_TICKS(1000));
-        for (int knob = 0; knob < LS_CONTROLS_TASK_KNOB_COUNT; knob++)
+        for (int knob = 0; knob < LS_CONTROLS_TASK_CONTROLS_COUNT; knob++)
         {
             int adc_reading = 0;
             uint32_t adc_sum = 0;
             // atten 11 by default... shouldn't need to focus on lower voltages?
-            ESP_ERROR_CHECK(adc2_config_channel_atten(knob_channels[knob], ADC_ATTEN_11db));
+            ESP_ERROR_CHECK(adc2_config_channel_atten(controls_channels[knob], ADC_ATTEN_11db));
             for (int i = 0; i < LS_CONTROLS_READINGS_TO_AVERAGE; i++)
             {
-                ESP_ERROR_CHECK(adc2_get_raw(knob_channels[knob], ADC_WIDTH_12Bit, &adc_reading));
+                ESP_ERROR_CHECK(adc2_get_raw(controls_channels[knob], ADC_WIDTH_12Bit, &adc_reading));
                 adc_sum += adc_reading;
             }
-            knob_readings[knob] = adc_sum / LS_CONTROLS_READINGS_TO_AVERAGE;
+            controls_readings[knob] = adc_sum / LS_CONTROLS_READINGS_TO_AVERAGE;
         }
         xSemaphoreGive(adc2_mux);
 
-        // update status
+        // update connection status
+        /*
         connection_reading = (connection_reading + 1) % LS_CONTROLS_TASK_CONNECTION_READINGS;
-        if (knob_readings[3] < LS_CONTROLS_ADC_MAX_DISCONNECT)
+        if (controls_readings[0] < LS_CONTROLS_ADC_MAX_DISCONNECT)
         {
             connection_readings[connection_reading] = LS_CONTROLS_STATUS_DISCONNECTED;
         }
-        else if (_ls_controls_connected(knob_readings[3]))
+        else if (_ls_controls_connected(controls_readings[3]))
         {
             connection_readings[connection_reading] = LS_CONTROLS_STATUS_CONNECTED;
         }
@@ -116,10 +108,10 @@ void ls_controls_task(void *pvParameter)
 #ifdef LSDEBUG_CONTROLS
                     ls_debug_printf("Controls status CONNECTED about %lld microseconds after last connection\n", esp_timer_get_time()-last_connected_at_us_time);
 #endif
-                    _ls_controls_current_speed = knob_readings[0];
-                    _ls_controls_current_topangle = knob_readings[1];
-                    _ls_controls_current_bottomangle = knob_readings[2];
-                    _ls_controls_task_knobs_havent_moved();
+                    _ls_controls_current_speed = controls_readings[0];
+                    _ls_controls_current_topangle = controls_readings[1];
+                    _ls_controls_current_bottomangle = controls_readings[2];
+                    _ls_controls_task_controls_havent_moved();
                     if (esp_timer_get_time() - LS_CONTROLS_SECONDARY_US_TIME < last_connected_at_us_time)
                     {
                         connection_event.type = LSEVT_CONTROLS_CONNECT_SECONDARY;
@@ -142,21 +134,23 @@ void ls_controls_task(void *pvParameter)
                 xQueueSendToBack(ls_event_queue, (void *)&connection_event, pdMS_TO_TICKS(1000));
             }
         }
+        */
 #ifdef LSDEBUG_CONTROLS
-        ls_debug_printf("External control knobs: %d\t %d\t %d\t %d\n", knob_readings[0], knob_readings[1], knob_readings[2], knob_readings[3]);
+        ls_debug_printf("Controls:  switches=%d\t slider1=%d\t slider2=%d\n", controls_readings[0], controls_readings[1], controls_readings[2]);
 #endif
-        if (ls_controls_get_current_status() == LS_CONTROLS_STATUS_CONNECTED && _ls_controls_connected(knob_readings[3]))
+/*
+        if (ls_controls_get_current_status() == LS_CONTROLS_STATUS_UPPER && _ls_controls_connected(controls_readings[3]))
         {
-            if (moved_knob[0] || _difference_exceeds_threshold(_ls_controls_current_speed, knob_readings[0], LS_CONTROLS_READING_MOVE_THRESHOLD))
+            if (moved_control[0] || _difference_exceeds_threshold(_ls_controls_current_speed, controls_readings[0], LS_CONTROLS_READING_MOVE_THRESHOLD))
             {
-                if (!moved_knob[0])
+                if (!moved_control[0])
                 {
                     fastreads = LS_CONTROLS_FASTREADS_AFTER_MOVE;
                 }
-                _ls_controls_task_knobs_havent_moved();
-                moved_knob[0] = fastreads > 0;
+                _ls_controls_task_havent_moved();
+                moved_control[0] = fastreads > 0;
                 fastreads--;
-                _ls_controls_current_speed = knob_readings[0];
+                _ls_controls_current_speed = controls_readings[0];
                 ls_event event;
                 event.type = LSEVT_CONTROLS_SPEED;
                 event.value = (void *)&_ls_controls_current_speed;
@@ -165,16 +159,16 @@ void ls_controls_task(void *pvParameter)
                 ls_debug_printf("Controls new value speed=%d\n", _ls_controls_current_speed);
 #endif
             }
-            if (moved_knob[1] || _difference_exceeds_threshold(_ls_controls_current_topangle, knob_readings[1], LS_CONTROLS_READING_MOVE_THRESHOLD))
+            if (moved_control[1] || _difference_exceeds_threshold(_ls_controls_current_topangle, controls_readings[1], LS_CONTROLS_READING_MOVE_THRESHOLD))
             {
-                if (!moved_knob[1])
+                if (!moved_control[1])
                 {
                     fastreads = LS_CONTROLS_FASTREADS_AFTER_MOVE;
                 }
-                _ls_controls_task_knobs_havent_moved();
-                moved_knob[1] = fastreads > 0;
+                _ls_controls_task_havent_moved();
+                moved_control[1] = fastreads > 0;
                 fastreads--;
-                _ls_controls_current_topangle = knob_readings[1];
+                _ls_controls_current_topangle = controls_readings[1];
                 ls_event event;
                 event.type = LSEVT_CONTROLS_TOPANGLE;
                 event.value = (void *)&_ls_controls_current_topangle;
@@ -183,16 +177,16 @@ void ls_controls_task(void *pvParameter)
                 ls_debug_printf("Controls new value topangle=%d\n", _ls_controls_current_topangle);
 #endif
             }
-            if (moved_knob[2] || _difference_exceeds_threshold(_ls_controls_current_bottomangle, knob_readings[2], LS_CONTROLS_READING_MOVE_THRESHOLD))
+            if (moved_control[2] || _difference_exceeds_threshold(_ls_controls_current_bottomangle, controls_readings[2], LS_CONTROLS_READING_MOVE_THRESHOLD))
             {
-                if (!moved_knob[2])
+                if (!moved_control[2])
                 {
                     fastreads = LS_CONTROLS_FASTREADS_AFTER_MOVE;
                 }
-                _ls_controls_task_knobs_havent_moved();
-                moved_knob[2] = fastreads > 0;
+                _ls_controls_task_havent_moved();
+                moved_control[2] = fastreads > 0;
                 fastreads--;
-                _ls_controls_current_bottomangle = knob_readings[2];
+                _ls_controls_current_bottomangle = controls_readings[2];
                 ls_event event;
                 event.type = LSEVT_CONTROLS_BOTTOMANGLE;
                 event.value = (void *)&_ls_controls_current_bottomangle;
@@ -202,6 +196,7 @@ void ls_controls_task(void *pvParameter)
 #endif
             }
         }
-        vTaskDelay(ls_controls_current_status == LS_CONTROLS_STATUS_CONNECTED ? pdMS_TO_TICKS(100) : pdMS_TO_TICKS(600));
-    }
-}
+    */
+        vTaskDelay(ls_controls_current_status == LS_CONTROLS_STATUS_OFF ? pdMS_TO_TICKS(100) : pdMS_TO_TICKS(600));
+    } // while 1
+} // ls_controls_task

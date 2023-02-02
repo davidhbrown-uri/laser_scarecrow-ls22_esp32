@@ -1,6 +1,6 @@
 /*
     Control software for URI Laser Scarecrow, 2022 Model
-    Copyright (C) 2022  David H. Brown
+    Copyright (C) 2022-2023  David H. Brown
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -15,7 +15,7 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-#define VERSION_MESSAGE "URI Laser Scarecrow 2022 version 1.2.0 (Dec 27, 2022)\n"
+#define VERSION_MESSAGE "URI Laser Scarecrow 2023 version 1.3.0 (Jan 27, 2023)\n"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -88,12 +88,6 @@ void app_main(void)
     print_mux = xSemaphoreCreateMutex();
     printf("Initializing I2C...\n");
     ls_i2c_init();
-    if(ls_i2c_accelerometer_device() == LS_I2C_ACCELEROMETER_MPU6050)
-    {
-        printf("November '21 test board detected via MPU6050 accelerometer\n");
-
-        ls_config_set_gpio_nov21();
-    }
     printf("Initializing GPIO...\n");
     ls_gpio_initialize();
     adc_chars = calloc(1, sizeof(esp_adc_cal_characteristics_t));

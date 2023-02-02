@@ -19,6 +19,7 @@
 #include "debug.h"
 #include "driver/gpio.h"
 
+/*
 // these GPIO assignments changed from the Nov '21 test board (rectangular)
 // to the January/April '22 kit boards. On detecting the MPU6050 accelerometer
 // that was on only the Nov '21 boards, these can be return different values.
@@ -29,6 +30,7 @@ gpio_num_t lsgpio_stepperdirection(void);
 gpio_num_t lsgpio_steppersleep(void);
 gpio_num_t lsgpio_servopowerenable(void);
 gpio_num_t lsgpio_servopulse(void);
+*/
 
 // assignments of our devices to ESP32 peripherals
 #define LSBUZZER_HS_LEDC_CHANNEL 0
@@ -45,39 +47,42 @@ gpio_num_t lsgpio_servopulse(void);
 #define LSADC1_REFLECTANCESENSE ADC1_CHANNEL_6
 #define LSGPIO_TAPESETTING 35
 #define LSADC1_TAPESETTING ADC1_CHANNEL_7
+
 // GPIO => ADC2 channel mapping:
 // 0=>1, 2=>2, 4=>0, 15=>3, 13=>4, 12=>5, 14=>6, 15=>3, 27=>7
-// "KNOB#" refers to the pin # on the connector labeled "Knobs" on the January '22 boards
-#define LSGPIO_KNOB3 14
-#define LSADC2_KNOB3 ADC2_CHANNEL_6
-#define LSGPIO_KNOB4 12
-#define LSADC2_KNOB4 ADC2_CHANNEL_5
-#define LSGPIO_KNOB5 13
-#define LSADC2_KNOB5 ADC2_CHANNEL_4
-#define LSGPIO_KNOB6 15
-#define LSADC2_KNOB6 ADC2_CHANNEL_3
+#define LSGPIO_SLIDER1 14
+#define LSADC2_SLIDER1 ADC2_CHANNEL_6
+#define LSGPIO_SLIDER2 13
+#define LSADC2_SLIDER2 ADC2_CHANNEL_4
+#define LSGPIO_SWITCHES 15
+#define LSADC2_SWITCHES ADC_CHANNEL_3
+
+
 // MAGNETSENSE is digital input (ISR), not ADC
 #define LSGPIO_MAGNETSENSE 4
 // Binary output
-#define LSGPIO_LASERPOWERENABLE (lsgpio_laserpowerenable())
-#define LSGPIO_SERVOPOWERENABLE (lsgpio_servopowerenable())
-#define LSGPIO_LASERHEATERENABLE (lsgpio_laserheaterenable())
+#define LSGPIO_LASERPOWERENABLE 32
+#define LSGPIO_SERVOPOWERENABLE 25
+#define LSGPIO_LASERHEATERENABLE 26
 #define LSGPIO_REFLECTANCEENABLE 27
-#define LSGPIO_STEPPERDIRECTION (lsgpio_stepperdirection())
+#define LSGPIO_STEPPERDIRECTION 19
 #define LSGPIO_STEPPERSTEP 18
-#define LSGPIO_STEPPERSLEEP (lsgpio_steppersleep())
+#define LSGPIO_STEPPERTXRX 23
+// STEPPER_TXRX is STEPPER_ENABLE in EN-Diag mode
+#define LSGPIO_STEPPERENABLE 23
+// Stepper TMC2209 is enabled when pin is brought low
+#define STEPPERENABLE_ENABLE 0
+#define STEPPERENABLE_DISABLE 1
+
 // PWM output (LEDC)
-#define LSGPIO_SERVOPULSE (lsgpio_servopulse())
+#define LSGPIO_SERVOPULSE 33
 #define LSGPIO_BUZZERENABLE 2
 // I2C (using controller 0; pins selected to match Arduino usage; maybe they have a reason?)
 #define LSI2C_PORT I2C_NUM_0
 #define LSI2C_SDA 21
 #define LSI2C_SCL 22
-#define LSI2C_FREQ_HZ 400000
-// currently unused
-#define LSGPIO_SPARE2 23
-#define LSGPIO_SPARE3 1
-#define LSGPIO_SPARE4 3
+#define LSI2C_FREQ_HZ 100000
+
 
 // default parameters for the servo
 #define LS_SERVO_US_MIN 750
@@ -161,9 +166,13 @@ gpio_num_t lsgpio_servopulse(void);
 #define LS_STATE_REHOME_TIMER_PERIOD_MS 1800000
 #endif
 
-// light levels based on sample data recorded in lightsense.h; roughly 40lux on, 20lux off
-#define LS_LIGHTSENSE_DAY_THRESHOLD 1000
-#define LS_LIGHTSENSE_NIGHT_THRESHOLD 500
+// Thresholds based on sample data recorded in lightsense.h; roughly 40lux on, 20lux off (1000,500) 
+// those were with 2022 board's 1M resistor and 11dB attenuator
+// 2023 using 22k resistor and 0dB; thresholds halved relative to 2022's 1M resistor and 11dB 
+// use 0dB attenuator to measure low light levels; 11dB to measure high.
+#define LS_LIGHTSENSE_ADC_ATTEN ADC_ATTEN_DB_0
+#define LS_LIGHTSENSE_DAY_THRESHOLD 400
+#define LS_LIGHTSENSE_NIGHT_THRESHOLD 200
 #define LS_LIGHTSENSE_READING_INTERVAL_MS 4000
 #define LS_LIGHTSENSE_READINGS_TO_SWITCH 4 
 
