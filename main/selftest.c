@@ -98,28 +98,24 @@ void selftest_event_handler(ls_event event)
     case LSEVT_LIGHT_NIGHT:
         ls_buzzer_effect(LS_BUZZER_PLAY_SLEEP);
         break;
-    case LSEVT_CONTROLS_CONNECTED:
+    case LSEVT_CONTROLS_UPPER:
+    case LSEVT_CONTROLS_LOWER:
+    case LSEVT_CONTROLS_BOTH:
         ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_ENTER);
         break;
-    case LSEVT_CONTROLS_DISCONNECTED:
+    case LSEVT_CONTROLS_OFF:
         ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_LEAVE);
         break;
-    case LSEVT_CONTROLS_SPEED:
+    case LSEVT_CONTROLS_SLIDER1:
         if (!ls_buzzer_in_use())
         {
             ls_buzzer_tone(_map(*event_value, LS_CONTROLS_READING_BOTTOM, LS_CONTROLS_READING_TOP, 1000, 2000));
         }
         break;
-    case LSEVT_CONTROLS_TOPANGLE:
+    case LSEVT_CONTROLS_SLIDER2:
         if (!ls_buzzer_in_use())
         {
             ls_buzzer_tone(_map(*event_value, LS_CONTROLS_READING_BOTTOM, LS_CONTROLS_READING_TOP, 2000, 4000));
-        }
-        break;
-    case LSEVT_CONTROLS_BOTTOMANGLE:
-        if (!ls_buzzer_in_use())
-        {
-            ls_buzzer_tone(_map(*event_value, LS_CONTROLS_READING_BOTTOM, LS_CONTROLS_READING_TOP, 500, 1000));
         }
         break;
     case LSEVT_TILT_DETECTED:
