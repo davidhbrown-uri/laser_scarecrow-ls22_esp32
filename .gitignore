@@ -63,3 +63,7 @@ sdkconfig.old
 
 # End of https://www.toptal.com/developers/gitignore/api/c++,visualstudiocode
 .VSCodeCounter/
+
+# Eclipse IDE files
+.project
+.cproject
