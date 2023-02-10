@@ -45,6 +45,7 @@
 #include "servo.h"
 #include "settings.h"
 #include "i2c.h"
+#include "tmc2209.h"
 
 SemaphoreHandle_t adc1_mux = NULL;
 SemaphoreHandle_t adc2_mux = NULL;
@@ -112,6 +113,7 @@ void app_main(void)
     ls_state_init();
     // do not set magnet ISR up before event queue
     ls_magnet_isr_begin();
+    ls_tmc2209_init();
 
     printf("Initialized queues / semaphores / IRQs\n");
 

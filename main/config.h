@@ -67,8 +67,9 @@ gpio_num_t lsgpio_servopulse(void);
 #define LSGPIO_REFLECTANCEENABLE 27
 #define LSGPIO_STEPPERDIRECTION 19
 #define LSGPIO_STEPPERSTEP 18
-#define LSGPIO_STEPPERTXRX 23
-// STEPPER_TXRX is STEPPER_ENABLE in EN-Diag mode
+#define LSGPIO_STEPPERTX 23
+// STEPPER_TX is STEPPER_ENABLE in EN-Diag mode
+#define LSGPIO_STEPPERRX 0
 #define LSGPIO_STEPPERENABLE 23
 // Stepper TMC2209 is enabled when pin is brought low
 #define STEPPERENABLE_ENABLE 0
