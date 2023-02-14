@@ -74,6 +74,8 @@ gpio_num_t lsgpio_servopulse(void);
 // Stepper TMC2209 is enabled when pin is brought low
 #define STEPPERENABLE_ENABLE 0
 #define STEPPERENABLE_DISABLE 1
+// For UART control
+#define LSGPIO_STEPPER_UART UART_NUM_2
 
 // PWM output (LEDC)
 #define LSGPIO_SERVOPULSE 33

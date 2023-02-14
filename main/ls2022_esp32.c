@@ -16,17 +16,26 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 #define VERSION_MESSAGE "URI Laser Scarecrow 2023 version 1.3.0 (Jan 27, 2023)\n"
+// C includes
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-// FreeRTOS.h defines bool type
+// FreeRTOS includes -- FreeRTOS.h defines bool type
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
 #include "freertos/semphr.h"
+// ESP-IDF includes
 #include "driver/gpio.h"
 #include "driver/timer.h"
 #include "esp_adc_cal.h"
+// globals
+SemaphoreHandle_t adc1_mux = NULL;
+SemaphoreHandle_t adc2_mux = NULL;
+SemaphoreHandle_t i2c_mux = NULL;
+SemaphoreHandle_t print_mux = NULL;
+
+// LaserScarecrow includes 
 #include "config.h"
 #include "debug.h"
 #include "init.h"
@@ -47,10 +56,6 @@
 #include "i2c.h"
 #include "tmc2209.h"
 
-SemaphoreHandle_t adc1_mux = NULL;
-SemaphoreHandle_t adc2_mux = NULL;
-SemaphoreHandle_t i2c_mux = NULL;
-SemaphoreHandle_t print_mux = NULL;
 
 static esp_adc_cal_characteristics_t *adc_chars;
 
