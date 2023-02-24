@@ -53,9 +53,9 @@ extern SemaphoreHandle_t print_mux; // in ls2022_esp32.c
 
 //#define LSDEBUG_HOMING
 
-//#define LSDEBUG_STATES
+#define LSDEBUG_STATES
 
-#define LSDEBUG_CONTROLS
+//#define LSDEBUG_CONTROLS
 
 //#define LSDEBUG_TAPEMODE
 

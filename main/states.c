@@ -34,6 +34,7 @@
 #include "util.h"
 #include "controls.h"
 #include "coverage.h"
+#include "leds.h"
 
 extern SemaphoreHandle_t print_mux;
 extern QueueHandle_t ls_event_queue;
@@ -215,6 +216,8 @@ ls_State ls_state_prelaserwarn(ls_event event)
         _ls_state_prelaserwarn_buzzer_complete = false;
         _ls_state_prelaserwarn_movement_complete = false;
         _ls_state_prelaserwarn_rotation_count = 0;
+        ls_leds_cycle(LEDCYCLE_WARNING);
+
         while (ls_buzzer_in_use() || ls_stepper_is_moving())
         {
             vTaskDelay(1);
@@ -250,6 +253,7 @@ ls_State ls_state_prelaserwarn(ls_event event)
     }
     if (_ls_state_prelaserwarn_buzzer_complete && _ls_state_prelaserwarn_movement_complete)
     {
+        ls_leds_off();
         if (NULL == _ls_state_prelaserwarn_successor)
         {
             _ls_state_prelaserwarn_successor = ls_state_active; // default
@@ -277,6 +281,7 @@ ls_State ls_state_active(ls_event event)
         ls_stepper_set_maximum_steps_per_second(ls_settings_get_stepper_speed());
         ls_stepper_random();
         ls_servo_random();
+        ls_leds_off();
         ls_coverage_task_handle = NULL;
 
         if (ls_map_get_status() == LS_MAP_STATUS_OK)
@@ -458,6 +463,7 @@ ls_State ls_state_settings_upper(ls_event event)
         ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION * 5 / 4);
         ls_servo_sweep();
         ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_ENTER);
+        ls_leds_cycle(LEDCYCLE_CONTROLS_UPPER);
         break;
     case LSEVT_STEPPER_FINISHED_MOVE:
         ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION * 5 / 4);
@@ -534,6 +540,7 @@ ls_State ls_state_settings_lower(ls_event event)
         ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION * 5 / 4);
         ls_servo_sweep();
         ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_ENTER);
+        ls_leds_cycle(LEDCYCLE_CONTROLS_LOWER);
         break;
     case LSEVT_STEPPER_FINISHED_MOVE:
         ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION * 5 / 4);
@@ -617,6 +624,7 @@ ls_State ls_state_settings_both(ls_event event)
         ls_stepper_sleep();
         ls_servo_off();
         ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_ENTER);
+        ls_leds_cycle(LEDCYCLE_CONTROLS_BOTH);
         break;
 
     case LSEVT_CONTROLS_SLIDER1: // light threshold
@@ -697,6 +705,7 @@ ls_State ls_state_sleep(ls_event event)
         ls_laser_set_mode_off();
         ls_servo_off();
         ls_stepper_forward(1);
+        ls_leds_off();
         break;
     case LSEVT_STEPPER_FINISHED_MOVE:
         // the magnet sensor includes an LED which could pointlessly drain power during sleep
@@ -717,6 +726,8 @@ ls_State ls_state_sleep(ls_event event)
         successor.func = ls_state_wakeup;
         break;
     case LSEVT_NOOP: // snore (?)
+        ls_leds_cycle(LEDCYCLE_SLEEP);
+
         for (int i = 0; i < 20; i++)
         {
             ls_buzzer_effect(LS_BUZZER_CLICK);
@@ -727,6 +738,7 @@ ls_State ls_state_sleep(ls_event event)
             ls_buzzer_effect(LS_BUZZER_CLICK);
             vTaskDelay(1 + i / 3);
         }
+        ls_leds_off();
         for (int i = 0; i < 40; i++)
         {
             if (ls_event_queue_has_messages())
@@ -735,6 +747,7 @@ ls_State ls_state_sleep(ls_event event)
             }
             vTaskDelay(pdMS_TO_TICKS(1000));
         }
+
         ls_event_enqueue_noop_if_queue_empty();
         break;
     case LSEVT_CONTROLS_UPPER:
