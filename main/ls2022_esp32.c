@@ -45,6 +45,7 @@
 #include "servo.h"
 #include "settings.h"
 #include "i2c.h"
+#include "leds.h"
 
 SemaphoreHandle_t adc1_mux = NULL;
 SemaphoreHandle_t adc2_mux = NULL;
@@ -94,6 +95,8 @@ void app_main(void)
     esp_adc_cal_value_t val_type = esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_11db, ADC_WIDTH_12Bit, 1100, adc_chars);
     print_char_val_type(val_type);
     check_efuse();
+    ls_leds_init();
+
     printf("Initialized Hardware\n");
     ls_settings_set_defaults();
     ls_settings_read();
@@ -112,7 +115,6 @@ void app_main(void)
     ls_state_init();
     // do not set magnet ISR up before event queue
     ls_magnet_isr_begin();
-
     printf("Initialized queues / semaphores / IRQs\n");
 
 #ifdef LS_TEST_SPANNODE
@@ -133,6 +135,7 @@ void app_main(void)
     // lowest priority (1-9)
     xTaskCreate(&ls_tilt_task, "tilt_task", configMINIMAL_STACK_SIZE * 3, NULL, 7, NULL);
     xTaskCreate(&ls_buzzer_handler_task, "buzzer_handler", configMINIMAL_STACK_SIZE * 2, NULL, 5, NULL);
+    xTaskCreate(&ls_leds_handler_task, "leds_handler", configMINIMAL_STACK_SIZE * 2, NULL, 5, NULL);
     xTaskCreate(&ls_servo_task, "servo_task", configMINIMAL_STACK_SIZE * 3, NULL, 3, NULL);
 //    xTaskCreate(&ls_coverage_task, "coverage_task", configMINIMAL_STACK_SIZE * 3, NULL, 2, NULL); // cannot do before map is ready
     xTaskCreate(&ls_lightsense_read_task, "lightsense_read", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
@@ -146,7 +149,6 @@ void app_main(void)
 #ifdef LSDEBUG_COVERAGE_MEASURE
     xTaskCreate(&ls_coverage_debug_task, "coverage_debug", configMINIMAL_STACK_SIZE * 3, NULL, 2, NULL);
 #endif
-
 
     xSemaphoreTake(print_mux, portMAX_DELAY);
     printf("app_main() has finished.\n");

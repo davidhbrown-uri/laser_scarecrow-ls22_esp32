@@ -24,6 +24,7 @@
 #include "laser.h"
 #include "tape.h"
 #include "tapemode.h"
+#include "leds.h"
 
 int _selftest_stepper_behavior_sequence = 0;
 void _selftest_stepper_behavior(void)
@@ -105,14 +106,17 @@ void selftest_event_handler(ls_event event)
         break;
     case LSEVT_CONTROLS_OFF:
         ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_LEAVE);
+        ls_leds_off();
         break;
     case LSEVT_CONTROLS_SLIDER1:
+        ls_leds_rgb(_constrain(_map(*event_value, LS_CONTROLS_READING_BOTTOM, LS_CONTROLS_READING_TOP, 255, 0), 0, 255),  _constrain(_map(*event_value, LS_CONTROLS_READING_BOTTOM, LS_CONTROLS_READING_TOP, 0, 255), 0, 255), 0);
         if (!ls_buzzer_in_use())
         {
             ls_buzzer_tone(_map(*event_value, LS_CONTROLS_READING_BOTTOM, LS_CONTROLS_READING_TOP, 1000, 2000));
         }
         break;
     case LSEVT_CONTROLS_SLIDER2:
+        ls_leds_rgb(0,  _constrain(_map(*event_value, LS_CONTROLS_READING_BOTTOM, LS_CONTROLS_READING_TOP, 255, 0),0,255),  _constrain(_map(*event_value, LS_CONTROLS_READING_BOTTOM, LS_CONTROLS_READING_TOP, 0, 255), 0, 255));
         if (!ls_buzzer_in_use())
         {
             ls_buzzer_tone(_map(*event_value, LS_CONTROLS_READING_BOTTOM, LS_CONTROLS_READING_TOP, 2000, 4000));
