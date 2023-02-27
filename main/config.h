@@ -84,6 +84,7 @@ gpio_num_t lsgpio_servopulse(void);
 #define LSI2C_FREQ_HZ 100000
 
 // https://github.com/JSchaenzle/ESP32-NeoPixel-WS2812-RMT/blob/master/Kconfig
+// --- use menuconfig to set, but be sure the Kconfig file correctly labels the parameters!
 // #define CONFIG_WS2812_NUM_LEDS 3
 // #define CONFIG_WS2812_LED_RMT_TX_GPIO 5
 // #define CONFIG_WS2812_LED_RMT_TX_CHANNEL 0
