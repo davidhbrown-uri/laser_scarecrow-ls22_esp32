@@ -1,5 +1,5 @@
 #include "leds.h"
-#include "ws2812_control.h"
+#include "../components/ESP32-NeoPixel-WS2812-RMT/ws2812_control.h"
 
 static int _ledcycle_off[] = {GRB_OFF};
 ls_ledcycle_t LEDCYCLE_OFF = {1, portMAX_DELAY, 0, _ledcycle_off};
@@ -28,7 +28,7 @@ ls_ledcycle_t LEDCYCLE_STATIC = {1, portMAX_DELAY, 0, _ledcycle_static};
 
 void ls_leds_handler_task(void *pvParameter)
 {
-    struct ws2812_led_state_t ws2812_state;
+    struct led_state ws2812_state;
     for (int i = 0; i < CONFIG_WS2812_NUM_LEDS; i++)
     {
         ws2812_state.leds[i] = GRB_OFF;
