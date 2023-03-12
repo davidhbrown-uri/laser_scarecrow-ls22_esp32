@@ -37,7 +37,7 @@ gpio_num_t lsgpio_servopulse(void);
 
 // Laser Scarecrow GPIO and ADC channel 0 pin usage
 // GPIO => ADC1 channel mapping:
-// 25=>8, 32=> 4, 33=>5, 34=>6, 35=>7, 36=>0, 39=>3 
+// 25=>8, 32=> 4, 33=>5, 34=>6, 35=>7, 36=>0, 39=>3
 // ADC channels
 #define LSGPIO_LIGHTSENSE 36
 #define LSADC1_LIGHTSENSE ADC1_CHANNEL_0
@@ -57,7 +57,6 @@ gpio_num_t lsgpio_servopulse(void);
 #define LSGPIO_SWITCHES 15
 #define LSADC2_SWITCHES ADC2_CHANNEL_3
 
-
 // MAGNETSENSE is digital input (ISR), not ADC
 #define LSGPIO_MAGNETSENSE 4
 // Binary output
@@ -67,7 +66,7 @@ gpio_num_t lsgpio_servopulse(void);
 #define LSGPIO_REFLECTANCEENABLE 27
 #define LSGPIO_STEPPERDIRECTION 19
 #define LSGPIO_STEPPERSTEP 18
-#define LSGPIO_STEPPERTXRX 23
+// #define LSGPIO_STEPPERTXRX 23
 // STEPPER_TXRX is STEPPER_ENABLE in EN-Diag mode
 #define LSGPIO_STEPPERENABLE 23
 // Stepper TMC2209 is enabled when pin is brought low
@@ -94,8 +93,6 @@ gpio_num_t lsgpio_servopulse(void);
 // #define CONFIG_WS2812_T0L 40
 // #define CONFIG_WS2812_T1H 34
 // #define CONFIG_WS2812_T1L 16
-
-
 
 // default parameters for the servo
 #define LS_SERVO_US_MIN 750
@@ -132,21 +129,21 @@ gpio_num_t lsgpio_servopulse(void);
 #define LS_STEPPER_STEPS_PER_SECOND_DEFAULT 2400
 // LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_SECOND will be added or subtracted to the steps per second when accelerating or decelerating
 #define LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_SECOND 8000
-#define LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_TICK ( LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_SECOND / pdMS_TO_TICKS(1000))
+#define LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_TICK (LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_SECOND / pdMS_TO_TICKS(1000))
 
 /*
 2023 dual switch setup with 22k & 10k resistors to 3V3 and 10k to ground
 Initial testing with 2x Cat5 extensions and a 15' outdoor Cat5 cable
 connecting prototype boards (no ADC filter cap)
- [also tested with a 2m patch cord] 
+ [also tested with a 2m patch cord]
 Observed min/max over about 15-20 seconds (6dB attenuator)
 Both off: raw ADC=1237-1247 [1253-1264 (same with only USB power)]
 Upper (22k) on: raw ADC=2192-2202 [2192-2206 (1789-1798 with only USB power)]
 Lower (10k) on: raw ADC= 3039-3046 [3031-3041 (2247-2256 with only USB power)]
 Both (~6.88) on: raw ADC= 3569-3575 [3561-3574 (2498-2506 with only USB power)]
-(Values with only USB power are not really relevant, but mentioned as I'll probably 
+(Values with only USB power are not really relevant, but mentioned as I'll probably
 get confused on occasion when testing/developing the software using USB power only.)
-Suggested inital thresholds for testing; might shift with longer cable and gland resistance: 
+Suggested inital thresholds for testing; might shift with longer cable and gland resistance:
    Off < 1500 < Upper < 2750 < Lower < 3280 < Both
 */
 // values read by ADC from external controls
@@ -215,15 +212,16 @@ LS_CONTROLS_SWITCH_THRESHOLD_BOTH < ADC < 4096 => LS_CONTROLS_STATUS_BOTH;
 #define LS_STATE_REHOME_TIMER_PERIOD_MS 1800000
 #endif
 
-// Thresholds based on sample data recorded in lightsense.h; roughly 40lux on, 20lux off (1000,500) 
+// Thresholds based on sample data recorded in lightsense.h; roughly 40lux on, 20lux off (1000,500)
 // those were with 2022 board's 1M resistor and 11dB attenuator
-// 2023 using 22k resistor and 0dB; thresholds halved relative to 2022's 1M resistor and 11dB 
+// 2023 using 22k resistor and 0dB; thresholds halved relative to 2022's 1M resistor and 11dB
 // use 0dB attenuator to measure low light levels; 11dB to measure high.
+// 5 lux => 75mV; 22 lux => 160mV; 27 lux => 210mV; 50 lux => 400mV 73 lux => 615mV; 94 lux => 770mV
 #define LS_LIGHTSENSE_ADC_ATTEN ADC_ATTEN_DB_0
-#define LS_LIGHTSENSE_DAY_THRESHOLD 400
-#define LS_LIGHTSENSE_NIGHT_THRESHOLD 200
+#define LS_LIGHTSENSE_DAY_THRESHOLD 150
+#define LS_LIGHTSENSE_NIGHT_THRESHOLD 80
 #define LS_LIGHTSENSE_READING_INTERVAL_MS 4000
-#define LS_LIGHTSENSE_READINGS_TO_SWITCH 4 
+#define LS_LIGHTSENSE_READINGS_TO_SWITCH 4
 
 #define LS_TILT_THRESHOLD_DETECTED_MG 890
 #define LS_TILT_THRESHOLD_OK_MG 920

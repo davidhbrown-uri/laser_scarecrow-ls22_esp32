@@ -70,6 +70,7 @@ void selftest_event_handler(ls_event event)
     {
     case LSEVT_STATE_ENTRY:
         ls_servo_jumpto(LS_SERVO_US_MID);
+        ls_leds_cycle(LEDCYCLE_RAINBOW);
         vTaskDelay(pdMS_TO_TICKS(LS_SERVO_SELFTEST_HOLD_MS));
         ls_buzzer_effect(LS_BUZZER_PRE_LASER_WARNING);
         while(ls_buzzer_in_use())
@@ -106,7 +107,7 @@ void selftest_event_handler(ls_event event)
         break;
     case LSEVT_CONTROLS_OFF:
         ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_LEAVE);
-        ls_leds_off();
+        ls_leds_cycle(LEDCYCLE_RAINBOW);
         break;
     case LSEVT_CONTROLS_SLIDER1:
         ls_leds_rgb(_constrain(_map(*event_value, LS_CONTROLS_READING_BOTTOM, LS_CONTROLS_READING_TOP, 255, 0), 0, 255),  _constrain(_map(*event_value, LS_CONTROLS_READING_BOTTOM, LS_CONTROLS_READING_TOP, 0, 255), 0, 255), 0);

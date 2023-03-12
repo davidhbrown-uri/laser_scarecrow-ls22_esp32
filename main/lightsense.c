@@ -49,6 +49,9 @@ static enum ls_lightsense_level_t _ls_lightsense_level_from_adc(uint32_t adc_rea
     return LS_LIGHTSENSE_LEVEL_INDETERMINATE;
 }
 
+/**
+ * Returns value in mv using best available calibration
+*/
 int ls_lightsense_read_adc(adc_atten_t attenuation)
 {
     xSemaphoreTake(adc1_mux, portMAX_DELAY);
@@ -61,8 +64,11 @@ int ls_lightsense_read_adc(adc_atten_t attenuation)
     }
     adc_reading /= 4;
     xSemaphoreGive(adc1_mux);
-    return (int)adc_reading;
+    esp_adc_cal_characteristics_t adc_cal;
+    esp_adc_cal_characterize(ADC_UNIT_1, attenuation, ADC_WIDTH_12Bit, 1100, &adc_cal);
+    return (int) esp_adc_cal_raw_to_voltage(adc_reading, &adc_cal);
 }
+
 /**
  * @brief Set current mode if event can be queued; otherwise let it try again next read
  *
@@ -111,18 +117,20 @@ void ls_lightsense_read_task(void *pvParameter)
     {
         adc_atten_t atten = LS_LIGHTSENSE_ADC_ATTEN;
 #ifdef LSDEBUG_LIGHTSENSE_ATTEN
-        for(atten = ADC_ATTEN_0db; atten < ADC_ATTEN_MAX; atten++) {
+        for (atten = ADC_ATTEN_0db; atten < ADC_ATTEN_MAX; atten++)
+        {
 #endif
-        int adc_reading = ls_lightsense_read_adc(atten);
+            int adc_reading = ls_lightsense_read_adc(atten);
 #ifdef LSDEBUG_LIGHTSENSE_ATTEN
-        if(LS_LIGHTSENSE_ADC_ATTEN == atten) {
+            if (LS_LIGHTSENSE_ADC_ATTEN == atten)
+            {
 #endif
-        levels[level_index] = _ls_lightsense_level_from_adc(adc_reading);
+                levels[level_index] = _ls_lightsense_level_from_adc(adc_reading);
 #ifdef LSDEBUG_LIGHTSENSE_ATTEN
-        }
+            }
 #endif
 #ifdef LSDEBUG_LIGHTSENSE
-        ls_debug_printf("Light sense adc=%d at atten=%d; level=%d\n", adc_reading, atten, (u_int8_t)levels[level_index]);
+            ls_debug_printf("Light sense adc=%dmV at atten=%d; level=%d\n", adc_reading, atten, (u_int8_t)levels[level_index]);
 #endif
 #ifdef LSDEBUG_LIGHTSENSE_ATTEN
         }
@@ -148,7 +156,7 @@ void ls_lightsense_read_task(void *pvParameter)
                 break;
             case LS_LIGHTSENSE_LEVEL_NIGHT:
                 if (ls_lightsense_current_mode() != LS_LIGHTSENSE_MODE_NIGHT ||
-                (ls_state_current.func != ls_state_sleep && ls_state_current.func != ls_state_settings_upper && ls_state_current.func != ls_state_settings_lower && ls_state_current.func != ls_state_settings_both))
+                    (ls_state_current.func != ls_state_sleep && ls_state_current.func != ls_state_settings_upper && ls_state_current.func != ls_state_settings_lower && ls_state_current.func != ls_state_settings_both))
                 {
                     _ls_lightsense_set_mode(LS_LIGHTSENSE_MODE_NIGHT);
                 }

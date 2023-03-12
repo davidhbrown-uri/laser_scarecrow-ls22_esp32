@@ -105,9 +105,9 @@ static void _ls_buzzer_effect_alternate_high(int duration_ms)
 #endif
     for (int i = 0; i < pdMS_TO_TICKS(duration_ms); i += 2)
     {
-        _ls_buzzer_frequency(3100); // resonant frequency of bucket piezo
+        _ls_buzzer_frequency(3100); // resonant frequency of bucket piezo (Adafruit spec)
         vTaskDelay(1);
-        _ls_buzzer_frequency(4000); // resonant frequency of external control piezo
+        _ls_buzzer_frequency(2900); // resonant frequency of external control piezo (PS1720P02 apx from graph)
         vTaskDelay(1);
     }
     ESP_ERROR_CHECK(ledc_stop(BUZZER_SPEED, BUZZER_CHANNEL, 0));

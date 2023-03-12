@@ -66,6 +66,7 @@ void ls_controls_task(void *pvParameter)
     uint8_t switch_reading = 0;
     adc2_channel_t controls_channels[] = {LSADC2_SWITCHES, LSADC2_SLIDER1, LSADC2_SLIDER2};
     adc_atten_t controls_atten[] = {LSADCATTEN_SWITCHES, LSADCATTEN_SLIDER, LSADCATTEN_SLIDER};
+    esp_adc_cal_characteristics_t controls_adc_cal[3];
     uint32_t controls_readings[LS_CONTROLS_TASK_CONTROLS_COUNT];
     bool moved_control[LS_CONTROLS_TASK_CONTROLS_COUNT];
     _ls_controls_task_controls_havent_moved();
@@ -75,6 +76,7 @@ void ls_controls_task(void *pvParameter)
     for (int i = 0; i < LS_CONTROLS_TASK_SWITCH_READINGS; i++)
     {
         switch_readings[i] = LS_CONTROLS_STATUS_INVALID;
+        esp_adc_cal_characterize(ADC_UNIT_1, controls_atten[i], ADC_WIDTH_12Bit, 1100, &controls_adc_cal[i]);
     }
     while (1)
     {
@@ -95,7 +97,7 @@ void ls_controls_task(void *pvParameter)
         xSemaphoreGive(adc2_mux);
 
 #ifdef LSDEBUG_CONTROLS
-        ls_debug_printf("Controls:  switches=%d\t slider1=%d\t slider2=%d\n", controls_readings[0], controls_readings[1], controls_readings[2]);
+        ls_debug_printf("Controls:  switches=%d\t (%dmV) slider1=%d\t slider2=%d\n", controls_readings[0], esp_adc_cal_raw_to_voltage(controls_readings[0], &controls_adc_cal[0]), controls_readings[1], controls_readings[2]);
 #endif
         // update switch status
 
