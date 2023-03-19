@@ -22,8 +22,11 @@
 #include "tapemode.h"
 #include "stepper.h"
 #include "buzzer.h"
+#include "leds.h"
 #include "math.h"
 
+#define LS_MAP_LOWPITCH 1024
+#define LS_MAP_HIGHPITCH 2048
 #define LS_MAP_ENTRIES_REQUIRED (LS_STEPPER_STEPS_PER_ROTATION / 32 / LS_MAP_RESOLUTION)
 static uint32_t IRAM_ATTR _ls_map_data[LS_MAP_ENTRIES_REQUIRED];
 
@@ -305,7 +308,7 @@ void _ls_state_map_build_read_and_set_map(int *enable_count, int *disable_count,
     case LS_TAPEMODE_BLACK:
     case LS_TAPEMODE_BLACK_SAFE:
         pitch = _map(_constrain(raw_adc, LS_REFLECTANCE_ADC_MAX_WHITE_BUCKET, LS_REFLECTANCE_ADC_MIN_BLACK_TAPE),
-                     LS_REFLECTANCE_ADC_MAX_WHITE_BUCKET, LS_REFLECTANCE_ADC_MIN_BLACK_TAPE, 1024, 2048);
+                     LS_REFLECTANCE_ADC_MAX_WHITE_BUCKET, LS_REFLECTANCE_ADC_MIN_BLACK_TAPE, LS_MAP_LOWPITCH, LS_MAP_HIGHPITCH);
         ;
         if (raw_adc <= LS_REFLECTANCE_ADC_MAX_WHITE_BUCKET)
         {
@@ -319,7 +322,7 @@ void _ls_state_map_build_read_and_set_map(int *enable_count, int *disable_count,
     case LS_TAPEMODE_REFLECT:
     case LS_TAPEMODE_REFLECT_SAFE:
         pitch = _map(_constrain(raw_adc, LS_REFLECTANCE_ADC_MAX_SILVER_TAPE, LS_REFLECTANCE_ADC_MIN_BLACK_BUCKET),
-                     LS_REFLECTANCE_ADC_MIN_BLACK_BUCKET, LS_REFLECTANCE_ADC_MAX_SILVER_TAPE, 1024, 2048);
+                     LS_REFLECTANCE_ADC_MIN_BLACK_BUCKET, LS_REFLECTANCE_ADC_MAX_SILVER_TAPE, LS_MAP_LOWPITCH, LS_MAP_HIGHPITCH);
         if (raw_adc >= LS_REFLECTANCE_ADC_MIN_BLACK_BUCKET)
         {
             reading = LS_STATE_MAP_READING_ENABLE;
@@ -333,6 +336,7 @@ void _ls_state_map_build_read_and_set_map(int *enable_count, int *disable_count,
         // we are ignoring the map, so why are we building a map?
         reading = LS_STATE_MAP_READING_ENABLE;
     }
+    ls_leds_rgb(_map(pitch, LS_MAP_LOWPITCH, LS_MAP_HIGHPITCH, 0, 192), _map(pitch, LS_MAP_LOWPITCH, LS_MAP_HIGHPITCH, 0, 128), _map(pitch, LS_MAP_LOWPITCH, LS_MAP_HIGHPITCH, 255, 0));
     ls_buzzer_tone(pitch);
     switch (reading)
     {

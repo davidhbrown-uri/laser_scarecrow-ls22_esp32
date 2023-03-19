@@ -49,13 +49,13 @@ extern SemaphoreHandle_t print_mux; // in ls2022_esp32.c
 //#define LSDEBUG_COVERAGE_MEASURE
 
 // caution: debugging acceleration is exceptionally verbose
-//#define LSDEBUG_ACCELERATION
+#define LSDEBUG_ACCELERATION
 
 //#define LSDEBUG_HOMING
 
 //#define LSDEBUG_STATES
 
-#define LSDEBUG_CONTROLS
+//#define LSDEBUG_CONTROLS
 
 //#define LSDEBUG_TAPEMODE
 
@@ -63,8 +63,8 @@ extern SemaphoreHandle_t print_mux; // in ls2022_esp32.c
 
 //#define LSDEBUG_MAP
 
-#define LSDEBUG_LIGHTSENSE
-#define LSDEBUG_LIGHTSENSE_ATTEN
+//#define LSDEBUG_LIGHTSENSE
+//#define LSDEBUG_LIGHTSENSE_ATTEN
 
 //#define LSDEBUG_SERVO
 

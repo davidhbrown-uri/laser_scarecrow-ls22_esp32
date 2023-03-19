@@ -19,6 +19,7 @@
 #include "states.h"
 #include "freertos/semphr.h"
 #include "freertos/timers.h"
+#include "esp_log.h"
 #include "stepper.h"
 #include "servo.h"
 #include "buzzer.h"
@@ -36,10 +37,16 @@
 #include "coverage.h"
 #include "leds.h"
 
+//static const char* TAG = "LS States"; // for ESP logging                                                                                                                       
+
 extern SemaphoreHandle_t print_mux;
 extern QueueHandle_t ls_event_queue;
 
 static TaskHandle_t ls_coverage_task_handle;
+
+
+#define LEDCYCLE_HOMING LEDCYCLE_RAINBOW
+#define LEDCYCLE_HOMING_FAIL LEDCYCLE_RED_FLASH
 
 TimerHandle_t _ls_state_rehome_timer;
 
@@ -390,6 +397,7 @@ ls_State ls_state_home(ls_event event)
     switch (event.type)
     {
     case LSEVT_STATE_ENTRY:
+        ls_leds_cycle(LEDCYCLE_HOMING);
         ls_substate_home_init();
         ls_event_enqueue_noop();
         break;
@@ -425,6 +433,10 @@ ls_State ls_state_home(ls_event event)
         break;
     default:
         ls_substate_home_handle_event(event);
+    }
+    if(successor.func != ls_state_home)
+    {
+        ls_leds_off();
     }
     return successor;
 }
@@ -955,6 +967,7 @@ ls_State ls_state_error_home(ls_event event)
 {
     _ls_state_everything_off();
     ls_State successor;
+    ls_leds_cycle(LEDCYCLE_HOMING_FAIL);
     successor.func = ls_state_error_home;
 #ifdef LSDEBUG_HOMING
     xSemaphoreTake(print_mux, portMAX_DELAY);

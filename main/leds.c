@@ -27,6 +27,11 @@ ls_ledcycle_t LEDCYCLE_CONTROLS_BOTH = {10, pdMS_TO_TICKS(200), 0, _ledcycle_con
 static int _ledcycle_static[] = {GRB_OFF};
 ls_ledcycle_t LEDCYCLE_STATIC = {1, portMAX_DELAY, 0, _ledcycle_static};
 
+static int _ledcycle_red_flash[] = {0x0F00, 0x7F00, 0xFF00, 0xFF00, 0x7F00, 0x0F00, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,0,0,0,0,0,0,0,0,0};
+ls_ledcycle_t LEDCYCLE_RED_FLASH = {30, pdMS_TO_TICKS(100), 3, _ledcycle_red_flash};
+
+
+
 void ls_leds_handler_task(void *pvParameter)
 {
     struct led_state ws2812_state;
