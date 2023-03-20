@@ -576,9 +576,21 @@ void ls_stepper_random_move_within_current_span(struct ls_stepper_move_t *move)
                     span->begin, span->end,
                     fwd_per_255 * 100 / 255, min_steps, max_steps);
 #endif
+    uint32_t target = (move->direction ? ls_stepper_get_position() + move->steps : ls_stepper_get_position() - move->steps) % LS_STEPPER_STEPS_PER_ROTATION;
+    if (!ls_map_is_enabled_at(target)) {
+#ifdef LSDEBUG_STEPPER_RANDOM
+    ls_debug_printf("RS_MapSpans: DISABLED TARGET at %d\n", target);
+#endif
+    }
 }
 
-void ls_stepper_random_move_within_new_span(struct ls_stepper_move_t *move, struct ls_map_SpanNode *span)
+// uint32_t ls_stepper_random_target_after_skip(uint32_t disabled_target, ls_stepper_direction direction)
+// {
+//     struct ls_map_SpanNode *span = ls_map_span_next(disabled_target, direction, ls_map_span_first);
+
+// }
+
+int32_t ls_stepper_random_target_within_span(struct ls_map_SpanNode *span)
 {
     int32_t span_length = _ls_map_span_length(span);
     // int32_t target = (span->begin + (span_length * (255-_ls_stepper_random_reverse_per255) / 255)) ;
@@ -593,6 +605,12 @@ void ls_stepper_random_move_within_new_span(struct ls_stepper_move_t *move, stru
     // int32_t target = next_span->begin + (random >> 16) * span_length / 65536; // any point within span
     //  constrain to 0..STEPS_PER_ROTATION
     target = target % LS_STEPPER_STEPS_PER_ROTATION;
+    return target;    
+}
+
+void ls_stepper_random_move_within_new_span(struct ls_stepper_move_t *move, struct ls_map_SpanNode *span)
+{
+    int32_t target = ls_stepper_random_target_within_span(span);
     int32_t steps = target - ls_stepper_get_position();
     move->direction = steps < 0 ? LS_STEPPER_DIRECTION_REVERSE : LS_STEPPER_DIRECTION_FORWARD;
     move->steps = abs(steps);

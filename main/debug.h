@@ -37,10 +37,10 @@ extern SemaphoreHandle_t print_mux; // in ls2022_esp32.c
 // Uncomment any desired classes of debug output to enable output via ls_debug_printf
 
 // output information about beginning and ends of moves
-//#define LSDEBUG_STEPPER
+#define LSDEBUG_STEPPER
 
 // output (less) about selection of random movement targets
-//#define LSDEBUG_STEPPER_RANDOM
+#define LSDEBUG_STEPPER_RANDOM
 
 //#define LSDEBUG_COVERAGE
 // LSDEBUG_COVERAGE_POSITIONS outputs most recent list whenever the ring buffer cycled 
@@ -49,7 +49,7 @@ extern SemaphoreHandle_t print_mux; // in ls2022_esp32.c
 //#define LSDEBUG_COVERAGE_MEASURE
 
 // caution: debugging acceleration is exceptionally verbose
-#define LSDEBUG_ACCELERATION
+//#define LSDEBUG_ACCELERATION
 
 //#define LSDEBUG_HOMING
 
