@@ -555,42 +555,7 @@ struct ls_map_SpanNode *ls_map_span_next(ls_stepper_position_t step, enum ls_ste
     return starting_span;
 }
 
-void ls_stepper_random_move_within_current_span(struct ls_stepper_move_t *move)
-{
-    struct ls_map_SpanNode *span = _ls_map_span_at(ls_stepper_get_position(), ls_map_span_first);
-    int32_t span_length = _ls_map_span_length(span);
-    uint32_t random = esp_random();
-    uint32_t min_steps = 1 + span_length / 20;
-    int32_t span_percent = 100 * span_length / _ls_map_all_spans_total_steps;
-    // steps of half the span length cover a single span well but favor shorter spans
-    // increasing max_steps for shorter spans should avoid this bias
-    // max steps: 100% span => 0.5x; 50% span => 0.57x; 20% span => .63x
-    uint32_t max_steps = span_length * 100 / (150 + span_percent / 2);
-    // on longer spans, we want a forward bias to avoid getting "stuck" for too long
-    uint8_t fwd_per_255 = (127 + (25 - span_percent / 4));
-    move->direction = ((uint8_t)random & 0xFF) > fwd_per_255 ? false : true;
-    move->steps = min_steps + ((random >> 16) * (max_steps - min_steps) / 65536);
-#ifdef LSDEBUG_STEPPER_RANDOM
-    ls_debug_printf("RS_MapSpans: moving %s%d within span [%d..%d] -- %d%% fwd; %d-%d step range; \n",
-                    (move->direction ? "+" : "-"), move->steps,
-                    span->begin, span->end,
-                    fwd_per_255 * 100 / 255, min_steps, max_steps);
-#endif
-    uint32_t target = (move->direction ? ls_stepper_get_position() + move->steps : ls_stepper_get_position() - move->steps) % LS_STEPPER_STEPS_PER_ROTATION;
-    if (!ls_map_is_enabled_at(target)) {
-#ifdef LSDEBUG_STEPPER_RANDOM
-    ls_debug_printf("RS_MapSpans: DISABLED TARGET at %d\n", target);
-#endif
-    }
-}
-
-// uint32_t ls_stepper_random_target_after_skip(uint32_t disabled_target, ls_stepper_direction direction)
-// {
-//     struct ls_map_SpanNode *span = ls_map_span_next(disabled_target, direction, ls_map_span_first);
-
-// }
-
-int32_t ls_stepper_random_target_within_span(struct ls_map_SpanNode *span)
+ls_stepper_position_t ls_stepper_random_target_within_span(struct ls_map_SpanNode *span)
 {
     int32_t span_length = _ls_map_span_length(span);
     // int32_t target = (span->begin + (span_length * (255-_ls_stepper_random_reverse_per255) / 255)) ;
@@ -601,24 +566,68 @@ int32_t ls_stepper_random_target_within_span(struct ls_map_SpanNode *span)
     //     / (((uint8_t)random & 0xFF) > _ls_stepper_random_reverse_per255 ? -2 : 2);
     // favor edges by squaring the span_length when selecting an offset from the middle??
     double rand0to1 = pow((double)(random >> 16) / 65536.0, 0.5);
-    int32_t target = (span->begin + span_length / 2) + (random & 1 ? 1 : -1) * (int32_t)floor((double)span_length / 2.0 * rand0to1);
+    ls_stepper_position_t target = (span->begin + span_length / 2) + (random & 1 ? 1 : -1) * (int32_t)floor((double)span_length / 2.0 * rand0to1);
     // int32_t target = next_span->begin + (random >> 16) * span_length / 65536; // any point within span
     //  constrain to 0..STEPS_PER_ROTATION
     target = target % LS_STEPPER_STEPS_PER_ROTATION;
     return target;    
 }
 
+void ls_stepper_random_move_within_current_span(struct ls_stepper_move_t *move)
+{
+    ls_stepper_position_t current_position = ls_stepper_get_position();
+    struct ls_map_SpanNode *span = _ls_map_span_at(current_position, ls_map_span_first);
+    int32_t span_length = _ls_map_span_length(span);
+    uint32_t random = esp_random();
+    uint32_t min_steps = 1 + span_length / 20;
+    int32_t span_percent = 100 * span_length / _ls_map_all_spans_total_steps;
+    // steps of half the span length cover a single span well but favor shorter spans
+    // increasing max_steps for shorter spans should avoid this bias
+    // max steps: 100% span => 0.5x; 50% span => 0.57x; 20% span => .63x
+    uint32_t max_steps = span_length * 100 / (150 + span_percent / 2);
+    // on longer spans, we want a forward bias to avoid getting "stuck" for too long
+    uint8_t fwd_per_255 = (127 + (25 - span_percent / 4));
+    move->direction = ((uint8_t)random & 0xFF) > fwd_per_255 ? LS_STEPPER_DIRECTION_REVERSE : LS_STEPPER_DIRECTION_FORWARD;
+    move->steps = min_steps + ((random >> 16) * (max_steps - min_steps) / 65536);
+#ifdef LSDEBUG_STEPPER_RANDOM
+    ls_debug_printf("RS_MapSpans: moving %s%d within span [%d..%d] -- %d%% fwd; %d-%d step range; \n",
+                    (move->direction==LS_STEPPER_DIRECTION_FORWARD ? "+" : "-"), move->steps,
+                    span->begin, span->end,
+                    fwd_per_255 * 100 / 255, min_steps, max_steps);
+#endif
+    ls_stepper_position_t target = ls_stepper_position_constrained(move->direction==LS_STEPPER_DIRECTION_FORWARD ? ls_stepper_get_position() + move->steps : ls_stepper_get_position() - move->steps);
+    if (!ls_map_is_enabled_at(target)) {
+#ifdef LSDEBUG_STEPPER_RANDOM
+    ls_debug_printf("RS_MapSpans: DISABLED TARGET at %d\n", target);
+#endif
+        struct ls_map_SpanNode *new_span = ls_map_span_next(target, move->direction, ls_map_span_first);
+        int32_t new_target = ls_stepper_random_target_within_span(new_span);
+        int32_t additional_steps = abs(new_target-target);
+        move->steps+=additional_steps;
+#ifdef LSDEBUG_STEPPER_RANDOM
+    ls_debug_printf("RS_MapSpans: NEW TARGET at %d; steps increased by %d to %d\n", new_target, additional_steps, move->steps);
+#endif
+    }
+}
+
 void ls_stepper_random_move_within_new_span(struct ls_stepper_move_t *move, struct ls_map_SpanNode *span)
 {
-    int32_t target = ls_stepper_random_target_within_span(span);
+    ls_stepper_position_t target = ls_stepper_random_target_within_span(span);
     int32_t steps = target - ls_stepper_get_position();
     move->direction = steps < 0 ? LS_STEPPER_DIRECTION_REVERSE : LS_STEPPER_DIRECTION_FORWARD;
     move->steps = abs(steps);
 #ifdef LSDEBUG_STEPPER_RANDOM
-    ls_debug_printf("RS_MapSpans: Laser disabled at end of random move; moving to %d in next span (%d..%d)\n", target, span->begin, span->end);
+    ls_debug_printf("RS_MapSpans: Laser SHOULD NOT HAVE BEEN disabled at end of random move; moving to %d in next span (%d..%d)\n", target, span->begin, span->end);
 #endif
 }
 
+/**
+ * The logic has been improved here so that ls_stepper_random_move_within_current_span() will check to see whether the target is 
+ * enabled and if not, extend the move to the position that would be selected by ls_stepper_random_move_within_new_span();
+ * this allows great acceleration as it avoids stopping at the disabled position. 
+ * 
+ * 
+*/
 void ls_stepper_random_strategy_map_spans(struct ls_stepper_move_t *move)
 {
     // if still in a span after move, do a random relative move

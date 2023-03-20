@@ -77,6 +77,15 @@ static int _ls_stepper_steps_to_decelerate(int current_rate)
            10;                                                                                // 'c' constant term for steps left over after steps delta has been removed each time (3600 is not divisible by 800)
 }
 
+ls_stepper_position_t ls_stepper_position_constrained(ls_stepper_position_t position)
+{
+    position = position % LS_STEPPER_STEPS_PER_ROTATION;
+    if(position < 0) {
+        position += LS_STEPPER_STEPS_PER_ROTATION;
+    }
+    return position;
+}
+
 void ls_stepper_set_maximum_steps_per_second(int steps_per_second)
 {
 #ifdef LSDEBUG_STEPPER

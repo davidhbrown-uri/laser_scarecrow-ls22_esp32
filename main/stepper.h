@@ -90,6 +90,8 @@ void ls_stepper_set_random_reverse_per255(uint8_t value);
 
 void ls_stepper_set_maximum_steps_per_second(int);
 
+ls_stepper_position_t ls_stepper_position_constrained(ls_stepper_position_t position);
+
 #ifdef LSDEBUG_STEPPER
 void ls_stepper_debug_task(void *pvParameter);
 #endif
