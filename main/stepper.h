@@ -57,7 +57,7 @@ struct ls_stepper_move_t ls_stepper_move;
 
 QueueHandle_t ls_stepper_queue;
 // A4988 datasheet gives decay mode and other information while DIR=H, so make FORWARD==1
-enum ls_stepper_direction {LS_STEPPER_DIRECTION_REVERSE, LS_STEPPER_DIRECTION_FORWARD} ls_stepper_direction;
+enum ls_stepper_direction {LS_STEPPER_DIRECTION_REVERSE, LS_STEPPER_DIRECTION_FORWARD} IRAM_ATTR ls_stepper_direction;
 
 // don't need 32 bits, but IRAM read/write must be 32-bit
 static IRAM_ATTR volatile ls_stepper_position_t ls_stepper_position;
