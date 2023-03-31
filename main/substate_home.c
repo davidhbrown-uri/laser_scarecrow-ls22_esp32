@@ -21,11 +21,15 @@
 #include "substate_home.h"
 #include "stepper.h"
 #include "buzzer.h"
+#ifdef LSDEBUG_HOMING
+#include "stepper.h"
+#endif
 
 extern QueueHandle_t ls_event_queue;
 extern SemaphoreHandle_t print_mux;
 
 #define LS_HOME_SUBSTATE_ROTATIONS_ALLOWED 3
+#define LS_HOME_SUBSTATE_ATTEMPTS_ALLOWED 3
 
 enum
 {
@@ -37,29 +41,56 @@ enum
     LS_HOME_SUBSTATE_WAIT_FOR_STOP,       // 5
 } _ls_substate_home_substate_phase;
 
+// attempts is for the entire homing process
+static int _ls_substate_home_attempts_remaining = 0;
+// tries is for each substate
 static int _ls_substate_home_tries_remaining = 0;
 static bool _ls_substate_home_phase_successful = false;
 
 static void ls_substate_home_failed(void)
 {
-    _ls_substate_home_substate_phase = LS_HOME_SUBSTATE_FAILED;
+    ls_buzzer_effect(LS_BUZZER_PLAY_HOME_FAIL);
     ls_event event;
-    event.type = LSEVT_HOME_FAILED;
     event.value = NULL;
+    _ls_substate_home_attempts_remaining--;
+#ifdef LSDEBUG_HOMING
+    xSemaphoreTake(print_mux, portMAX_DELAY);
+    printf("!! Homing failed; %d attempt(s) remain\n", _ls_substate_home_attempts_remaining);
+    xSemaphoreGive(print_mux);
+#endif
+    if (_ls_substate_home_attempts_remaining > 0)
+    { // try again
+        event.type = LSEVT_NOOP;
+        _ls_substate_home_substate_phase = LS_HOME_SUBSTATE_WAIT_FOR_STOP;
+    }
+    else
+    { // failed too many times
+        event.type = LSEVT_HOME_FAILED;
+        _ls_substate_home_substate_phase = LS_HOME_SUBSTATE_FAILED;
+    }
     xQueueSendToFront(ls_event_queue, (void *)&event, 0);
 }
 static void ls_substate_home_completed(void)
 {
-    _ls_substate_home_substate_phase = LS_HOME_SUBSTATE_COMPLETE;
     ls_event event;
-    event.type = LSEVT_HOME_COMPLETED;
+    // do once only;
+    if (_ls_substate_home_substate_phase != LS_HOME_SUBSTATE_COMPLETE)
+    {
+        _ls_substate_home_substate_phase = LS_HOME_SUBSTATE_COMPLETE;
+        event.type = LSEVT_HOME_COMPLETED;
+        ls_buzzer_effect(LS_BUZZER_PLAY_HOME_SUCCESS);
+    }
+    else // if already complete only enqueue a noop
+    {
+        event.type = LSEVT_NOOP;
+    }
     event.value = NULL;
     xQueueSendToFront(ls_event_queue, (void *)&event, 0);
-    ls_buzzer_effect(LS_BUZZER_PLAY_HOME_SUCCESS);
 }
 
 void ls_substate_home_init(void)
 {
+    _ls_substate_home_attempts_remaining = LS_HOME_SUBSTATE_ATTEMPTS_ALLOWED;
     _ls_substate_home_substate_phase = LS_HOME_SUBSTATE_WAIT_FOR_STOP;
     ls_event_enqueue_noop();
 }
@@ -142,10 +173,16 @@ static void _ls_substate_home_handle_backup_past_magnet(ls_event event)
     {
     case LSEVT_MAGNET_LEAVE:
         _ls_substate_home_phase_successful = true;
+#ifdef LSDEBUG_HOMING
+        xSemaphoreTake(print_mux, portMAX_DELAY);
+        printf("Homing backed out of magnet area at position %d... wait a couple hundred ms before stopping\n", (int)ls_stepper_get_position());
+        xSemaphoreGive(print_mux);
+#endif
+        vTaskDelay((pdMS_TO_TICKS(200)));
         ls_stepper_stop();
 #ifdef LSDEBUG_HOMING
         xSemaphoreTake(print_mux, portMAX_DELAY);
-        printf("Homing backed out of magnet area...\n");
+        printf("Homing backed out and stopping...\n");
         xSemaphoreGive(print_mux);
 #endif
         break;
@@ -184,21 +221,26 @@ static void _ls_substate_home_handle_backup_past_magnet(ls_event event)
 static void _ls_substate_home_handle_slow_seek_to_magnet(ls_event event)
 {
 #ifdef LSDEBUG_HOMING
-    xSemaphoreTake(print_mux, portMAX_DELAY);
-    printf("...phase slow-seek to magnet handling event %d with %d tries remaining\n", event.type, _ls_substate_home_tries_remaining);
-    xSemaphoreGive(print_mux);
+    if (0 == _ls_substate_home_tries_remaining % 10)
+    {
+        xSemaphoreTake(print_mux, portMAX_DELAY);
+        printf("...phase slow-seek to magnet handling event %d with %d tries remaining\n", event.type, _ls_substate_home_tries_remaining);
+        xSemaphoreGive(print_mux);
+    }
 #endif
     switch (event.type)
     {
     case LSEVT_MAGNET_ENTER:
         _ls_substate_home_phase_successful = true;
+#ifdef LSDEBUG_HOMING
+        ls_buzzer_effect(LS_BUZZER_CLICK);
+        xSemaphoreTake(print_mux, portMAX_DELAY);
+        printf("Magnet home position found at step %d!\n", (int)ls_stepper_get_position());
+        xSemaphoreGive(print_mux);
+        vTaskDelay(pdMS_TO_TICKS(2000));
+#endif
         ls_stepper_set_home_position();
         ls_substate_home_completed();
-#ifdef LSDEBUG_HOMING
-        xSemaphoreTake(print_mux, portMAX_DELAY);
-        printf("Magnet home position found!\n");
-        xSemaphoreGive(print_mux);
-#endif
         break;
     case LSEVT_STEPPER_FINISHED_MOVE:
         if (_ls_substate_home_phase_successful)
@@ -210,7 +252,7 @@ static void _ls_substate_home_handle_slow_seek_to_magnet(ls_event event)
         {
 #ifdef LSDEBUG_HOMING
             xSemaphoreTake(print_mux, portMAX_DELAY);
-            printf("Sending step request (%d tries remain)...\n", _ls_substate_home_tries_remaining);
+            printf("+");
             xSemaphoreGive(print_mux);
 #endif
             ls_stepper_forward(1);
