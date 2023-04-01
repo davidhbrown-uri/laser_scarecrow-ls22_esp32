@@ -57,7 +57,7 @@ volatile BaseType_t IRAM_ATTR ls_stepper_steps_remaining;
 volatile BaseType_t IRAM_ATTR ls_stepper_steps_taken;
 volatile static BaseType_t IRAM_ATTR _ls_stepperstep_phase = 0;
 
-enum ls_stepper_direction IRAM_ATTR ls_stepper_direction = LS_STEPPER_ACTION_FORWARD_STEPS;
+enum ls_stepper_direction_t IRAM_ATTR ls_stepper_direction = LS_STEPPER_ACTION_FORWARD_STEPS;
 static bool _ls_stepper_enable_skipping = false;
 static int _ls_stepper_steps_per_second_max = LS_STEPPER_STEPS_PER_SECOND_DEFAULT;
 
@@ -304,7 +304,7 @@ void ls_stepper_task(void *pvParameter)
                 ls_stepper_direction = ls_stepper_move.direction;
                 ls_stepper_steps_remaining = ls_stepper_move.steps;
                 ls_stepper_steps_taken = 0;
-                gpio_set_level(LSGPIO_STEPPERDIRECTION, ls_stepper_direction ? 1 : 0);
+                gpio_set_level(LSGPIO_STEPPERDIRECTION, ls_stepper_direction);
 #ifdef LSDEBUG_STEPPER
                 ls_debug_printf("from %d, moving %d steps %s\n", ls_stepper_position, ls_stepper_steps_remaining, ls_stepper_direction ? "-->" : "<--");
 #endif
@@ -395,7 +395,7 @@ ls_stepper_position_t IRAM_ATTR ls_stepper_get_position(void)
     return ls_stepper_position;
 };
 
-enum ls_stepper_direction ls_stepper_get_direction()
+enum ls_stepper_direction_t IRAM_ATTR ls_stepper_get_direction()
 {
     return ls_stepper_direction;
 }

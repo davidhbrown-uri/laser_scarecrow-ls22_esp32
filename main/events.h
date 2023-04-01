@@ -27,6 +27,7 @@ enum ls_event_t
     
     LSEVT_MAGNET_ENTER = 20, // rotating arm's magnet enters detection area
     LSEVT_MAGNET_LEAVE, // rotating arm's magnet leaves detection area
+    LSEVT_MAGNET_HOMED, // found magnet while homing
 
     LSEVT_STEPPER_FINISHED_MOVE = 30, // rotating arm finishes movement
 

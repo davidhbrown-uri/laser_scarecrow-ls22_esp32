@@ -292,19 +292,19 @@ ls_State ls_state_active(ls_event event)
         break;
     case LSEVT_MAGNET_ENTER:
 #ifdef LSDEBUG_STATES
-        ls_debug_printf("Magnet Enter @ %d %s\n", *(int32_t *)event.value, ls_stepper_direction ? "-->" : "<--");
+        ls_debug_printf("Magnet Enter @ %d %s\n", *(int32_t *)event.value, ls_stepper_get_direction() ? "-->" : "<--");
 #endif
         ls_buzzer_effect(LS_BUZZER_CLICK);
         break;
     case LSEVT_MAGNET_LEAVE:
 #ifdef LSDEBUG_STATES
-        ls_debug_printf("Magnet Leave @ %d %s\n", *(int32_t *)event.value, ls_stepper_direction ? "-->" : "<--");
+        ls_debug_printf("Magnet Leave @ %d %s\n", *(int32_t *)event.value, ls_stepper_get_direction() ? "-->" : "<--");
 #endif
         ls_buzzer_effect(LS_BUZZER_CLICK);
         break;
     case LSEVT_STEPPER_FINISHED_MOVE:
 #ifdef LSDEBUG_STATES
-        ls_debug_printf("Stepper finished %s move @%d \n", ls_stepper_direction ? "-->" : "<--", ls_stepper_get_position());
+        ls_debug_printf("Stepper finished %s move @%d \n", ls_stepper_get_direction() ? "-->" : "<--", ls_stepper_get_position());
 #endif
         break;
     case LSEVT_SERVO_SWEEP_TOP:

@@ -504,7 +504,7 @@ struct ls_map_SpanNode *ls_map_span_at(ls_stepper_position_t step)
     return _ls_map_span_at(step, ls_map_span_first);
 }
 
-struct ls_map_SpanNode *ls_map_span_next(ls_stepper_position_t step, enum ls_stepper_direction direction, struct ls_map_SpanNode *starting_span)
+struct ls_map_SpanNode *ls_map_span_next(ls_stepper_position_t step, enum ls_stepper_direction_t direction, struct ls_map_SpanNode *starting_span)
 {
     // short-circuit if there is only one span:
     if (starting_span->next == starting_span || starting_span->prev == starting_span)
