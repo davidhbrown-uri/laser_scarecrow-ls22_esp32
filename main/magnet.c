@@ -59,6 +59,7 @@ void IRAM_ATTR magnet_event_isr(void *pvParameter)
 void ls_magnet_isr_begin(void)
 {
     // set the magnet sensor to trigger an interrupt as it enters and as it leaves
+    gpio_set_pull_mode(LSGPIO_MAGNETSENSE, GPIO_FLOATING);
     gpio_set_intr_type(LSGPIO_MAGNETSENSE, GPIO_INTR_ANYEDGE);
     gpio_install_isr_service(0); // default, no flags.
     gpio_isr_handler_add(LSGPIO_MAGNETSENSE, &magnet_event_isr, NULL);

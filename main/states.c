@@ -36,6 +36,9 @@
 #include "controls.h"
 #include "coverage.h"
 #include "leds.h"
+#include "state_test_movement.h"
+
+
 
 //static const char* TAG = "LS States"; // for ESP logging                                                                                                                       
 
@@ -197,6 +200,10 @@ ls_State ls_state_poweron(ls_event event)
     default: // switch event.type
         ;
     }
+#ifdef LSDEBUG_TEST_MOVEMENT
+    successor.func = ls_state_test_movement;
+#endif
+
     return successor;
 }
 
@@ -1076,5 +1083,13 @@ ls_State ls_state_error_noaccel(ls_event event)
     vTaskDelay(pdMS_TO_TICKS(29000));
     esp_restart(); // software reset of the chip; starts execution again
     // will not be reached
+    return successor;
+}
+
+ls_State ls_state_test_movement(ls_event event)
+{
+    ls_State successor;
+    successor.func = ls_state_test_movement;
+    ls_state_test_movement_handle_event(event);
     return successor;
 }

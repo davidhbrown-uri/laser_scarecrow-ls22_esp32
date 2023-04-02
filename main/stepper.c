@@ -159,7 +159,7 @@ void ls_stepper_init(void)
     ls_stepper_steps_remaining = 0;
     ls_stepper_steps_taken = 0;
     ls_stepper_set_random_strategy(ls_stepper_random_strategy_default);
-    ls_stepper_move.direction = LS_STEPPER_DIRECTION_FORWARD;
+    ls_stepper_move.direction = ls_stepper_direction;
     ls_stepper_move.steps = 0;
     timer_config_t stepper_step_timer_config = {
         .divider = LS_STEPPER_TIMER_DIVIDER,
@@ -175,6 +175,8 @@ void ls_stepper_init(void)
     ESP_ERROR_CHECK(timer_isr_callback_add(TIMER_GROUP_0, TIMER_0, ls_stepper_step_isr_callback, NULL, 0));
     ESP_ERROR_CHECK(timer_start(TIMER_GROUP_0, TIMER_0));
 }
+
+
 
 static void _ls_stepper_set_speed(void)
 {
@@ -420,6 +422,7 @@ void IRAM_ATTR ls_stepper_set_home_offset(int offset)
     {
         ls_stepper_position += LS_STEPPER_STEPS_PER_ROTATION;
     }
+    ls_stepper_position = ls_stepper_position % LS_STEPPER_STEPS_PER_ROTATION;
 }
 
 bool ls_stepper_is_stopped(void)
