@@ -20,3 +20,6 @@
 
 bool ls_magnet_is_detected(void);
 void ls_magnet_isr_begin(void);
+
+bool ls_magnet_is_homing(void);
+void ls_magnet_find_home(void);

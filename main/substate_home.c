@@ -21,24 +21,31 @@
 #include "substate_home.h"
 #include "stepper.h"
 #include "buzzer.h"
+#include "magnet.h"
+#include "map.h"
 
 extern QueueHandle_t ls_event_queue;
 extern SemaphoreHandle_t print_mux;
 
-#define LS_HOME_SUBSTATE_ROTATIONS_ALLOWED 3
-
 enum
 {
-    LS_HOME_SUBSTATE_COMPLETE,            // 0
-    LS_HOME_SUBSTATE_FAILED,              // 1
-    LS_HOME_SUBSTATE_ROTATE_TO_MAGNET,    // 2
-    LS_HOME_SUBSTATE_BACKUP_PAST_MAGNET,  // 3
-    LS_HOME_SUBSTATE_SLOW_SEEK_TO_MAGNET, // 4
-    LS_HOME_SUBSTATE_WAIT_FOR_STOP,       // 5
+    LS_HOME_SUBSTATE_COMPLETE,         // 0
+    LS_HOME_SUBSTATE_FAILED,           // 1
+    LS_HOME_SUBSTATE_ROTATE_TO_MAGNET, // 2
+    LS_HOME_SUBSTATE_WAIT_FOR_NO_STEPS, // 3 -- use only if there may not be a end move event, e.g., on init which could be poweron/wake
+    LS_HOME_SUBSTATE_WAIT_FOR_END_MOVE, // 4 -- use this preferentially when we know we have asked the stepper to move
 } _ls_substate_home_substate_phase;
 
-static int _ls_substate_home_tries_remaining = 0;
 static bool _ls_substate_home_phase_successful = false;
+
+static int _ls_substate_home_initial_offsets[LS_HOME_INITIAL_HOMES_TO_AVERAGE];
+static int _ls_substate_home_initial_count = 0;
+
+static bool _ls_substate_home_find_average = false;
+
+#ifdef LSDEBUG_HOMING
+static int _ls_substate_debug_cumulative_error = 0;
+#endif
 
 static void ls_substate_home_failed(void)
 {
@@ -60,7 +67,16 @@ static void ls_substate_home_completed(void)
 
 void ls_substate_home_init(void)
 {
-    _ls_substate_home_substate_phase = LS_HOME_SUBSTATE_WAIT_FOR_STOP;
+    if (ls_map_get_status() == LS_MAP_STATUS_NOT_BUILT)
+    {
+        _ls_substate_home_find_average = true;
+        _ls_substate_home_initial_count = 0;
+    }
+    else
+    {
+        _ls_substate_home_find_average = false;
+    }
+    _ls_substate_home_substate_phase = LS_HOME_SUBSTATE_WAIT_FOR_NO_STEPS;
     ls_event_enqueue_noop();
 }
 
@@ -68,170 +84,125 @@ static void _ls_substate_home_begin_rotate_to_magnet(void)
 {
     // enter substate ROTATE_TO_MAGNET
     _ls_substate_home_substate_phase = LS_HOME_SUBSTATE_ROTATE_TO_MAGNET;
-    ls_stepper_set_maximum_steps_per_second(LS_STEPPER_STEPS_PER_SECOND_HOMING);
-    ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION * LS_HOME_SUBSTATE_ROTATIONS_ALLOWED);
+    ls_magnet_find_home();
+    ls_stepper_set_maximum_steps_per_second(
+        _ls_substate_home_find_average
+            ? LS_STEPPER_STEPS_PER_SECOND_HOMING_INITIAL
+            : LS_STEPPER_STEPS_PER_SECOND_HOMING);
+    ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION * LS_HOME_ROTATIONS_ALLOWED);
     _ls_substate_home_phase_successful = false; // have not yet found magnet
 #ifdef LSDEBUG_HOMING
-    xSemaphoreTake(print_mux, portMAX_DELAY);
-    printf("Homing is looking for magnet...\n");
-    xSemaphoreGive(print_mux);
+    ls_debug_printf("Homing is looking for magnet...\n");
 #endif
-    ls_event_enqueue_noop();
 }
+
+/**
+ * Use this substate after our own moves (not init)
+*/
+static void _ls_substate_home_handle_backup(ls_event event)
+{
+    switch (event.type)
+    {
+        case LSEVT_STEPPER_FINISHED_MOVE:
+            _ls_substate_home_begin_rotate_to_magnet();
+        break;
+        default:
+        ; // do nothing
+    }
+}
+
 
 static void _ls_substate_home_handle_rotate_to_magnet(ls_event event)
 {
-#ifdef LSDEBUG_HOMING
-    xSemaphoreTake(print_mux, portMAX_DELAY);
-    printf("...phase rotate to magnet handling event %d\n", event.type);
-    xSemaphoreGive(print_mux);
-#endif
     switch (event.type)
     {
-    case LSEVT_MAGNET_ENTER:
+    case LSEVT_MAGNET_HOMED:
         _ls_substate_home_phase_successful = true; // found magnet
         ls_stepper_stop();
+
 #ifdef LSDEBUG_HOMING
-        xSemaphoreTake(print_mux, portMAX_DELAY);
-        printf("homing found magnet; stepper stop requested...\n");
-        if (ls_stepper_get_steps_taken() > LS_STEPPER_STEPS_PER_ROTATION)
+        _ls_substate_debug_cumulative_error += (int)event.value;
+        ls_debug_printf("homing found magnet with offset of %d steps ; cumulative = %d...\n", (int)event.value, _ls_substate_debug_cumulative_error);
+        if (ls_stepper_get_steps_taken() > ((5 * LS_STEPPER_STEPS_PER_ROTATION) / 4))
         {
-            printf("WARNING: took > 1 rotation to find magnet!\n");
+            ls_debug_printf("WARNING: took > %d rotation to find magnet!\n", ls_stepper_get_steps_taken() / LS_STEPPER_STEPS_PER_ROTATION);
         }
-        xSemaphoreGive(print_mux);
 #endif
+        if (_ls_substate_home_find_average)
+        {
+            // save the offset in _ls_substate_home_initial_offsets except the first [0] is always 0
+            _ls_substate_home_initial_offsets[_ls_substate_home_initial_count] =
+                _ls_substate_home_initial_count == 0 ? 0 : _ls_substate_home_initial_offsets[_ls_substate_home_initial_count - 1] + (int)event.value;
+#ifdef LSDEBUG_HOMING
+            ls_debug_printf("Cumulative offset after home #%d is %d\n", _ls_substate_home_initial_count, _ls_substate_home_initial_offsets[_ls_substate_home_initial_count]);
+#endif
+            _ls_substate_home_initial_count++;
+        }
         break;
     case LSEVT_STEPPER_FINISHED_MOVE:
         if (_ls_substate_home_phase_successful)
         {
             // have found magnet
 #ifdef LSDEBUG_HOMING
-            xSemaphoreTake(print_mux, portMAX_DELAY);
-            printf("stepper stopped after homing found magnet; on to next phase...\n");
-            xSemaphoreGive(print_mux);
+            ls_debug_printf("stepper stopped after homing found magnet; homing complete\n");
 #endif
-            // enter substate BACKUP_PAST_MAGNET
-            _ls_substate_home_substate_phase = LS_HOME_SUBSTATE_BACKUP_PAST_MAGNET;
-            _ls_substate_home_tries_remaining = 25;
-            _ls_substate_home_phase_successful = false; // reset for next phase
-            ls_event_enqueue_noop();
-        }
+            if (_ls_substate_home_find_average && _ls_substate_home_initial_count < LS_HOME_INITIAL_HOMES_TO_AVERAGE)
+            {
+                // step an increasing fraction around the circle, then home again
+#ifdef LSDEBUG_HOMING
+            ls_debug_printf("Moving backwards #%d steps at maximum speed\n", LS_STEPPER_STEPS_PER_ROTATION * _ls_substate_home_initial_count / LS_HOME_INITIAL_HOMES_TO_AVERAGE);
+#endif
+                ls_stepper_set_maximum_steps_per_second(LS_STEPPER_STEPS_PER_SECOND_MAX);
+                ls_stepper_reverse(LS_STEPPER_STEPS_PER_ROTATION * _ls_substate_home_initial_count / (LS_HOME_INITIAL_HOMES_TO_AVERAGE));
+                _ls_substate_home_substate_phase = LS_HOME_SUBSTATE_WAIT_FOR_END_MOVE;
+            } // we aren't done finding the average offset from the magnet
+            else
+            {
+                if (_ls_substate_home_find_average)
+                {
+                    int average_offset = 0;
+                    for (int i = 0; i < LS_HOME_INITIAL_HOMES_TO_AVERAGE; i++)
+                    {
+                        average_offset += _ls_substate_home_initial_offsets[i];
+                    }
+                    average_offset /= LS_HOME_INITIAL_HOMES_TO_AVERAGE;
+                    ls_stepper_set_home_offset(average_offset);
+#ifdef LSDEBUG_HOMING
+                    ls_debug_printf("Average offset was %d\n", average_offset);
+                    _ls_substate_debug_cumulative_error = 0;
+#endif
+                } // we can compute the average offset from the magnet
+
+                ls_substate_home_completed();
+
+                ls_event_enqueue_noop();
+            } // we are done finding home, average or not
+        }     // phase was not successful
         else
         {
             // did not find magnet
             _ls_substate_home_substate_phase = LS_HOME_SUBSTATE_FAILED;
             ls_event_enqueue_noop();
 #ifdef LSDEBUG_HOMING
-            xSemaphoreTake(print_mux, portMAX_DELAY);
-            printf("homing could not find magnet in %d rotations\n", LS_HOME_SUBSTATE_ROTATIONS_ALLOWED);
-            xSemaphoreGive(print_mux);
+            ls_debug_printf("homing could not find magnet in %d rotations\n", LS_HOME_ROTATIONS_ALLOWED);
 #endif
         }
     default:;
-    }
+    } // switch on event type
 }
 
-static void _ls_substate_home_handle_backup_past_magnet(ls_event event)
-{
-#ifdef LSDEBUG_HOMING
-    xSemaphoreTake(print_mux, portMAX_DELAY);
-    printf("...phase backup past magnet handling event %d\n", event.type);
-    xSemaphoreGive(print_mux);
-#endif
-    switch (event.type)
-    {
-    case LSEVT_MAGNET_LEAVE:
-        _ls_substate_home_phase_successful = true;
-        ls_stepper_stop();
-#ifdef LSDEBUG_HOMING
-        xSemaphoreTake(print_mux, portMAX_DELAY);
-        printf("Homing backed out of magnet area...\n");
-        xSemaphoreGive(print_mux);
-#endif
-        break;
-    case LSEVT_STEPPER_FINISHED_MOVE: // falls through to default
-    case LSEVT_NOOP:                  // was queued by previous phase
-    default:
-        if (_ls_substate_home_phase_successful)
-        {
-            // finished stopping; enter substate SLOW_SEEK_TO_MAGNET
-            _ls_substate_home_substate_phase = LS_HOME_SUBSTATE_SLOW_SEEK_TO_MAGNET;
-            _ls_substate_home_tries_remaining = LS_STEPPER_STEPS_PER_ROTATION / 8;
-            _ls_substate_home_phase_successful = false;
-            ls_stepper_forward(1); // get things started for slow stepping
-        }
-        else if (--_ls_substate_home_tries_remaining >= 0)
-        {
-#ifdef LSDEBUG_HOMING
-            xSemaphoreTake(print_mux, portMAX_DELAY);
-            printf("Homing is backing up (%d)...\n", _ls_substate_home_tries_remaining);
-            xSemaphoreGive(print_mux);
-#endif
-            ls_stepper_reverse(LS_STEPPER_STEPS_PER_ROTATION / 50);
-        }
-        else
-        {
-#ifdef LSDEBUG_HOMING
-            xSemaphoreTake(print_mux, portMAX_DELAY);
-            printf("Homing could not back out of magnet area...\n");
-            xSemaphoreGive(print_mux);
-#endif
-            ls_substate_home_failed();
-        }
-    }
-}
 
-static void _ls_substate_home_handle_slow_seek_to_magnet(ls_event event)
-{
-#ifdef LSDEBUG_HOMING
-    xSemaphoreTake(print_mux, portMAX_DELAY);
-    printf("...phase slow-seek to magnet handling event %d with %d tries remaining\n", event.type, _ls_substate_home_tries_remaining);
-    xSemaphoreGive(print_mux);
-#endif
-    switch (event.type)
-    {
-    case LSEVT_MAGNET_ENTER:
-        _ls_substate_home_phase_successful = true;
-        ls_stepper_set_home_position();
-        ls_substate_home_completed();
-#ifdef LSDEBUG_HOMING
-        xSemaphoreTake(print_mux, portMAX_DELAY);
-        printf("Magnet home position found!\n");
-        xSemaphoreGive(print_mux);
-#endif
-        break;
-    case LSEVT_STEPPER_FINISHED_MOVE:
-        if (_ls_substate_home_phase_successful)
-        {
-            ls_stepper_set_home_position();
-            ls_substate_home_completed();
-        }
-        else if (--_ls_substate_home_tries_remaining >= 0)
-        {
-#ifdef LSDEBUG_HOMING
-            xSemaphoreTake(print_mux, portMAX_DELAY);
-            printf("Sending step request (%d tries remain)...\n", _ls_substate_home_tries_remaining);
-            xSemaphoreGive(print_mux);
-#endif
-            ls_stepper_forward(1);
-        }
-        else
-        {
-#ifdef LSDEBUG_HOMING
-            xSemaphoreTake(print_mux, portMAX_DELAY);
-            printf("Homing could not slow-step to magnet area...\n");
-            xSemaphoreGive(print_mux);
-#endif
-            ls_substate_home_failed();
-        }
-        break;
-    default:; // do not handle this event type
-    }
-}
-
+/**
+ * This is a rather awkward method that can cause problems. 
+ * Use only on first entry to homing in case the stepper is already stopped 
+ * and there is not going to be any LSEVT_STEPPER_FINISHED_MOVE
+ * (e.g., power-on or wake)
+*/
 static void _ls_substate_home_wait_for_stop(void)
 {
-
+#ifdef LSDEBUG_HOMING
+        ls_debug_printf(ls_stepper_is_moving() ? "Waiting to stop...\n" : "Already stopped...\n");
+#endif
     while (ls_stepper_is_moving())
     {
         vTaskDelay(1);
@@ -239,29 +210,26 @@ static void _ls_substate_home_wait_for_stop(void)
     // a pending LSEVT_STEPPER_FINISHED_MOVE would confuse homing
     ls_event_empty_queue();
     _ls_substate_home_begin_rotate_to_magnet();
-    ls_event_enqueue_noop();
 }
 
 void ls_substate_home_handle_event(ls_event event)
 {
 #ifdef LSDEBUG_STATES
-    xSemaphoreTake(print_mux, portMAX_DELAY);
-    printf("SUBSTATE_HOME received forwarded event during phase %d\n", _ls_substate_home_substate_phase);
-    xSemaphoreGive(print_mux);
+    ls_debug_printf("SUBSTATE_HOME handling forwarded event during phase %d\n", _ls_substate_home_substate_phase);
 #endif
+#ifndef LSDEBUG_STATES
+#ifdef LSDEBUG_HOMING
+    ls_debug_printf("SUBSTATE_HOME handling forwarded event %d during phase %d\n", event.type, _ls_substate_home_substate_phase);
+#endif
+#endif
+
     switch (_ls_substate_home_substate_phase)
     {
-    case LS_HOME_SUBSTATE_WAIT_FOR_STOP:
+    case LS_HOME_SUBSTATE_WAIT_FOR_NO_STEPS:
         _ls_substate_home_wait_for_stop();
         break;
     case LS_HOME_SUBSTATE_ROTATE_TO_MAGNET:
         _ls_substate_home_handle_rotate_to_magnet(event);
-        break;
-    case LS_HOME_SUBSTATE_BACKUP_PAST_MAGNET:
-        _ls_substate_home_handle_backup_past_magnet(event);
-        break;
-    case LS_HOME_SUBSTATE_SLOW_SEEK_TO_MAGNET:
-        _ls_substate_home_handle_slow_seek_to_magnet(event);
         break;
     case LS_HOME_SUBSTATE_FAILED:
         ls_substate_home_failed();
@@ -269,5 +237,10 @@ void ls_substate_home_handle_event(ls_event event)
     case LS_HOME_SUBSTATE_COMPLETE:
         ls_substate_home_completed();
         break;
+    case LS_HOME_SUBSTATE_WAIT_FOR_END_MOVE:
+        _ls_substate_home_handle_backup(event);
     }
+#ifdef LSDEBUG_HOMING
+    ls_debug_printf("(finished event %d during phase %d)\n", event.type, _ls_substate_home_substate_phase);
+#endif
 }

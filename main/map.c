@@ -471,6 +471,24 @@ int ls_map_find_spans()
     current_span = ls_map_span_first;
     do
     {
+        // somehow we got a divide by zero exception here 2023-04-01
+        /*
+Guru Meditation Error: Core  1 panic'ed (IntegerDivideByZero). Exception was unhandled.
+
+Core  1 register dump:
+PC      : 0x400d8fb2  PS      : 0x00060130  A0      : 0x800d6df8  A1      : 0x3ffba600  
+0x400d8fb2: ls_map_find_spans at R:/URI_Projects/laser-scarecrow/ls2022_esp32/main/map.c:470 (discriminator 1)
+
+A2      : 0x3ffafe48  A3      : 0x3ffafe48  A4      : 0x3ffafe48  A5      : 0x00000000
+A6      : 0x00000000  A7      : 0x00000c78  A8      : 0x000003e8  A9      : 0x00000000
+A10     : 0x0000007d  A11     : 0x000001f4  A12     : 0x000009c1  A13     : 0x00000000
+A14     : 0x0000000f  A15     : 0x00000000  SAR     : 0x00000011  EXCCAUSE: 0x00000006
+EXCVADDR: 0x00000000  LBEG    : 0x4000c2e0  LEND    : 0x4000c2f6  LCOUNT  : 0xffffffff  
+
+
+Backtrace: 0x400d8faf:0x3ffba600 0x400d6df5:0x3ffba620 0x400d6fac:0x3ffba660 0x4008a815:0x3ffba6a0
+0x400d8faf: ls_map_find_spans at R:/URI_Projects/laser-scarecrow/ls2022_esp32/main/map.c:470 (discriminator 1)
+*/
         current_span->permil = _ls_map_span_length(current_span) * 1000 / _ls_map_all_spans_total_steps;
         current_span = current_span->next;
     } while (current_span != ls_map_span_first);
@@ -508,7 +526,7 @@ struct ls_map_SpanNode *ls_map_span_at(ls_stepper_position_t step)
     return _ls_map_span_at(step, ls_map_span_first);
 }
 
-struct ls_map_SpanNode *ls_map_span_next(ls_stepper_position_t step, enum ls_stepper_direction direction, struct ls_map_SpanNode *starting_span)
+struct ls_map_SpanNode *ls_map_span_next(ls_stepper_position_t step, enum ls_stepper_direction_t direction, struct ls_map_SpanNode *starting_span)
 {
     // short-circuit if there is only one span:
     if (starting_span->next == starting_span || starting_span->prev == starting_span)
