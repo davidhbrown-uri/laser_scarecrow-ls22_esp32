@@ -1,15 +1,3 @@
-#pragma once
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/queue.h"
-#include "freertos/semphr.h"
-
-
-//#define LSDEBUG_ENABLE
-
 /*
     Control software for URI Laser Scarecrow, 2022 Model
     Copyright (C) 2022  David H. Brown
@@ -27,6 +15,19 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+
+#pragma once
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/queue.h"
+#include "freertos/semphr.h"
+
+
+//#define LSDEBUG_ENABLE
+
 #ifdef LSDEBUG_ENABLE
 
 extern SemaphoreHandle_t print_mux; // in ls2022_esp32.c
@@ -40,9 +41,9 @@ extern SemaphoreHandle_t print_mux; // in ls2022_esp32.c
 //#define LSDEBUG_STEPPER
 
 // output (less) about selection of random movement targets
-#define LSDEBUG_STEPPER_RANDOM
+//#define LSDEBUG_STEPPER_RANDOM
 
-#define LSDEBUG_COVERAGE
+//#define LSDEBUG_COVERAGE
 // LSDEBUG_COVERAGE_POSITIONS outputs most recent list whenever the ring buffer cycled 
 //#define LSDEBUG_COVERAGE_POSITIONS
 // LSDEBUG_COVERAGE_MEASURE output is the position of the arm multiple times per second
@@ -61,7 +62,7 @@ extern SemaphoreHandle_t print_mux; // in ls2022_esp32.c
 
 //#define LSDEBUG_BUZZER
 
-#define LSDEBUG_MAP
+//#define LSDEBUG_MAP
 
 //#define LSDEBUG_LIGHTSENSE
 
