@@ -77,6 +77,7 @@ BaseType_t ls_stepper_get_steps_taken(void);
 
 ls_stepper_position_t ls_stepper_get_position(void);
 void ls_stepper_set_home_position(void);
+void ls_stepper_set_home_offset(int offset);
 
 void ls_stepper_stop(void);
 void ls_stepper_forward(uint16_t steps);

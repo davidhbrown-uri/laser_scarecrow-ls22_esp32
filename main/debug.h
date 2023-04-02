@@ -1,15 +1,3 @@
-#pragma once
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/queue.h"
-#include "freertos/semphr.h"
-
-
-#define LSDEBUG_ENABLE
-
 /*
     Control software for URI Laser Scarecrow, 2022 Model
     Copyright (C) 2022  David H. Brown
@@ -27,6 +15,19 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+
+#pragma once
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/queue.h"
+#include "freertos/semphr.h"
+
+
+//#define LSDEBUG_ENABLE
+
 #ifdef LSDEBUG_ENABLE
 
 extern SemaphoreHandle_t print_mux; // in ls2022_esp32.c
@@ -51,7 +52,7 @@ extern SemaphoreHandle_t print_mux; // in ls2022_esp32.c
 // caution: debugging acceleration is exceptionally verbose
 //#define LSDEBUG_ACCELERATION
 
-#define LSDEBUG_HOMING
+//#define LSDEBUG_HOMING
 
 //#define LSDEBUG_STATES
 

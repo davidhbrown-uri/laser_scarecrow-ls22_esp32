@@ -203,9 +203,7 @@ void ls_state_set_prelaserwarn_successor(void *successor)
 ls_State ls_state_prelaserwarn(ls_event event)
 {
 #ifdef LSDEBUG_STATES
-    xSemaphoreTake(print_mux, portMAX_DELAY);
     ls_debug_printf("STATE_PRELASERWARN handling event\n");
-    xSemaphoreGive(print_mux);
 #endif
     ls_State successor;
     successor.func = ls_state_prelaserwarn;
@@ -292,13 +290,13 @@ ls_State ls_state_active(ls_event event)
         break;
     case LSEVT_MAGNET_ENTER:
 #ifdef LSDEBUG_STATES
-        ls_debug_printf("Magnet Enter @ %d %s\n", *(int32_t *)event.value, ls_stepper_get_direction() ? "-->" : "<--");
+        ls_debug_printf("Magnet Enter @ %d %s\n", (int32_t)event.value, ls_stepper_get_direction() ? "-->" : "<--");
 #endif
         ls_buzzer_effect(LS_BUZZER_CLICK);
         break;
     case LSEVT_MAGNET_LEAVE:
 #ifdef LSDEBUG_STATES
-        ls_debug_printf("Magnet Leave @ %d %s\n", *(int32_t *)event.value, ls_stepper_get_direction() ? "-->" : "<--");
+        ls_debug_printf("Magnet Leave @ %d %s\n", (int32_t)event.value, ls_stepper_get_direction() ? "-->" : "<--");
 #endif
         ls_buzzer_effect(LS_BUZZER_CLICK);
         break;

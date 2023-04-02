@@ -109,7 +109,7 @@ gpio_num_t lsgpio_servopulse(void);
 // is having trouble registering magnet reliably that fast, though.
 #define LS_STEPPER_STEPS_PER_SECOND_MAX 3600
 #define LS_STEPPER_STEPS_PER_SECOND_HOMING 1800
-#define LS_STEPPER_STEPS_PER_SECOND_HOMING_INITIAL 600
+#define LS_STEPPER_STEPS_PER_SECOND_HOMING_INITIAL 1800
 #define LS_STEPPER_STEPS_PER_SECOND_MAPPING 1800
 #define LS_STEPPER_STEPS_PER_SECOND_WARNING 7200
 #define LS_STEPPER_STEPS_PER_SECOND_DEFAULT 2400
@@ -155,6 +155,7 @@ gpio_num_t lsgpio_servopulse(void);
 #define LS_MAP_ALLOWABLE_MISREAD_PERCENT 12
 #define LS_MAP_HISTOGRAM_BINCOUNT 32
 
+#define LS_HOME_INITIAL_HOMES_TO_AVERAGE 6
 #define LS_HOME_ROTATIONS_ALLOWED 5
 // how often should we rehome if using the map? 10000=10s debug/test, 1800000=30min production
 #ifdef LSDEBUG_HOMING

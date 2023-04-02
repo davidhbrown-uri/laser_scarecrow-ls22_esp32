@@ -404,6 +404,15 @@ void IRAM_ATTR ls_stepper_set_home_position(void)
     ls_stepper_position = 0;
 }
 
+void IRAM_ATTR ls_stepper_set_home_offset(int offset)
+{
+    ls_stepper_position -= offset;
+    while(ls_stepper_position < 0)
+    {
+        ls_stepper_position += LS_STEPPER_STEPS_PER_ROTATION;
+    }
+}
+
 bool ls_stepper_is_stopped(void)
 {
     return 0 == ls_stepper_steps_remaining;
