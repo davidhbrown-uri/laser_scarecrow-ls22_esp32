@@ -108,8 +108,6 @@ gpio_num_t lsgpio_servopulse(void);
 // motor/laser seems to have no trouble at 4800 which is probably too fast
 // is having trouble registering magnet reliably that fast, though.
 #define LS_STEPPER_STEPS_PER_SECOND_MAX 3600
-#define LS_STEPPER_STEPS_PER_SECOND_HOMING 1800
-#define LS_STEPPER_STEPS_PER_SECOND_HOMING_INITIAL 1800
 #define LS_STEPPER_STEPS_PER_SECOND_MAPPING 1800
 #define LS_STEPPER_STEPS_PER_SECOND_WARNING 7200
 #define LS_STEPPER_STEPS_PER_SECOND_DEFAULT 2400
@@ -155,9 +153,16 @@ gpio_num_t lsgpio_servopulse(void);
 #define LS_MAP_ALLOWABLE_MISREAD_PERCENT 12
 #define LS_MAP_HISTOGRAM_BINCOUNT 32
 
-#define LS_HOME_INITIAL_HOMES_TO_AVERAGE 6
-#define LS_HOME_ROTATIONS_ALLOWED 5
-// how often should we rehome if using the map? 10000=10s debug/test, 1800000=30min production
+#define LS_HOME_ATTEMPTS_ALLOWED 3
+#define LS_HOME_HOMINGS_TO_AVERAGE 5
+#define LS_HOME_INITIAL_ROTATIONS 5
+#define LS_HOME_STEPPER_STEPS_PER_SECOND 400
+#define LS_HOME_INITIAL_STEPPER_STEPS_PER_SECOND 1800
+#define LS_HOME_BACKUP_ADDITIONAL_STEPS (LS_STEPPER_STEPS_PER_ROTATION / 10)
+#define LS_HOME_FORWARD_STEPS (LS_STEPPER_STEPS_PER_ROTATION / 4)
+#define LS_HOME_OFFSET_THRESHOLD_TO_REHOME (LS_STEPPER_STEPS_PER_ROTATION/20)
+
+// how often should we check rehome if using the map? 10000=10s debug/test, 1800000=30min production
 #ifdef LSDEBUG_HOMING
 #define LS_STATE_REHOME_TIMER_PERIOD_MS 10000
 #else

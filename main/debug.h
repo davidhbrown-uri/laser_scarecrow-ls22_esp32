@@ -26,7 +26,7 @@
 #include "freertos/semphr.h"
 
 
-//#define LSDEBUG_ENABLE
+#define LSDEBUG_ENABLE
 
 #ifdef LSDEBUG_ENABLE
 
@@ -52,7 +52,7 @@ extern SemaphoreHandle_t print_mux; // in ls2022_esp32.c
 // caution: debugging acceleration is exceptionally verbose
 //#define LSDEBUG_ACCELERATION
 
-//#define LSDEBUG_HOMING
+#define LSDEBUG_HOMING
 
 //#define LSDEBUG_STATES
 

@@ -24,6 +24,7 @@ enum ls_event_t
 {
     LSEVT_NOOP=0, // nothing happened, but we need an event to keep processing internal behavior
     LSEVT_STATE_ENTRY=1, // inserted by state machine on state change to allow new state to initialize
+    LSEVT_SUBSTATE_ENTRY, // inserted by (sub) state to allow successor to initialize
     
     LSEVT_MAGNET_ENTER = 20, // rotating arm's magnet enters detection area
     LSEVT_MAGNET_LEAVE, // rotating arm's magnet leaves detection area
@@ -72,6 +73,8 @@ void ls_event_queue_init(void);
  * 
  */
 void ls_event_enqueue_noop(void);
+void ls_event_enqueue(enum ls_event_t type);
+void ls_event_enqueue_front(enum ls_event_t type);
 bool ls_event_queue_has_messages(void);
 void ls_event_enqueue_noop_if_queue_empty(void);
 void ls_event_empty_queue(void);
