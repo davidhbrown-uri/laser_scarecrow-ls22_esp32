@@ -162,9 +162,9 @@ gpio_num_t lsgpio_servopulse(void);
 #define LS_HOME_FORWARD_STEPS (LS_STEPPER_STEPS_PER_ROTATION / 4)
 #define LS_HOME_OFFSET_THRESHOLD_TO_REHOME (LS_STEPPER_STEPS_PER_ROTATION/20)
 
-// how often should we check rehome if using the map? 10000=10s debug/test, 1800000=30min production
+// how often should we check rehome if using the map? 15000=15s debug/test, 1800000=30min production
 #ifdef LSDEBUG_HOMING
-#define LS_STATE_REHOME_TIMER_PERIOD_MS 10000
+#define LS_STATE_REHOME_TIMER_PERIOD_MS 15000
 #else
 #define LS_STATE_REHOME_TIMER_PERIOD_MS 1800000
 #endif
