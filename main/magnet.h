@@ -1,6 +1,6 @@
 /*
     Control software for URI Laser Scarecrow, 2022 Model
-    Copyright (C) 2022  David H. Brown
+    Copyright (C) 2022-2023 David H. Brown
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -21,5 +21,5 @@
 bool ls_magnet_is_detected(void);
 void ls_magnet_isr_begin(void);
 
-bool ls_magnet_is_homing(void);
-void ls_magnet_find_home(void);
+// bool ls_magnet_is_homing(void);
+// void ls_magnet_find_home(void);

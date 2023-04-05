@@ -1,6 +1,6 @@
 /*
     Control software for URI Laser Scarecrow, 2022 Model
-    Copyright (C) 2022  David H. Brown
+    Copyright (C) 2022-2023 David H. Brown
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -631,7 +631,7 @@ ls_State ls_state_settings_both(ls_event event)
     case LSEVT_STATE_ENTRY:
         ls_laser_set_mode_off();
         ls_stepper_stop();
-        ls_stepper_sleep();
+        ls_stepper_sleep(); // why? loses homing
         ls_servo_off();
         ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_ENTER);
         ls_leds_cycle(LEDCYCLE_CONTROLS_BOTH);
@@ -696,6 +696,7 @@ ls_State ls_state_settings_both(ls_event event)
     }         // switch event type
     if (ls_state_settings_both != successor.func)
     {
+        ls_substate_home_require_rehome(); 
         ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_LEAVE);
         ls_settings_save();
     }
@@ -816,6 +817,7 @@ ls_State ls_state_wakeup(ls_event event)
     case LSEVT_STATE_ENTRY:
         if (ls_map_get_status() == LS_MAP_STATUS_OK)
         {
+            ls_substate_home_require_rehome();
             ls_substate_home_init();
             ls_event_enqueue_noop();
         }
