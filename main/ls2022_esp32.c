@@ -1,6 +1,6 @@
 /*
     Control software for URI Laser Scarecrow, 2022 Model
-    Copyright (C) 2022  David H. Brown
+    Copyright (C) 2022-2023 David H. Brown
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -15,7 +15,7 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-#define VERSION_MESSAGE "URI Laser Scarecrow 2022 version 1.2.0 (Dec 27, 2022)\n"
+#define VERSION_MESSAGE "URI Laser Scarecrow 2022 version 1.3.0 (Apr 4, 2023)\n"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
