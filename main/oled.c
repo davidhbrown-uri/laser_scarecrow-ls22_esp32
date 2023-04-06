@@ -117,17 +117,21 @@ void ls_oled_init(void)
 void ls_oled_show_logo(void)
 {
 LS_OLED_RETURN_IF_NOT_PRESENT
+    xSemaphoreTake(i2c_mux, LSI2C_MUX_TICKS);
     ssd1306_bitmaps(&_ls_oled_ssd1306_dev, 0, 0, _ls_oled_logo, 128, 64, false);
+    xSemaphoreGive(i2c_mux);
 }
 
 void ls_oled_blank_screen(void)
 {
 LS_OLED_RETURN_IF_NOT_PRESENT
+    xSemaphoreTake(i2c_mux, LSI2C_MUX_TICKS);
     ssd1306_clear_screen(&_ls_oled_ssd1306_dev, false);
+    xSemaphoreGive(i2c_mux);
     _ls_oled_line_number = 0;
 }
 
-void ls_oled_set_line(uint8_t line_number)
+void ls_oled_goto_line(uint8_t line_number)
 {
     _ls_oled_line_number = line_number % LS_OLED_LINES;
 }
@@ -148,6 +152,15 @@ LS_OLED_RETURN_IF_NOT_PRESENT
     va_start(args, format);
     vsnprintf(_ls_oled_line_buffer, sizeof(_ls_oled_line_buffer), format, args);
     va_end(args);
+    xSemaphoreTake(i2c_mux, LSI2C_MUX_TICKS);
     ssd1306_display_text(&_ls_oled_ssd1306_dev, _ls_oled_line_number, _ls_oled_line_buffer, LS_OLED_CHARS, false);
-    ls_oled_set_line(_ls_oled_line_number + 1);
+    xSemaphoreGive(i2c_mux);
+    ls_oled_goto_line(_ls_oled_line_number + 1);
+}
+void ls_oled_clear_line(uint8_t line_number)
+{
+    line_number = line_number % LS_OLED_LINES;
+    xSemaphoreTake(i2c_mux, LSI2C_MUX_TICKS);
+    ssd1306_clear_line(&_ls_oled_ssd1306_dev, line_number, false);
+    xSemaphoreGive(i2c_mux);
 }

@@ -56,6 +56,14 @@ enum ls_event_t
 
     LSEVT_TILT_OK = 120, // the tilt sensor indicates the device orientation is in bounds
     LSEVT_TILT_DETECTED, // the tilt sensor indicates the device orientation is out of bounds
+
+    LSEVT_SELFTEST_TAPE_LIGHT = 200, // used only during selftest, the tape sensor has met the "light" threshold
+    LSEVT_SELFTEST_TAPE_DARK, // used only during selftest, the tape sensor has met the "dark" threshold
+    LSEVT_SELFTEST_MODE_DARKSAFE, // used only during selftest, the mode jumpers have been set to "dark safe"
+    LSEVT_SELFTEST_MODE_DARK, // used only during selftest, the mode jumpers have been set to "dark"
+    LSEVT_SELFTEST_MODE_IGNORE, // used only during selftest, the mode jumpers have been set to "ignore"
+    LSEVT_SELFTEST_MODE_LIGHT, // used only during selftest, the mode jumpers have been set to "light"
+    LSEVT_SELFTEST_MODE_LIGHTSAFE, // used only during selftest, the mode jumpers have been set to "light safe"
 }; 
 
 typedef struct ls_event

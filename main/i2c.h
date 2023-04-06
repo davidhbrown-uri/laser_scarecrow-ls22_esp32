@@ -18,7 +18,10 @@
 #pragma once
 // FreeRTOS.h defines bool type
 #include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 #include "config.h"
+
+extern SemaphoreHandle_t i2c_mux;
 
 enum ls_i2c_accelerometer_device_t {
     LS_I2C_ACCELEROMETER_NONE,

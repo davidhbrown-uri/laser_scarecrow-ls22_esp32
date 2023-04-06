@@ -88,6 +88,7 @@ void app_main(void)
     adc1_mux = xSemaphoreCreateMutex();
     adc2_mux = xSemaphoreCreateMutex();
     print_mux = xSemaphoreCreateMutex();
+    i2c_mux = xSemaphoreCreateMutex();
     printf("Initializing I2C...\n");
     ls_i2c_init();
     printf("Initializing GPIO...\n");

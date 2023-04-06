@@ -40,17 +40,29 @@ static bool _selftest_light_low = false;
 static bool _selftest_light_high = false;
 static bool _selftest_magnet_enter = false;
 static bool _selftest_magnet_leave = false;
-static bool _selftest_tape_min = false;
-static bool _selftest_tape_max = false;
+static bool _selftest_tape_light = false;
+static bool _selftest_tape_dark = false;
 static bool _selftest_tilt_detect = false;
 static bool _selftest_tilt_ok = false;
 static bool _selftest_tapemode_darksafe = false;
 static bool _selftest_tapemode_dark = false;
-static bool _selftest_tapemode_dontcare = false;
+static bool _selftest_tapemode_ignore = false;
 static bool _selftest_tapemode_light = false;
 static bool _selftest_tapemode_lightsafe = false;
 
-int _selftest_stepper_behavior_sequence = 0;
+static bool _selftest_oled_update_needed = true;
+
+static int _selftest_stepper_behavior_sequence = 0;
+
+void _selftest_detected_event(bool * selftest)
+{
+    if(*selftest == false)
+    {
+        _selftest_oled_update_needed = true;
+    }
+    *selftest = true;
+}
+
 void _selftest_stepper_behavior(void)
 {
     switch (_selftest_stepper_behavior_sequence)
@@ -92,20 +104,73 @@ static void _selftest_update_leds(void)
 {
     if (_selftest_switches_off && _selftest_switches_upper && _selftest_switches_lower && _selftest_switches_both && _selftest_slider1_min && _selftest_slider1_max && _selftest_slider2_min && _selftest_slider2_max)
     {
-        if (_selftest_light_low && _selftest_light_high && _selftest_magnet_enter && _selftest_magnet_leave && _selftest_tape_min && _selftest_tape_max && _selftest_tilt_detect && _selftest_tilt_ok && _selftest_tapemode_darksafe && _selftest_tapemode_dark && _selftest_tapemode_dontcare && _selftest_tapemode_light && _selftest_tapemode_lightsafe)
+        if (_selftest_light_low && _selftest_light_high && _selftest_magnet_enter && _selftest_magnet_leave && _selftest_tape_light && _selftest_tape_dark && _selftest_tilt_detect && _selftest_tilt_ok && _selftest_tapemode_darksafe && _selftest_tapemode_dark && _selftest_tapemode_ignore && _selftest_tapemode_light && _selftest_tapemode_lightsafe)
         {
-            ls_leds_cycle(LEDCYCLE_GREEN_PULSE);
+            ls_leds_rgb(0,128,0); // darker green
         }
         else
         {
-            ls_leds_cycle(LEDCYCLE_YELLOW_PULSE);
+            ls_leds_rgb(128,96,0); // darker yellow
         }
     }
 }
 
 static void _selftest_update_oled(void)
 {
-    ls_oled_set_line(6);
+    if (!_selftest_oled_update_needed) {
+        return;
+    }
+    _selftest_oled_update_needed = false;
+    ls_oled_goto_line(0);
+    if (_selftest_light_high && _selftest_light_low)
+    {
+        ls_oled_println("> Light OK");
+    }
+    else
+    {
+        ls_oled_println("Light: %c %c", _selftest_light_high ? ' ' : 0x01, _selftest_light_low ? ' ' : 0x02);
+    }
+    if (_selftest_tilt_detect && _selftest_tilt_ok)
+    {
+        ls_oled_println("> Tilt OK");
+    }
+    else
+    {
+        ls_oled_println("Tilte: %c %c", _selftest_tilt_detect ? ' ' : '/', _selftest_tilt_ok ? ' ' : '|');
+    }
+
+    ls_oled_goto_line(2);
+    if (_selftest_magnet_enter && _selftest_magnet_leave)
+    {
+        ls_oled_println("> Magnet OK");
+    }
+    else
+    {
+        ls_oled_println("Magnet: %c %c", _selftest_magnet_enter ? ' ' : '+', _selftest_magnet_leave ? ' ' : '-');
+    }
+    if (_selftest_tape_dark && _selftest_magnet_leave)
+    {
+        ls_oled_println("> Tape OK");
+    }
+    else
+    {
+        ls_oled_println("Tape: %s %s", _selftest_tape_light ? "  " : "Lt", _selftest_tape_dark ? "  " : "Dk");
+    }
+    if (_selftest_tapemode_darksafe && _selftest_tapemode_dark && _selftest_tapemode_ignore && _selftest_tapemode_light && _selftest_tapemode_lightsafe)
+    {
+        ls_oled_println("> Mode Jmprs OK");
+    }
+    else
+    {
+        ls_oled_println("Mode: %c %c %c %c %c",
+                        _selftest_tapemode_darksafe ? ' ' : 'D',
+                        _selftest_tapemode_dark ? ' ' : 'd',
+                        _selftest_tapemode_ignore ? ' ' : '-',
+                        _selftest_tapemode_light ? ' ' : 'l',
+                        _selftest_tapemode_lightsafe ? ' ' : 'L');
+    }
+
+    ls_oled_goto_line(6);
     if (_selftest_switches_off && _selftest_switches_upper && _selftest_switches_lower && _selftest_switches_both)
     {
         ls_oled_println("> Buttons OK");
@@ -161,36 +226,36 @@ void selftest_event_handler(ls_event event)
         break;
     case LSEVT_MAGNET_ENTER:
         ls_buzzer_effect(LS_BUZZER_CLICK_HIGH);
-        _selftest_magnet_enter = true;
+        _selftest_detected_event(&_selftest_magnet_enter);
         break;
     case LSEVT_MAGNET_LEAVE:
         ls_buzzer_effect(LS_BUZZER_CLICK);
-        _selftest_magnet_leave = true;
+        _selftest_detected_event(&_selftest_magnet_leave);
         break;
     case LSEVT_LIGHT_DAY:
         ls_buzzer_effect(LS_BUZZER_PLAY_WAKE);
-        _selftest_light_high = true;
+        _selftest_detected_event(&_selftest_light_high);
         break;
     case LSEVT_LIGHT_NIGHT:
         ls_buzzer_effect(LS_BUZZER_PLAY_SLEEP);
-        _selftest_light_low = true;
+        _selftest_detected_event(&_selftest_light_low);
         break;
     case LSEVT_CONTROLS_UPPER:
         ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_ENTER);
-        _selftest_switches_upper = true;
+        _selftest_detected_event(&_selftest_switches_upper);
         break;
     case LSEVT_CONTROLS_LOWER:
         ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_ENTER);
-        _selftest_switches_lower = true;
+        _selftest_detected_event(&_selftest_switches_lower);
         break;
     case LSEVT_CONTROLS_BOTH:
         ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_ENTER);
-        _selftest_switches_both = true;
+        _selftest_detected_event(&_selftest_switches_both);
         break;
     case LSEVT_CONTROLS_OFF:
         ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_LEAVE);
-        ls_leds_cycle(LEDCYCLE_RAINBOW);
-        _selftest_switches_off = true;
+        ls_leds_off();
+        _selftest_detected_event(&_selftest_switches_off);
         break;
     case LSEVT_CONTROLS_SLIDER1:
         ls_leds_rgb(_constrain(_map(*event_value, LS_CONTROLS_READING_BOTTOM, LS_CONTROLS_READING_TOP, 255, 0), 0, 255), _constrain(_map(*event_value, LS_CONTROLS_READING_BOTTOM, LS_CONTROLS_READING_TOP, 0, 255), 0, 255), 0);
@@ -200,11 +265,11 @@ void selftest_event_handler(ls_event event)
         }
         if (*event_value >= LS_CONTROLS_READING_TOP)
         {
-            _selftest_slider1_max = true;
+            _selftest_detected_event(&_selftest_slider1_max);
         }
         if (*event_value <= LS_CONTROLS_READING_BOTTOM)
         {
-            _selftest_slider1_min = true;
+            _selftest_detected_event(&_selftest_slider1_min);
         }
         break;
     case LSEVT_CONTROLS_SLIDER2:
@@ -215,20 +280,41 @@ void selftest_event_handler(ls_event event)
         }
         if (*event_value >= LS_CONTROLS_READING_TOP)
         {
-            _selftest_slider2_max = true;
+            _selftest_detected_event(&_selftest_slider2_max);
         }
         if (*event_value <= LS_CONTROLS_READING_BOTTOM)
         {
-            _selftest_slider2_min = true;
+            _selftest_detected_event(&_selftest_slider2_min);
         }
         break;
     case LSEVT_TILT_DETECTED:
         ls_buzzer_effect(LS_BUZZER_PLAY_TILT_FAIL);
-        _selftest_tilt_detect = true;
+        _selftest_detected_event(&_selftest_tilt_detect);
         break;
     case LSEVT_TILT_OK:
         ls_buzzer_effect(LS_BUZZER_ALERT_1S);
-        _selftest_tilt_ok = true;
+        _selftest_detected_event(&_selftest_tilt_ok);
+        break;
+    case LSEVT_SELFTEST_TAPE_DARK:
+        _selftest_detected_event(&_selftest_tape_dark);
+        break;
+    case LSEVT_SELFTEST_TAPE_LIGHT:
+        _selftest_detected_event(&_selftest_tape_light);
+        break;
+    case LSEVT_SELFTEST_MODE_DARKSAFE:
+        _selftest_detected_event(&_selftest_tapemode_darksafe);
+        break;
+    case LSEVT_SELFTEST_MODE_DARK:
+        _selftest_detected_event(&_selftest_tapemode_dark);
+        break;
+    case LSEVT_SELFTEST_MODE_IGNORE:
+        _selftest_detected_event(&_selftest_tapemode_ignore);
+        break;
+    case LSEVT_SELFTEST_MODE_LIGHT:
+        _selftest_detected_event(&_selftest_tapemode_light);
+        break;
+    case LSEVT_SELFTEST_MODE_LIGHTSAFE:
+        _selftest_detected_event(&_selftest_tapemode_lightsafe);
         break;
     default:;
     }
