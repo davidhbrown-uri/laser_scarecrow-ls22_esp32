@@ -106,11 +106,11 @@ static void _selftest_update_leds(void)
     {
         if (_selftest_light_low && _selftest_light_high && _selftest_magnet_enter && _selftest_magnet_leave && _selftest_tape_light && _selftest_tape_dark && _selftest_tilt_detect && _selftest_tilt_ok && _selftest_tapemode_darksafe && _selftest_tapemode_dark && _selftest_tapemode_ignore && _selftest_tapemode_light && _selftest_tapemode_lightsafe)
         {
-            ls_leds_rgb(0,128,0); // darker green
+            ls_leds_rgb(0,48,0); // darker green
         }
         else
         {
-            ls_leds_rgb(128,96,0); // darker yellow
+            ls_leds_rgb(64,16,0); // darker yellow
         }
     }
 }
@@ -158,17 +158,18 @@ static void _selftest_update_oled(void)
     }
     if (_selftest_tapemode_darksafe && _selftest_tapemode_dark && _selftest_tapemode_ignore && _selftest_tapemode_light && _selftest_tapemode_lightsafe)
     {
-        ls_oled_println("> Mode Jmprs OK");
+        ls_oled_println("> Mode OK");
     }
     else
     {
         ls_oled_println("Mode: %c %c %c %c %c",
                         _selftest_tapemode_darksafe ? ' ' : 'D',
                         _selftest_tapemode_dark ? ' ' : 'd',
-                        _selftest_tapemode_ignore ? ' ' : '-',
+                        _selftest_tapemode_ignore ? ' ' : 'X',
                         _selftest_tapemode_light ? ' ' : 'l',
                         _selftest_tapemode_lightsafe ? ' ' : 'L');
     }
+    ls_oled_println("----------------");
 
     ls_oled_goto_line(6);
     if (_selftest_switches_off && _selftest_switches_upper && _selftest_switches_lower && _selftest_switches_both)
@@ -197,21 +198,27 @@ static void _selftest_update_oled(void)
     }
 }
 
+bool _selftest_wait_for_buzzer_warning_complete = false;
 void selftest_event_handler(ls_event event)
 {
+    if (_selftest_wait_for_buzzer_warning_complete && event.type != LSEVT_BUZZER_WARNING_COMPLETE)
+    {
+        return;
+    }
     BaseType_t *event_value = event.value;
     switch (event.type)
     {
     case LSEVT_STATE_ENTRY:
+        _selftest_wait_for_buzzer_warning_complete = true;
         ls_servo_jumpto(LS_SERVO_US_MID);
         ls_leds_cycle(LEDCYCLE_RAINBOW);
         vTaskDelay(pdMS_TO_TICKS(LS_SERVO_SELFTEST_HOLD_MS));
         ls_buzzer_effect(LS_BUZZER_PRE_LASER_WARNING);
-        while (ls_buzzer_in_use())
-        {
-            vTaskDelay(1);
-        }
+        break;
+    case LSEVT_BUZZER_WARNING_COMPLETE:
+        _selftest_wait_for_buzzer_warning_complete = false;
         ls_settings_reset_defaults();
+        ls_leds_off();
         xTaskCreate(&ls_tape_sensor_selftest_task, "tapesense_selftest", configMINIMAL_STACK_SIZE * 2, NULL, 10, NULL);
         xTaskCreate(&ls_tapemode_selftest_task, "tapemode_selftest", configMINIMAL_STACK_SIZE * 2, NULL, 10, NULL);
         ls_laser_pulse_init();
@@ -242,14 +249,17 @@ void selftest_event_handler(ls_event event)
         break;
     case LSEVT_CONTROLS_UPPER:
         ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_ENTER);
+        ls_leds_single(2, GRB_YELLOW);
         _selftest_detected_event(&_selftest_switches_upper);
         break;
     case LSEVT_CONTROLS_LOWER:
         ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_ENTER);
+        ls_leds_single(2, GRB_MAGENTA);
         _selftest_detected_event(&_selftest_switches_lower);
         break;
     case LSEVT_CONTROLS_BOTH:
         ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_ENTER);
+        ls_leds_single(2, GRB_WHITE);
         _selftest_detected_event(&_selftest_switches_both);
         break;
     case LSEVT_CONTROLS_OFF:
@@ -258,7 +268,7 @@ void selftest_event_handler(ls_event event)
         _selftest_detected_event(&_selftest_switches_off);
         break;
     case LSEVT_CONTROLS_SLIDER1:
-        ls_leds_rgb(_constrain(_map(*event_value, LS_CONTROLS_READING_BOTTOM, LS_CONTROLS_READING_TOP, 255, 0), 0, 255), _constrain(_map(*event_value, LS_CONTROLS_READING_BOTTOM, LS_CONTROLS_READING_TOP, 0, 255), 0, 255), 0);
+        ls_leds_single(0, _constrain(_map(*event_value, LS_CONTROLS_READING_BOTTOM, LS_CONTROLS_READING_TOP, 0, 255), 0, 255) *0x10000 | _constrain(_map(*event_value, LS_CONTROLS_READING_BOTTOM, LS_CONTROLS_READING_TOP, 255, 0), 0, 255) * 0x100);
         if (!ls_buzzer_in_use())
         {
             ls_buzzer_tone(_map(*event_value, LS_CONTROLS_READING_BOTTOM, LS_CONTROLS_READING_TOP, 1000, 2000));
@@ -273,7 +283,7 @@ void selftest_event_handler(ls_event event)
         }
         break;
     case LSEVT_CONTROLS_SLIDER2:
-        ls_leds_rgb(0, _constrain(_map(*event_value, LS_CONTROLS_READING_BOTTOM, LS_CONTROLS_READING_TOP, 255, 0), 0, 255), _constrain(_map(*event_value, LS_CONTROLS_READING_BOTTOM, LS_CONTROLS_READING_TOP, 0, 255), 0, 255));
+        ls_leds_single(1, _constrain(_map(*event_value, LS_CONTROLS_READING_BOTTOM, LS_CONTROLS_READING_TOP, 255, 0), 0, 255) * 0x10000 |  _constrain(_map(*event_value, LS_CONTROLS_READING_BOTTOM, LS_CONTROLS_READING_TOP, 0, 255), 0, 255));
         if (!ls_buzzer_in_use())
         {
             ls_buzzer_tone(_map(*event_value, LS_CONTROLS_READING_BOTTOM, LS_CONTROLS_READING_TOP, 2000, 4000));

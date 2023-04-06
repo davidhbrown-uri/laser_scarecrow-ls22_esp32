@@ -39,3 +39,5 @@ void ls_leds_off(void);
 void ls_leds_cycle(ls_ledcycle_t ledcycle);
 
 void ls_leds_rgb(uint8_t red, uint8_t green, uint8_t blue);
+
+void ls_leds_single(int which, int color);
