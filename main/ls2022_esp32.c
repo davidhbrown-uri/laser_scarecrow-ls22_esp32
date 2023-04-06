@@ -46,6 +46,7 @@
 #include "settings.h"
 #include "i2c.h"
 #include "leds.h"
+#include "oled.h"
 
 SemaphoreHandle_t adc1_mux = NULL;
 SemaphoreHandle_t adc2_mux = NULL;
@@ -87,6 +88,7 @@ void app_main(void)
     adc1_mux = xSemaphoreCreateMutex();
     adc2_mux = xSemaphoreCreateMutex();
     print_mux = xSemaphoreCreateMutex();
+    i2c_mux = xSemaphoreCreateMutex();
     printf("Initializing I2C...\n");
     ls_i2c_init();
     printf("Initializing GPIO...\n");
@@ -96,6 +98,8 @@ void app_main(void)
     print_char_val_type(val_type);
     check_efuse();
     ls_leds_init();
+    ls_oled_init();
+    ls_oled_show_logo();
 
     printf("Initialized Hardware\n");
     ls_settings_set_defaults();
@@ -133,11 +137,11 @@ void app_main(void)
     xTaskCreate(&event_handler_state_machine, "event_handler_state_machine", configMINIMAL_STACK_SIZE * 3, NULL, 15, NULL);
 
     // lowest priority (1-9)
-    xTaskCreate(&ls_tilt_task, "tilt_task", configMINIMAL_STACK_SIZE * 3, NULL, 7, NULL);
+    xTaskCreate(&ls_leds_handler_task, "leds_handler", configMINIMAL_STACK_SIZE * 2, NULL, 6, NULL);
     xTaskCreate(&ls_buzzer_handler_task, "buzzer_handler", configMINIMAL_STACK_SIZE * 2, NULL, 5, NULL);
-    xTaskCreate(&ls_leds_handler_task, "leds_handler", configMINIMAL_STACK_SIZE * 2, NULL, 5, NULL);
     xTaskCreate(&ls_servo_task, "servo_task", configMINIMAL_STACK_SIZE * 3, NULL, 3, NULL);
 //    xTaskCreate(&ls_coverage_task, "coverage_task", configMINIMAL_STACK_SIZE * 3, NULL, 2, NULL); // cannot do before map is ready
+    xTaskCreate(&ls_tilt_task, "tilt_task", configMINIMAL_STACK_SIZE * 3, NULL, 2, NULL);
     xTaskCreate(&ls_lightsense_read_task, "lightsense_read", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
 
 #ifdef LSDEBUG_TAPEMODE

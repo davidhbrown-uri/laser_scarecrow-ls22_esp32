@@ -2,35 +2,42 @@
 #include "../components/ESP32-NeoPixel-WS2812-RMT/ws2812_control.h"
 
 static int _ledcycle_off[] = {GRB_OFF};
-ls_ledcycle_t LEDCYCLE_OFF = {1, portMAX_DELAY, 0, _ledcycle_off};
+ls_ledcycle_t LEDCYCLE_OFF = {sizeof(_ledcycle_off)/4, portMAX_DELAY, 0, _ledcycle_off};
 
 // values calculated using a separate program and the Adafruit neopixel library, plus some regex massaging
 static int _ledcycle_rainbow[] = {0x00FF00, 0x03FF00, 0x14FF00, 0x39FF00, 0x78FF00, 0xD7FF00, 0xFFB400, 0xFF6000, 0xFF2A00, 0xFF0D00, 0xFF0100, 0xFF0000, 0xFF0007, 0xFF001E, 0xFF004B, 0xFF0094, 0xFF00FF, 0x9400FF, 0x4B00FF, 0x1E00FF, 0x0700FF, 0x0000FF, 0x0001FF, 0x000DFF, 0x002AFF, 0x0060FF, 0x00B4FF, 0x00FFD7, 0x00FF78, 0x00FF39, 0x00FF14, 0x00FF03};
-ls_ledcycle_t LEDCYCLE_RAINBOW = {32, pdMS_TO_TICKS(200), 2, _ledcycle_rainbow};
+ls_ledcycle_t LEDCYCLE_RAINBOW = {sizeof(_ledcycle_rainbow)/4, pdMS_TO_TICKS(100), 2, _ledcycle_rainbow};
 
 static int _ledcycle_warning[] = {GRB_GREEN, GRB_RED, GRB_GREEN, GRB_OFF, GRB_GREEN, GRB_GREEN, GRB_OFF, GRB_OFF, GRB_GREEN, GRB_OFF};
-ls_ledcycle_t LEDCYCLE_WARNING = {10, pdMS_TO_TICKS(100), 0, _ledcycle_warning};
+ls_ledcycle_t LEDCYCLE_WARNING = {sizeof(_ledcycle_warning)/4, pdMS_TO_TICKS(100), 0, _ledcycle_warning};
 
 // the snoring sound is computed to take 357 ticks, peaking around 71-73; design this to take 360 ticks
 static int _ledcycle_sleep[] = {32, 64, 128, 192, 224, 255, 255, 255, 255, 224, 192, 183, 165, 165, 147, 147, 129, 129, 111, 111, 100, 92, 92, 64, 48, 48, 48, 48, 32, 32, 32, 16, 16, 8, 4, 2};
-ls_ledcycle_t LEDCYCLE_SLEEP = {36, 10, 0, _ledcycle_sleep};
+ls_ledcycle_t LEDCYCLE_SLEEP = {sizeof(_ledcycle_sleep)/4, 10, 0, _ledcycle_sleep};
 
 static int _ledcycle_controls_upper[] = {GRB_YELLOW, GRB_YELLOW, GRB_OFF, GRB_OFF, GRB_OFF, GRB_OFF, GRB_OFF, GRB_OFF, GRB_OFF, GRB_OFF};
-ls_ledcycle_t LEDCYCLE_CONTROLS_UPPER = {10, pdMS_TO_TICKS(200), 0, _ledcycle_controls_upper};
+ls_ledcycle_t LEDCYCLE_CONTROLS_UPPER = {sizeof(_ledcycle_controls_upper)/4, pdMS_TO_TICKS(200), 0, _ledcycle_controls_upper};
 
 static int _ledcycle_controls_lower[] = {GRB_MAGENTA, GRB_OFF, GRB_MAGENTA, GRB_OFF, GRB_OFF, GRB_OFF, GRB_OFF, GRB_OFF, GRB_OFF, GRB_OFF};
-ls_ledcycle_t LEDCYCLE_CONTROLS_LOWER = {10, pdMS_TO_TICKS(200), 0, _ledcycle_controls_lower};
+ls_ledcycle_t LEDCYCLE_CONTROLS_LOWER = {sizeof(_ledcycle_controls_lower)/4, pdMS_TO_TICKS(200), 0, _ledcycle_controls_lower};
 
 static int _ledcycle_controls_both[] = {GRB_MAGENTA, GRB_OFF, GRB_YELLOW, GRB_OFF, GRB_MAGENTA, GRB_OFF, GRB_OFF, GRB_OFF, GRB_OFF, GRB_OFF};
-ls_ledcycle_t LEDCYCLE_CONTROLS_BOTH = {10, pdMS_TO_TICKS(200), 0, _ledcycle_controls_both};
+ls_ledcycle_t LEDCYCLE_CONTROLS_BOTH = {sizeof(_ledcycle_controls_both)/4, pdMS_TO_TICKS(200), 0, _ledcycle_controls_both};
 
-static int _ledcycle_static[] = {GRB_OFF};
-ls_ledcycle_t LEDCYCLE_STATIC = {1, portMAX_DELAY, 0, _ledcycle_static};
+static int _ledcycle_static[CONFIG_WS2812_NUM_LEDS];
+ls_ledcycle_t LEDCYCLE_STATIC = {CONFIG_WS2812_NUM_LEDS, portMAX_DELAY, 1, _ledcycle_static};
 
 static int _ledcycle_red_flash[] = {0x0F00, 0x7F00, 0xFF00, 0xFF00, 0x7F00, 0x0F00, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,0,0,0,0,0,0,0,0,0};
-ls_ledcycle_t LEDCYCLE_RED_FLASH = {30, pdMS_TO_TICKS(100), 3, _ledcycle_red_flash};
+ls_ledcycle_t LEDCYCLE_RED_FLASH = {sizeof(_ledcycle_red_flash)/4, pdMS_TO_TICKS(100), 3, _ledcycle_red_flash};
 
-
+static int _ledcycle_green_pulse[] = {0x000000, 0x100000, 0x200000, 0x400000, 0x800000, 0xA00000, 0xC00000, 0xC00000, 
+                                      0xC00000, 0xC00000, 0xA00000, 0x800000, 0x400000, 0x200000, 0x100000, 0x000000,
+                                      0, 0, 0, 0, 0, 0, 0, 0};
+ls_ledcycle_t LEDCYCLE_GREEN_PULSE = {sizeof(_ledcycle_green_pulse)/4, pdMS_TO_TICKS(100), 2, _ledcycle_green_pulse};
+static int _ledcycle_yellow_pulse[] = {0x000000, 0x102000, 0x203000, 0x406000, 0x809000, 0xA0B000, 0xC0E000, 0xC0E000, 
+                                      0xC0E000, 0xC0E000, 0xA0B000, 0x809000, 0x406000, 0x203000, 0x102000, 0x000000};
+ls_ledcycle_t LEDCYCLE_YELLOW_PULSE = {sizeof(_ledcycle_yellow_pulse)/4, pdMS_TO_TICKS(100), 2, _ledcycle_yellow_pulse};
+;
 
 void ls_leds_handler_task(void *pvParameter)
 {
@@ -79,5 +86,17 @@ void ls_leds_cycle(struct ls_ledcycle ledcycle)
 void ls_leds_rgb(uint8_t red, uint8_t green, uint8_t blue)
 {
     _ledcycle_static[0] = ((int)green << 16) | ((int)red << 8) | (int)blue;
+    for(int i = 1; i < CONFIG_WS2812_NUM_LEDS; i++) // copy to rest
+    {
+        _ledcycle_static[i] = _ledcycle_static[0];
+    }
+    ls_leds_cycle(LEDCYCLE_STATIC);
+}
+void ls_leds_single(int which, int color)
+{
+    if(which >= 0 && which < CONFIG_WS2812_NUM_LEDS)
+    {
+        _ledcycle_static[which] = color;
+    }
     ls_leds_cycle(LEDCYCLE_STATIC);
 }

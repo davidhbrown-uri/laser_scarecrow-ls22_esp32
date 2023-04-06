@@ -28,7 +28,7 @@ typedef struct ls_ledcycle
 
 extern ls_ledcycle_t LEDCYCLE_OFF, LEDCYCLE_RAINBOW, LEDCYCLE_WARNING, LEDCYCLE_SLEEP,
     LEDCYCLE_CONTROLS_UPPER, LEDCYCLE_CONTROLS_LOWER, LEDCYCLE_CONTROLS_BOTH,
-    LEDCYCLE_RED_FLASH;
+    LEDCYCLE_RED_FLASH, LEDCYCLE_GREEN_PULSE, LEDCYCLE_YELLOW_PULSE;
 
 void ls_leds_init(void);
 
@@ -39,3 +39,5 @@ void ls_leds_off(void);
 void ls_leds_cycle(ls_ledcycle_t ledcycle);
 
 void ls_leds_rgb(uint8_t red, uint8_t green, uint8_t blue);
+
+void ls_leds_single(int which, int color);

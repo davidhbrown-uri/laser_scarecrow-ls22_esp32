@@ -81,6 +81,8 @@ gpio_num_t lsgpio_servopulse(void);
 #define LSI2C_SDA 21
 #define LSI2C_SCL 22
 #define LSI2C_FREQ_HZ 100000
+// how many ticks a task can block waiting for the i2c_mux
+#define LSI2C_MUX_TICKS 50
 
 // https://github.com/JSchaenzle/ESP32-NeoPixel-WS2812-RMT/blob/master/Kconfig
 // --- use menuconfig to set, but be sure the Kconfig file correctly labels the parameters!
@@ -222,14 +224,14 @@ LS_CONTROLS_SWITCH_THRESHOLD_BOTH < ADC < 4096 => LS_CONTROLS_STATUS_BOTH;
 #define LS_LIGHTSENSE_READING_INTERVAL_MS 4000
 #define LS_LIGHTSENSE_READINGS_TO_SWITCH 4
 
-#define LS_TILT_THRESHOLD_DETECTED_MG 890
-#define LS_TILT_THRESHOLD_OK_MG 920
+#define LS_TILT_THRESHOLD_DETECTED_MG 900
+#define LS_TILT_THRESHOLD_OK_MG 950
 #ifdef LSDEBUG_I2C
 // the accelerometer will check this frequently if I2C debug is active
-#define LS_TILT_REPORT_RATE_MS 200
+#define LS_TILT_REPORT_RATE_MS 500
 #else
 // the accelerometer will check this frequently during normal operation
-#define LS_TILT_REPORT_RATE_MS 400
+#define LS_TILT_REPORT_RATE_MS 1000
 #endif
 
 #define LS_EVENT_NOOP_TIMEOUT_MS 50000

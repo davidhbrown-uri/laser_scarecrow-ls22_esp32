@@ -61,14 +61,15 @@ static esp_err_t i2c_master_init(void)
         .mode = I2C_MODE_MASTER,
         .sda_io_num = LSI2C_SDA,
         .scl_io_num = LSI2C_SCL,
-        .sda_pullup_en = GPIO_PULLUP_ENABLE,  // have our own pullup resistors, too
-        .scl_pullup_en = GPIO_PULLUP_ENABLE,  // have our own pullup resistors, too
+        .sda_pullup_en = GPIO_PULLUP_ENABLE, // have our own pullup resistors, too
+        .scl_pullup_en = GPIO_PULLUP_ENABLE, // have our own pullup resistors, too
         .master.clk_speed = LSI2C_FREQ_HZ,
     };
 
     i2c_param_config(i2c_master_port, &conf);
-
+    xSemaphoreTake(i2c_mux, LSI2C_MUX_TICKS);
     esp_err_t status = i2c_driver_install(i2c_master_port, conf.mode, I2C_MASTER_RX_BUF_DISABLE, I2C_MASTER_TX_BUF_DISABLE, 0);
+    xSemaphoreGive(i2c_mux);
 #ifdef LSDEBUG_I2C
     ls_debug_printf("I2C bus master initializing on port %d returning esp_err_t = %d.\n", LSI2C_PORT, status);
 #endif
@@ -77,6 +78,7 @@ static esp_err_t i2c_master_init(void)
 
 esp_err_t ls_i2c_write_reg_byte(uint8_t device_address, uint8_t register_number, uint8_t data)
 {
+    xSemaphoreTake(i2c_mux, LSI2C_MUX_TICKS);
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
     i2c_master_start(cmd);                                                            // S
     i2c_master_write_byte(cmd, device_address << 1 | I2C_MASTER_WRITE, ACK_CHECK_EN); // SAD+W (ACK)
@@ -85,11 +87,13 @@ esp_err_t ls_i2c_write_reg_byte(uint8_t device_address, uint8_t register_number,
     i2c_master_stop(cmd);                                                             // P
     esp_err_t ret = i2c_master_cmd_begin(LSI2C_PORT, cmd, 1000 / portTICK_RATE_MS);
     i2c_cmd_link_delete(cmd);
+    xSemaphoreGive(i2c_mux);
     return ret;
 }
 
 esp_err_t ls_i2c_read_reg_uint8(uint8_t device_address, uint8_t register_number, uint8_t *data)
 {
+    xSemaphoreTake(i2c_mux, LSI2C_MUX_TICKS);
     // see page 23 of KXTJ3-1057 specification
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
     i2c_master_start(cmd);                                                            // S
@@ -101,6 +105,7 @@ esp_err_t ls_i2c_read_reg_uint8(uint8_t device_address, uint8_t register_number,
     i2c_master_stop(cmd);                                                             // P
     esp_err_t ret = i2c_master_cmd_begin(LSI2C_PORT, cmd, 1000 / portTICK_RATE_MS);
     i2c_cmd_link_delete(cmd);
+    xSemaphoreGive(i2c_mux);
     return ret;
 }
 
@@ -127,13 +132,14 @@ bool ls_i2c_probe_address(uint8_t address)
     }
 
     // from https://github.com/espressif/esp-idf/blob/a82e6e63d98bb051d4c59cb3d440c537ab9f74b0/examples/peripherals/i2c/i2c_tools/main/cmd_i2ctools.c lines 130ff
+    xSemaphoreTake(i2c_mux, LSI2C_MUX_TICKS);
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
     i2c_master_start(cmd);
     i2c_master_write_byte(cmd, (address << 1) | WRITE_BIT, ACK_CHECK_EN);
     i2c_master_stop(cmd);
     esp_err_t ret = i2c_master_cmd_begin(LSI2C_PORT, cmd, 50 / portTICK_PERIOD_MS);
     i2c_cmd_link_delete(cmd);
-
+    xSemaphoreGive(i2c_mux);
     return (ret == ESP_OK);
 }
 enum ls_i2c_accelerometer_device_t ls_i2c_accelerometer_device(void)
@@ -159,7 +165,7 @@ enum ls_i2c_accelerometer_device_t ls_i2c_accelerometer_device(void)
     }
     // if we haven't yet detected an accelerometer, we may need to try harder.
 
-    if (LS_I2C_ACCELEROMETER_NONE == _ls_i2c_accelerometer_device) 
+    if (LS_I2C_ACCELEROMETER_NONE == _ls_i2c_accelerometer_device)
     {
         if (ESP_OK == mpu6050_attempt_reset())
         {
@@ -172,10 +178,10 @@ enum ls_i2c_accelerometer_device_t ls_i2c_accelerometer_device(void)
 
 /**
  * @brief Determine whether the unit has tipped
- * 
+ *
  * Note that in 2023, the accelerometer is mounted upside-down, so these values are inverted.
- * 
- * @return float 
+ *
+ * @return float
  */
 float ls_i2c_read_accel_z(void)
 {
@@ -183,13 +189,13 @@ float ls_i2c_read_accel_z(void)
     switch (ls_i2c_accelerometer_device())
     {
     case LS_I2C_ACCELEROMETER_KXTJ3:
-        return 0.0-kxtj3_read_accel_z();
+        return 0.0 - kxtj3_read_accel_z();
         break;
     case LS_I2C_ACCELEROMETER_LIS2DH12:
-        return 0.0-lis2dh120_read_accel_z();
+        return 0.0 - lis2dh120_read_accel_z();
         break;
     case LS_I2C_ACCELEROMETER_MPU6050:
-        return 0.0-mpu6050_read_accel_z();
+        return 0.0 - mpu6050_read_accel_z();
         break;
     case LS_I2C_ACCELEROMETER_NONE:
         return nanf("");

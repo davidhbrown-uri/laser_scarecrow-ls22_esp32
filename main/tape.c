@@ -17,6 +17,7 @@
 */
 #include "tape.h"
 #include "config.h"
+#include "events.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "driver/gpio.h"
@@ -76,10 +77,12 @@ void ls_tape_sensor_selftest_task(void *pvParameter)
         if(tape_reading < LS_REFLECTANCE_ADC_MAX_WHITE_BUCKET && last_tape_reading >= LS_REFLECTANCE_ADC_MAX_WHITE_BUCKET)
         {
             ls_buzzer_effect(LS_BUZZER_PLAY_ROOT);
+            ls_event_enqueue(LSEVT_SELFTEST_TAPE_LIGHT);
         }
         if(tape_reading > LS_REFLECTANCE_ADC_MIN_BLACK_BUCKET && last_tape_reading <= LS_REFLECTANCE_ADC_MIN_BLACK_BUCKET)
         {
             ls_buzzer_effect(LS_BUZZER_PLAY_OCTAVE);
+            ls_event_enqueue(LSEVT_SELFTEST_TAPE_DARK);
         }
         last_tape_reading = tape_reading;
         vTaskDelay(1);
