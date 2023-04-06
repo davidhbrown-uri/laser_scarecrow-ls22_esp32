@@ -102,7 +102,7 @@ void ls_controls_task(void *pvParameter)
         // update switch status
 
         switch_reading = (switch_reading + 1) % LS_CONTROLS_TASK_SWITCH_READINGS;
-        switch_readings[switch_reading] = _ls_controls_status(controls_readings[0]);
+        switch_readings[switch_reading] = _ls_controls_status(esp_adc_cal_raw_to_voltage(controls_readings[0], &controls_adc_cal[0]));
         bool switch_readings_match = true;
         for (int i = 1; i < LS_CONTROLS_TASK_SWITCH_READINGS; i++)
         {
