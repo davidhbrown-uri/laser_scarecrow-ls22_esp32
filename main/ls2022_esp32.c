@@ -46,6 +46,7 @@
 #include "settings.h"
 #include "i2c.h"
 #include "leds.h"
+#include "oled.h"
 
 SemaphoreHandle_t adc1_mux = NULL;
 SemaphoreHandle_t adc2_mux = NULL;
@@ -96,6 +97,8 @@ void app_main(void)
     print_char_val_type(val_type);
     check_efuse();
     ls_leds_init();
+    ls_oled_init();
+    ls_oled_show_logo();
 
     printf("Initialized Hardware\n");
     ls_settings_set_defaults();
