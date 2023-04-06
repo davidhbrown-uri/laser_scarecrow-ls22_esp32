@@ -131,45 +131,29 @@ gpio_num_t lsgpio_servopulse(void);
 #define LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_TICK (LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_SECOND / pdMS_TO_TICKS(1000))
 
 /*
-2023 dual switch setup with 22k & 10k resistors to 3V3 and 10k to ground
-Initial testing with 2x Cat5 extensions and a 15' outdoor Cat5 cable
-connecting prototype boards (no ADC filter cap)
- [also tested with a 2m patch cord]
-Observed min/max over about 15-20 seconds (6dB attenuator)
-Both off: raw ADC=1237-1247 [1253-1264 (same with only USB power)]
-Upper (22k) on: raw ADC=2192-2202 [2192-2206 (1789-1798 with only USB power)]
-Lower (10k) on: raw ADC= 3039-3046 [3031-3041 (2247-2256 with only USB power)]
-Both (~6.88) on: raw ADC= 3569-3575 [3561-3574 (2498-2506 with only USB power)]
-(Values with only USB power are not really relevant, but mentioned as I'll probably
-get confused on occasion when testing/developing the software using USB power only.)
-Suggested inital thresholds for testing; might shift with longer cable and gland resistance:
-   Off < 1500 < Upper < 2750 < Lower < 3280 < Both
+2023 dual switch setup with upper 22k, lower 10k resistors to 3V3 and 10k to ground
+Testing on 2023-04-05 using final boards, 15ft Cat5 and 2x RJ45 cable glands
+Observed min/max over about 15-20 seconds (11dB attenuator)
+Off: 160-172mV  (USB: 220-228mV)
+Upper (22k): 993-1017mV (USB: 773-777mV)
+Lower (10k): 1554-1562mV (USB: 1123-1124mV)
+Both: (~6.9k): 1835-1843mV   (USB: 1279-1281mV)
 */
 // values read by ADC from external controls
-/* The raw ADC value read from the switches input should be compared to these thresholds to determine the controls status:
+/* The calibrated mV ADC value read from the switches input should be compared to these thresholds to determine the controls status:
 0 < ADC < LS_CONTROLS_SWITCH_THRESHOLD_UPPER => LS_CONTROLS_STATUS_OFF;
 LS_CONTROLS_SWITCH_THRESHOLD_UPPER < ADC < LS_CONTROLS_SWITCH_THRESHOLD_LOWER => LS_CONTROLS_STATUS_UPPER;
 LS_CONTROLS_SWITCH_THRESHOLD_LOWER < ADC < LS_CONTROLS_SWITCH_THRESHOLD_BOTH => LS_CONTROLS_STATUS_UPPER;
 LS_CONTROLS_SWITCH_THRESHOLD_BOTH < ADC < 4096 => LS_CONTROLS_STATUS_BOTH;
 */
-#define LS_CONTROLS_SWITCH_THRESHOLD_UPPER 1500
-/* The raw ADC value read from the switches input should be compared to these thresholds to determine the controls status:
-0 < ADC < LS_CONTROLS_SWITCH_THRESHOLD_UPPER => LS_CONTROLS_STATUS_OFF;
-LS_CONTROLS_SWITCH_THRESHOLD_UPPER < ADC < LS_CONTROLS_SWITCH_THRESHOLD_LOWER => LS_CONTROLS_STATUS_UPPER;
-LS_CONTROLS_SWITCH_THRESHOLD_LOWER < ADC < LS_CONTROLS_SWITCH_THRESHOLD_BOTH => LS_CONTROLS_STATUS_UPPER;
-LS_CONTROLS_SWITCH_THRESHOLD_BOTH < ADC < 4096 => LS_CONTROLS_STATUS_BOTH;
-*/
-#define LS_CONTROLS_SWITCH_THRESHOLD_LOWER 2750
-/* The raw ADC value read from the switches input should be compared to these thresholds to determine the controls status:
-0 < ADC < LS_CONTROLS_SWITCH_THRESHOLD_UPPER => LS_CONTROLS_STATUS_OFF;
-LS_CONTROLS_SWITCH_THRESHOLD_UPPER < ADC < LS_CONTROLS_SWITCH_THRESHOLD_LOWER => LS_CONTROLS_STATUS_UPPER;
-LS_CONTROLS_SWITCH_THRESHOLD_LOWER < ADC < LS_CONTROLS_SWITCH_THRESHOLD_BOTH => LS_CONTROLS_STATUS_UPPER;
-LS_CONTROLS_SWITCH_THRESHOLD_BOTH < ADC < 4096 => LS_CONTROLS_STATUS_BOTH;
-*/
-#define LS_CONTROLS_SWITCH_THRESHOLD_BOTH 3280
+#define LS_CONTROLS_SWITCH_THRESHOLD_UPPER 500
+
+#define LS_CONTROLS_SWITCH_THRESHOLD_LOWER 1200
+
+#define LS_CONTROLS_SWITCH_THRESHOLD_BOTH 1650
 
 #define LSADCATTEN_SLIDER ADC_ATTEN_11db
-#define LSADCATTEN_SWITCHES ADC_ATTEN_6db
+#define LSADCATTEN_SWITCHES ADC_ATTEN_11db
 // to ensure the full range of value can be selected,
 // any ADC reading >= LS_CONTROLS_READING_TOP is considered max
 #define LS_CONTROLS_READING_TOP 4040
