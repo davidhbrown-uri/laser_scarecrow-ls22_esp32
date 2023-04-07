@@ -26,11 +26,17 @@
 #include "esp_adc_cal.h"
 #include "settings.h"
 #include "states.h"
+#ifdef LSDEBUG_LIGHTSENSE
+#include "oled.h"
+#endif
 
 extern SemaphoreHandle_t adc1_mux;
 extern SemaphoreHandle_t print_mux;
 
 static enum ls_lightsense_mode_t _ls_lightsense_current_mode = LS_LIGHTSENSE_MODE_STARTUP;
+
+static uint32_t _ls_lightsense_adc_raw = 0;
+
 enum ls_lightsense_mode_t ls_lightsense_current_mode(void)
 {
     return _ls_lightsense_current_mode;
@@ -51,22 +57,32 @@ static enum ls_lightsense_level_t _ls_lightsense_level_from_adc(uint32_t adc_rea
 
 /**
  * Returns value in mv using best available calibration
-*/
+ */
 int ls_lightsense_read_adc(adc_atten_t attenuation)
 {
     xSemaphoreTake(adc1_mux, portMAX_DELAY);
     adc1_config_width(ADC_WIDTH_BIT_12);
     adc1_config_channel_atten(LSADC1_LIGHTSENSE, attenuation);
-    uint32_t adc_reading = 0;
+    _ls_lightsense_adc_raw = 0;
     for (int i = 0; i < 4; i++)
     {
-        adc_reading += adc1_get_raw((adc1_channel_t)LSADC1_LIGHTSENSE);
+        _ls_lightsense_adc_raw += adc1_get_raw((adc1_channel_t)LSADC1_LIGHTSENSE);
     }
-    adc_reading /= 4;
+    _ls_lightsense_adc_raw /= 4;
     xSemaphoreGive(adc1_mux);
     esp_adc_cal_characteristics_t adc_cal;
     esp_adc_cal_characterize(ADC_UNIT_1, attenuation, ADC_WIDTH_12Bit, 1100, &adc_cal);
-    return (int) esp_adc_cal_raw_to_voltage(adc_reading, &adc_cal);
+    return (int)esp_adc_cal_raw_to_voltage(_ls_lightsense_adc_raw, &adc_cal);
+}
+
+int ls_lightsense_read_hdr(void)
+{
+    int mV = ls_lightsense_read_adc(ADC_ATTEN_0db);
+    if (mV > 900)
+    {
+        mV = ls_lightsense_read_adc(ADC_ATTEN_11db);
+    }
+    return mV;
 }
 
 /**
@@ -115,27 +131,15 @@ void ls_lightsense_read_task(void *pvParameter)
     int level_index = 0;
     while (1)
     {
-        adc_atten_t atten = LS_LIGHTSENSE_ADC_ATTEN;
-#ifdef LSDEBUG_LIGHTSENSE_ATTEN
-        for (atten = ADC_ATTEN_0db; atten < ADC_ATTEN_MAX; atten++)
-        {
-#endif
-            int adc_reading = ls_lightsense_read_adc(atten);
-#ifdef LSDEBUG_LIGHTSENSE_ATTEN
-            if (LS_LIGHTSENSE_ADC_ATTEN == atten)
-            {
-#endif
-                levels[level_index] = _ls_lightsense_level_from_adc(adc_reading);
-#ifdef LSDEBUG_LIGHTSENSE_ATTEN
-            }
-#endif
+
+        int adc_reading = ls_lightsense_read_hdr();
+        levels[level_index] = _ls_lightsense_level_from_adc(adc_reading);
+
 #ifdef LSDEBUG_LIGHTSENSE
-            ls_debug_printf("Light sense adc=%dmV at atten=%d; level=%d\n", adc_reading, atten, (u_int8_t)levels[level_index]);
+        ls_debug_printf("Light sense a%dmV (raw=%d); level=%d\n", adc_reading, _ls_lightsense_adc_raw, (u_int8_t)levels[level_index]);
+        ls_oled_println("%d mV (%d)", adc_reading, _ls_lightsense_adc_raw);
 #endif
-#ifdef LSDEBUG_LIGHTSENSE_ATTEN
-        }
-        ls_debug_printf("\n");
-#endif
+
         bool all_agree = true;
         for (int i = 1; all_agree && i < LS_LIGHTSENSE_READINGS_TO_SWITCH; i++)
         {

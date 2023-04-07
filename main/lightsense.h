@@ -36,6 +36,10 @@ enum ls_lightsense_level_t {
 enum ls_lightsense_mode_t ls_lightsense_current_mode(void);
 int ls_lightsense_read_adc(adc_atten_t attenuation);
 void ls_lightsense_read_task(void *pvParameter);
+/**
+ * First reads ADC with 0dB attenuation; if over 900mV, reads again with 11dB atten
+*/
+int ls_lightsense_read_hdr(void);
 
 /* "Calibration" data
 April 4 '22: measuring actual light levels with HoldPeak HP881-C meter and one sample phototransistor

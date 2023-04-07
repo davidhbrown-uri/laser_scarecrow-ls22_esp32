@@ -215,10 +215,8 @@ LS_CONTROLS_SWITCH_THRESHOLD_BOTH < ADC < 4096 => LS_CONTROLS_STATUS_BOTH;
 
 // Thresholds based on sample data recorded in lightsense.h; roughly 40lux on, 20lux off (1000,500)
 // those were with 2022 board's 1M resistor and 11dB attenuator
-// 2023 using 22k resistor and 0dB; thresholds halved relative to 2022's 1M resistor and 11dB
-// use 0dB attenuator to measure low light levels; 11dB to measure high.
+// 2023 using 22k resistor and 0dB; thresholds halved relative to 2022's 1M
 // 5 lux => 75mV; 22 lux => 160mV; 27 lux => 210mV; 50 lux => 400mV 73 lux => 615mV; 94 lux => 770mV
-#define LS_LIGHTSENSE_ADC_ATTEN ADC_ATTEN_DB_0
 #define LS_LIGHTSENSE_DAY_THRESHOLD 150
 #define LS_LIGHTSENSE_NIGHT_THRESHOLD 80
 #define LS_LIGHTSENSE_READING_INTERVAL_MS 4000
