@@ -62,6 +62,8 @@ extern SemaphoreHandle_t print_mux; // in ls2022_esp32.c
 
 //#define LSDEBUG_BUZZER
 
+// REMEMBER #define LSDEBUG_ENABLE at top if you aren't getting any output!
+
 //#define LSDEBUG_MAP
 
 //#define LSDEBUG_LIGHTSENSE
