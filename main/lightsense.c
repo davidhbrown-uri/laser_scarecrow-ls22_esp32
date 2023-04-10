@@ -136,7 +136,7 @@ void ls_lightsense_read_task(void *pvParameter)
         levels[level_index] = _ls_lightsense_level_from_adc(adc_reading);
 
 #ifdef LSDEBUG_LIGHTSENSE
-        ls_debug_printf("Light sense a%dmV (raw=%d); level=%d\n", adc_reading, _ls_lightsense_adc_raw, (u_int8_t)levels[level_index]);
+        ls_debug_printf("Light sense %dmV (raw=%d); level=%d\n", adc_reading, _ls_lightsense_adc_raw, (u_int8_t)levels[level_index]);
         ls_oled_println("%d mV (%d)", adc_reading, _ls_lightsense_adc_raw);
 #endif
 

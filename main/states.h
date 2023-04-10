@@ -16,12 +16,14 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 #pragma once
-#include "events.h"
+#include "states_t.h"
+#include "substate_home.h"
+#include "states-settings.h"
 
 // see http://c-faq.com/decl/recurfuncp.html
 // "Q: How can I declare a function that can return a pointer to a function of the same type? I'm building a state machine with one function for each state.... "
-typedef int (*ls_state_funcptr)(ls_event);	  /* generic function pointer */
-typedef ls_state_funcptr (*_ls_state_funcptr)(ls_event);  /* ptr to ls_state fcn taking event and returning g.f.p. */
+// typedef int (*ls_state_funcptr)(ls_event);	  /* generic function pointer */
+// typedef ls_state_funcptr (*_ls_state_funcptr)(ls_event);  /* ptr to ls_state fcn taking event and returning g.f.p. */
 
 void event_handler_state_machine(void *pvParameter);
 
@@ -31,17 +33,14 @@ void event_handler_state_machine(void *pvParameter);
  */
 void ls_state_init(void);
 
-typedef struct ls_State {
-    struct ls_State (*func)(ls_event);
-}ls_State;
+// typedef struct ls_State {
+//     struct ls_State (*func)(ls_event);
+// }ls_State;
 
 ls_State ls_state_current, ls_state_previous;
 
 ls_State ls_state_poweron(ls_event);
 ls_State ls_state_selftest(ls_event);
-ls_State ls_state_settings_upper(ls_event);
-ls_State ls_state_settings_lower(ls_event);
-ls_State ls_state_settings_both(ls_event);
 ls_State ls_state_sleep(ls_event);
 ls_State ls_state_wakeup(ls_event);
 
