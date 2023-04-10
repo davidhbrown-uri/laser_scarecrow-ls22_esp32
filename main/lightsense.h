@@ -38,6 +38,7 @@ int ls_lightsense_read_adc(adc_atten_t attenuation);
 void ls_lightsense_read_task(void *pvParameter);
 /**
  * First reads ADC with 0dB attenuation; if over 900mV, reads again with 11dB atten
+ * Value returned has been converted from raw to mV using esp_adc_cal_raw_to_voltage()
 */
 int ls_lightsense_read_hdr(void);
 
