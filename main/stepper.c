@@ -296,7 +296,7 @@ void ls_stepper_task(void *pvParameter)
 #ifdef LSDEBUG_STEPPER
             ls_debug_printf("Stepper stopping\n");
 #endif
-            gpio_set_level(LSGPIO_STEPPERENABLE, STEPPERENABLE_DISABLE);
+            gpio_set_level(LSGPIO_STEPPERENABLE, STEPPERENABLE_ENABLE); // enabled because we need to control deceleration
             ls_stepper_steps_remaining = _constrain(ls_stepper_steps_remaining, 0, _ls_stepper_steps_to_decelerate(_ls_stepper_speed_current_rate));
             _ls_stepper_set_speed();
             if (ls_stepper_steps_remaining <= 0)
