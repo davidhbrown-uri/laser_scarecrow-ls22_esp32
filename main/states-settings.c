@@ -110,6 +110,7 @@ ls_State ls_state_settings_lower(ls_event event)
         ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION * 5 / 4);
         ls_servo_sweep();
         ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_ENTER);
+        ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_ENTER);
         ls_leds_cycle(LEDCYCLE_CONTROLS_LOWER);
         break;
     case LSEVT_STEPPER_FINISHED_MOVE:
@@ -192,8 +193,9 @@ ls_State ls_state_settings_both(ls_event event)
     case LSEVT_STATE_ENTRY:
         ls_laser_set_mode_off();
         ls_stepper_stop();
-        ls_stepper_sleep(); // why? loses homing
         ls_servo_off();
+        ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_ENTER);
+        ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_ENTER);
         ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_ENTER);
         ls_leds_cycle(LEDCYCLE_CONTROLS_BOTH);
         break;
