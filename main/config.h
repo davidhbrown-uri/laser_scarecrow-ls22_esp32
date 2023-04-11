@@ -213,12 +213,12 @@ LS_CONTROLS_SWITCH_THRESHOLD_BOTH < ADC < 4096 => LS_CONTROLS_STATUS_BOTH;
 #define LS_STATE_REHOME_TIMER_PERIOD_MS 1800000
 #endif
 
-// Thresholds based on sample data recorded in lightsense.h; roughly 40lux on, 20lux off (1000,500)
-// those were with 2022 board's 1M resistor and 11dB attenuator
-// 2023 using 22k resistor and 0dB; thresholds halved relative to 2022's 1M
-// 5 lux => 75mV; 22 lux => 160mV; 27 lux => 210mV; 50 lux => 400mV 73 lux => 615mV; 94 lux => 770mV
-#define LS_LIGHTSENSE_DAY_THRESHOLD 150
-#define LS_LIGHTSENSE_NIGHT_THRESHOLD 80
+// Thresholds based on sample data recorded in lightsense.h
+// must be comma-separated list
+#define LS_LIGHTSENSE_THRESHOLDS_ON_MV 80, 100, 130, 190, 265, 430, 600, 1070, 1850
+#define LS_LIGHTSENSE_THRESHOLDS_OFF_MV 75, 95, 120, 180, 255, 395, 540, 980, 1690
+#define LS_LIGHTSENSE_THRESHOLDS_COUNT 9
+#define LS_LIGHTSENSE_THRESHOLD_DEFAULT 4
 #define LS_LIGHTSENSE_READING_INTERVAL_MS 4000
 #define LS_LIGHTSENSE_READINGS_TO_SWITCH 4
 

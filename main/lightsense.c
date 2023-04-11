@@ -26,6 +26,7 @@
 #include "esp_adc_cal.h"
 #include "settings.h"
 #include "states.h"
+#include "util.h"
 #ifdef LSDEBUG_LIGHTSENSE
 #include "oled.h"
 #endif
@@ -36,6 +37,17 @@ extern SemaphoreHandle_t print_mux;
 static enum ls_lightsense_mode_t _ls_lightsense_current_mode = LS_LIGHTSENSE_MODE_STARTUP;
 
 static uint32_t _ls_lightsense_adc_raw = 0;
+
+int ls_lightsense_threshold_on_mv(int index)
+{
+    index = _constrain(index, 0, LS_LIGHTSENSE_THRESHOLDS_COUNT - 1);
+    return ((int[]){ LS_LIGHTSENSE_THRESHOLDS_ON_MV })[index];
+}
+int ls_lightsense_threshold_off_mv(int index)
+{
+    index = _constrain(index, 0, LS_LIGHTSENSE_THRESHOLDS_COUNT - 1);
+    return ((int[]){ LS_LIGHTSENSE_THRESHOLDS_OFF_MV })[index];
+}
 
 enum ls_lightsense_mode_t ls_lightsense_current_mode(void)
 {

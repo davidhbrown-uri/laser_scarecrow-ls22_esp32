@@ -30,8 +30,8 @@ extern SemaphoreHandle_t adc2_mux;
 extern SemaphoreHandle_t print_mux;
 
 static enum ls_controls_status ls_controls_current_status = LS_CONTROLS_STATUS_INVALID;
-static BaseType_t _ls_controls_current_slider1 = 0;
-static BaseType_t _ls_controls_current_slider2 = 0;
+static BaseType_t _ls_controls_current_slider1 = -1;
+static BaseType_t _ls_controls_current_slider2 = -1;
 enum ls_controls_status _ls_controls_status(int adc)
 {
     if (adc < LS_CONTROLS_SWITCH_THRESHOLD_UPPER)
@@ -59,6 +59,29 @@ enum ls_controls_status ls_controls_get_current_status(void)
         for (int i = 0; i < LS_CONTROLS_TASK_CONTROLS_COUNT; i++) \
             moved_control[i] = false;                             \
     }
+
+int _ls_controls_get_averaged_adc_reading(adc2_channel_t controls_channel, adc_atten_t controls_atten)
+{
+    int adc_reading = 0;
+    uint32_t adc_sum = 0;
+    xSemaphoreTake(adc2_mux, pdMS_TO_TICKS(1000));
+    ESP_ERROR_CHECK(adc2_config_channel_atten(controls_channel, controls_atten));
+    for (int i = 0; i < LS_CONTROLS_READINGS_TO_AVERAGE; i++)
+    {
+        ESP_ERROR_CHECK(adc2_get_raw(controls_channel, ADC_WIDTH_12Bit, &adc_reading));
+        adc_sum += (uint32_t)adc_reading;
+    }
+    xSemaphoreGive(adc2_mux);
+    return (int)(adc_sum / LS_CONTROLS_READINGS_TO_AVERAGE);
+}
+
+void ls_controls_set_sliders_initial_position(void)
+{
+    // record current  positions
+    _ls_controls_current_slider1 = _ls_controls_get_averaged_adc_reading(LSADC2_SLIDER1, LSADCATTEN_SLIDER);
+    _ls_controls_current_slider2 = _ls_controls_get_averaged_adc_reading(LSADC2_SLIDER2, LSADCATTEN_SLIDER);
+}
+
 void ls_controls_task(void *pvParameter)
 {
 #define LS_CONTROLS_TASK_CONTROLS_COUNT 3
@@ -78,23 +101,15 @@ void ls_controls_task(void *pvParameter)
         switch_readings[i] = LS_CONTROLS_STATUS_INVALID;
         esp_adc_cal_characterize(ADC_UNIT_1, controls_atten[i], ADC_WIDTH_12Bit, 1100, &controls_adc_cal[i]);
     }
+    ls_controls_set_sliders_initial_position();
+
     while (1)
     {
         // read controls
-        xSemaphoreTake(adc2_mux, pdMS_TO_TICKS(1000));
         for (int control_number = 0; control_number < LS_CONTROLS_TASK_CONTROLS_COUNT; control_number++)
         {
-            int adc_reading = 0;
-            uint32_t adc_sum = 0;
-            ESP_ERROR_CHECK(adc2_config_channel_atten(controls_channels[control_number], controls_atten[control_number]));
-            for (int i = 0; i < LS_CONTROLS_READINGS_TO_AVERAGE; i++)
-            {
-                ESP_ERROR_CHECK(adc2_get_raw(controls_channels[control_number], ADC_WIDTH_12Bit, &adc_reading));
-                adc_sum += (uint32_t)adc_reading;
-            }
-            controls_readings[control_number] = adc_sum / LS_CONTROLS_READINGS_TO_AVERAGE;
+            controls_readings[control_number] = _ls_controls_get_averaged_adc_reading(controls_channels[control_number], controls_atten[control_number]);
         }
-        xSemaphoreGive(adc2_mux);
 
 #ifdef LSDEBUG_CONTROLS
         ls_debug_printf("Controls:  switches=%d\t (%dmV) slider1=%d\t slider2=%d\n", controls_readings[0], esp_adc_cal_raw_to_voltage(controls_readings[0], &controls_adc_cal[0]), controls_readings[1], controls_readings[2]);
@@ -136,47 +151,47 @@ void ls_controls_task(void *pvParameter)
             }
             xQueueSendToBack(ls_event_queue, (void *)&switch_event, pdMS_TO_TICKS(1000));
         } // if switches changed
-        
-                if (ls_controls_get_current_status() != LS_CONTROLS_STATUS_OFF)
+
+        if (ls_controls_get_current_status() != LS_CONTROLS_STATUS_OFF)
+        {
+            if (moved_control[1] || _difference_exceeds_threshold(_ls_controls_current_slider1, controls_readings[1], LS_CONTROLS_READING_MOVE_THRESHOLD))
+            {
+                if (!moved_control[1])
                 {
-                    if (moved_control[1] || _difference_exceeds_threshold(_ls_controls_current_slider1, controls_readings[1], LS_CONTROLS_READING_MOVE_THRESHOLD))
-                    {
-                        if (!moved_control[1])
-                        {
-                            fastreads = LS_CONTROLS_FASTREADS_AFTER_MOVE;
-                        }
-                        _ls_controls_task_controls_havent_moved();
-                        moved_control[1] = fastreads > 0;
-                        fastreads--;
-                        _ls_controls_current_slider1 = controls_readings[1];
-                        ls_event event;
-                        event.type = LSEVT_CONTROLS_SLIDER1;
-                        event.value = (void *)&_ls_controls_current_slider1;
-                        xQueueSendToBack(ls_event_queue, (void *)&event, 0);
-        #ifdef LSDEBUG_CONTROLS
-                        ls_debug_printf("Controls new value slider1=%d\n", _ls_controls_current_slider1);
-        #endif
-                    }
-                    if (moved_control[2] || _difference_exceeds_threshold(_ls_controls_current_slider2, controls_readings[2], LS_CONTROLS_READING_MOVE_THRESHOLD))
-                    {
-                        if (!moved_control[2])
-                        {
-                            fastreads = LS_CONTROLS_FASTREADS_AFTER_MOVE;
-                        }
-                        _ls_controls_task_controls_havent_moved();
-                        moved_control[2] = fastreads > 0;
-                        fastreads--;
-                        _ls_controls_current_slider2 = controls_readings[2];
-                        ls_event event;
-                        event.type = LSEVT_CONTROLS_SLIDER2;
-                        event.value = (void *)&_ls_controls_current_slider2;
-                        xQueueSendToBack(ls_event_queue, (void *)&event, 0);
-        #ifdef LSDEBUG_CONTROLS
-                        ls_debug_printf("Controls new value slider2=%d\n", _ls_controls_current_slider2);
-        #endif
-                    }
+                    fastreads = LS_CONTROLS_FASTREADS_AFTER_MOVE;
                 }
-            
+                _ls_controls_task_controls_havent_moved();
+                moved_control[1] = fastreads > 0;
+                fastreads--;
+                _ls_controls_current_slider1 = controls_readings[1];
+                ls_event event;
+                event.type = LSEVT_CONTROLS_SLIDER1;
+                event.value = (void *)&_ls_controls_current_slider1;
+                xQueueSendToBack(ls_event_queue, (void *)&event, 0);
+#ifdef LSDEBUG_CONTROLS
+                ls_debug_printf("Controls new value slider1=%d\n", _ls_controls_current_slider1);
+#endif
+            }
+            if (moved_control[2] || _difference_exceeds_threshold(_ls_controls_current_slider2, controls_readings[2], LS_CONTROLS_READING_MOVE_THRESHOLD))
+            {
+                if (!moved_control[2])
+                {
+                    fastreads = LS_CONTROLS_FASTREADS_AFTER_MOVE;
+                }
+                _ls_controls_task_controls_havent_moved();
+                moved_control[2] = fastreads > 0;
+                fastreads--;
+                _ls_controls_current_slider2 = controls_readings[2];
+                ls_event event;
+                event.type = LSEVT_CONTROLS_SLIDER2;
+                event.value = (void *)&_ls_controls_current_slider2;
+                xQueueSendToBack(ls_event_queue, (void *)&event, 0);
+#ifdef LSDEBUG_CONTROLS
+                ls_debug_printf("Controls new value slider2=%d\n", _ls_controls_current_slider2);
+#endif
+            }
+        }
+
         vTaskDelay(ls_controls_current_status == LS_CONTROLS_STATUS_OFF ? pdMS_TO_TICKS(600) : pdMS_TO_TICKS(100));
     } // while 1
 } // ls_controls_task

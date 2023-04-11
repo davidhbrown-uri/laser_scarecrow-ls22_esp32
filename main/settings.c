@@ -44,8 +44,8 @@ void ls_settings_set_defaults(void)
     ls_settings_set_servo_bottom(LS_SERVO_US_MAX);
 
     ls_settings_set_stepper_random_max(LS_STEPPER_MOVEMENT_STEPS_MAX);
-    ls_settings_set_light_threshold_on(LS_LIGHTSENSE_DAY_THRESHOLD);
-    ls_settings_set_light_threshold_off(LS_LIGHTSENSE_NIGHT_THRESHOLD);
+    ls_settings_set_light_threshold_on((int)((int[]){LS_LIGHTSENSE_THRESHOLDS_ON_MV})[LS_LIGHTSENSE_THRESHOLD_DEFAULT]);
+    ls_settings_set_light_threshold_off((int)((int[]){LS_LIGHTSENSE_THRESHOLDS_OFF_MV})[LS_LIGHTSENSE_THRESHOLD_DEFAULT]);
 
     ls_settings_set_servo_random_pause_ms(LS_SERVO_RANDOM_PAUSE_MS);
     ls_settings_set_servo_sweep_pause_ms(LS_SERVO_SWEEP_PAUSE_MS);
@@ -318,40 +318,22 @@ BaseType_t ls_settings_get_stepper_random_max(void)
     return _ls_settings_stepper_random_max;
 }
 
-void ls_settings_set_light_threshold_on(BaseType_t adc)
+void ls_settings_set_light_threshold_on(int mV)
 {
-    _ls_settings_light_threshold_on = _constrain(adc, 0, 4095);
+    _ls_settings_light_threshold_on = _constrain(mV, 0, 3300);
 }
 BaseType_t ls_settings_get_light_threshold_on(void)
 {
     return _ls_settings_light_threshold_on;
 }
 
-void ls_settings_set_light_threshold_off(BaseType_t adc)
+void ls_settings_set_light_threshold_off(int mV)
 {
-    _ls_settings_light_threshold_off = _constrain(adc, 0, 4095);
+    _ls_settings_light_threshold_off = _constrain(mV, 0, 3300);
 }
 BaseType_t ls_settings_get_light_threshold_off(void)
 {
     return _ls_settings_light_threshold_off;
-}
-
-void ls_settings_set_light_thresholds_from_0to10(int index)
-{
-    if (index < 0 || index > 10)
-    {
-#ifdef LSDEBUG_SETTINGS
-        ls_debug_printf("Ignoring invalid lightsense threshold index %d must be 0..10 inclusive.\n", index);
-#endif
-        return;
-    }
-#ifdef LSDEBUG_SETTINGS
-        ls_debug_printf("Setting lightsense thresholds from index value %d (range 0..10 inclusive).\n", index);
-#endif
-    // off will range from 0 to 2010; 5 => 505 (near default)
-    ls_settings_set_light_threshold_off(20 * (index * index) + (1 * index) + 0);
-    // off will range from 50 to 4070; 5 => 1060 (near default)
-    ls_settings_set_light_threshold_on(40 * (index * index) + (2 * index) + 50);
 }
 
 BaseType_t ls_settings_map_control_to_servo_pulse_delta(BaseType_t adc)
