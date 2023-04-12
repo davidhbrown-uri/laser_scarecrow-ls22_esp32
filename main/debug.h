@@ -26,7 +26,7 @@
 #include "freertos/semphr.h"
 
 
-#define LSDEBUG_ENABLE
+//#define LSDEBUG_ENABLE
 
 #ifdef LSDEBUG_ENABLE
 
@@ -56,9 +56,9 @@ extern SemaphoreHandle_t print_mux; // in ls2022_esp32.c
 
 //#define LSDEBUG_STATES
 
-#define LSDEBUG_CONTROLS
+//#define LSDEBUG_CONTROLS
 
-#define LSDEBUG_CONTROLS_VERBOSE
+//#define LSDEBUG_CONTROLS_VERBOSE
 
 //#define LSDEBUG_TAPEMODE
 
@@ -72,7 +72,7 @@ extern SemaphoreHandle_t print_mux; // in ls2022_esp32.c
  
 //#define LSDEBUG_SERVO
 
-#define LSDEBUG_SETTINGS
+//#define LSDEBUG_SETTINGS
 
 //#define LSDEBUG_LEDS
 
