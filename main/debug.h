@@ -56,7 +56,9 @@ extern SemaphoreHandle_t print_mux; // in ls2022_esp32.c
 
 //#define LSDEBUG_STATES
 
-//#define LSDEBUG_CONTROLS
+#define LSDEBUG_CONTROLS
+
+#define LSDEBUG_CONTROLS_VERBOSE
 
 //#define LSDEBUG_TAPEMODE
 
@@ -66,13 +68,13 @@ extern SemaphoreHandle_t print_mux; // in ls2022_esp32.c
 
 //#define LSDEBUG_MAP
 
-#define LSDEBUG_LIGHTSENSE
+//#define LSDEBUG_LIGHTSENSE
  
 //#define LSDEBUG_SERVO
 
 #define LSDEBUG_SETTINGS
 
-#define LSDEBUG_LEDS
+//#define LSDEBUG_LEDS
 
 //#define LSDEBUG_I2C
 

@@ -29,7 +29,6 @@ ls_State ls_state_settings_upper(ls_event event)
     switch (event.type)
     {
     case LSEVT_STATE_ENTRY:
-        ls_controls_set_sliders_initial_position();
         ls_stepper_set_maximum_steps_per_second(ls_settings_get_stepper_speed());
         ls_laser_set_mode((ls_map_get_status() == LS_MAP_STATUS_OK) ? LS_LASER_MAPPED : LS_LASER_ON);
         ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION * 5 / 4);
@@ -107,7 +106,6 @@ ls_State ls_state_settings_lower(ls_event event)
     switch (event.type)
     {
     case LSEVT_STATE_ENTRY:
-        ls_controls_set_sliders_initial_position();
         ls_stepper_set_maximum_steps_per_second(ls_settings_get_stepper_speed());
         ls_laser_set_mode((ls_map_get_status() == LS_MAP_STATUS_OK) ? LS_LASER_MAPPED : LS_LASER_ON);
         ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION * 5 / 4);
@@ -231,7 +229,6 @@ ls_State ls_state_settings_both(ls_event event)
     switch (event.type)
     {
     case LSEVT_STATE_ENTRY:
-        ls_controls_set_sliders_initial_position();
         ls_laser_set_mode_off();
         ls_stepper_stop();
         ls_servo_off();
@@ -239,14 +236,14 @@ ls_State ls_state_settings_both(ls_event event)
         ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_ENTER);
         ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_ENTER);
         ls_leds_cycle(LEDCYCLE_CONTROLS_BOTH);
-        vTaskDelay(pdMS_TO_TICKS(2000));
+        vTaskDelay(pdMS_TO_TICKS(3000));
         if (_ls_state_settings_both_current_light_threshold_index(&index))
         {
             _ls_state_settings_both_status_leds(index);
             for (int i = 0; i < LS_STATE_SETTINGS_LIGHTSENSE_TRILL_LIMIT; i++)
             {
-                ls_buzzer_note(_ls_state_settings_lightsense_scale[LS_LIGHTSENSE_THRESHOLD_DEFAULT], 6);
-                ls_buzzer_note(_ls_state_settings_lightsense_scale[index], 6);
+                ls_buzzer_note(_ls_state_settings_lightsense_scale[LS_LIGHTSENSE_THRESHOLD_DEFAULT], pdMS_TO_TICKS(150));
+                ls_buzzer_note(_ls_state_settings_lightsense_scale[index], pdMS_TO_TICKS(150));
             }
         }
         break;
@@ -271,8 +268,8 @@ ls_State ls_state_settings_both(ls_event event)
         if (_ls_state_settings_lightsense_trills < LS_STATE_SETTINGS_LIGHTSENSE_TRILL_LIMIT)
         {
             _ls_state_settings_lightsense_trills++;
-            ls_buzzer_note(_ls_state_settings_lightsense_scale[LS_LIGHTSENSE_THRESHOLD_DEFAULT], 3);
-            ls_buzzer_note(_ls_state_settings_lightsense_scale[index], 3);
+            ls_buzzer_note(_ls_state_settings_lightsense_scale[LS_LIGHTSENSE_THRESHOLD_DEFAULT], pdMS_TO_TICKS(50));
+            ls_buzzer_note(_ls_state_settings_lightsense_scale[index], pdMS_TO_TICKS(50));
         }
         break;
     case LSEVT_CONTROLS_SLIDER2:; // nothing assigned

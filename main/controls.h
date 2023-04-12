@@ -28,9 +28,5 @@ enum ls_controls_status{
 };
 
 enum ls_controls_status ls_controls_get_current_status(void);
-/**
- * useful when beginning a settings mode
-*/
-void ls_controls_set_sliders_initial_position(void);
 
 void ls_controls_task(void *pvParameter);
