@@ -412,8 +412,8 @@ ls_State ls_state_home(ls_event event)
         ls_buzzer_effect(LS_BUZZER_PLAY_HOME_FAIL);
         switch (ls_tapemode())
         {
-        case LS_TAPEMODE_BLACK_SAFE:
-        case LS_TAPEMODE_REFLECT_SAFE:
+        case LS_TAPEMODE_DARK_SAFE:
+        case LS_TAPEMODE_LIGHT_SAFE:
             successor.func = ls_state_error_home;
             break;
         default:
@@ -676,8 +676,8 @@ ls_State ls_state_map_build(ls_event event)
                 ls_buzzer_effect(LS_BUZZER_PLAY_MAP_FAIL);
                 switch (ls_tapemode())
                 {
-                case LS_TAPEMODE_BLACK_SAFE:
-                case LS_TAPEMODE_REFLECT_SAFE:
+                case LS_TAPEMODE_DARK_SAFE:
+                case LS_TAPEMODE_LIGHT_SAFE:
                     successor.func = ls_state_error_map;
                     break;
                 default:
@@ -776,8 +776,8 @@ ls_State ls_state_error_tilt(ls_event event)
     case LSEVT_TILT_OK:
         switch (ls_tapemode())
         {
-        case LS_TAPEMODE_BLACK_SAFE:
-        case LS_TAPEMODE_REFLECT_SAFE:
+        case LS_TAPEMODE_DARK_SAFE:
+        case LS_TAPEMODE_LIGHT_SAFE:
 #ifdef LSDEBUG_TILT
             xSemaphoreTake(print_mux, portMAX_DELAY);
             ls_debug_printf("TILT_OK but safe mode requires power cycle to resume\n");

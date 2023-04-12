@@ -177,11 +177,10 @@ LS_CONTROLS_SWITCH_THRESHOLD_BOTH < ADC < 4096 => LS_CONTROLS_STATUS_BOTH;
 // #define LS_REFLECTANCE_ADC_MAX_SILVER_TAPE 500
 
 // values read by ADC for 2023 units, 100% sampling, Nov '22
-// do not expect to use with black buckets, so black=black, tape=tape
-#define LS_REFLECTANCE_ADC_MAX_WHITE_BUCKET 1300
-#define LS_REFLECTANCE_ADC_MIN_BLACK_TAPE 2000
-#define LS_REFLECTANCE_ADC_MIN_BLACK_BUCKET 2000
-#define LS_REFLECTANCE_ADC_MAX_SILVER_TAPE 1300
+// do not expect to use with black buckets, so just two values needed
+// (more reflectance means more voltage to ground instead of ADC pin, so light is low and dark is high)
+#define LS_REFLECTANCE_ADC_MAX_LIGHT 1300
+#define LS_REFLECTANCE_ADC_MIN_DARK 2000
 
 // approximate midpoints between settings (3 boards tested Apr 2 '22)
 #define LS_TAPEMODE_THRESHOLD_1 300

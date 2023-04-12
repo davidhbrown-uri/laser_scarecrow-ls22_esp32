@@ -34,11 +34,11 @@ static enum ls_tapemode_mode ls_tapemode_from_adc(uint32_t adc_reading)
 {
     if (adc_reading > LS_TAPEMODE_THRESHOLD_5)
     {
-        return LS_TAPEMODE_REFLECT_SAFE;
+        return LS_TAPEMODE_LIGHT_SAFE;
     }
     if (adc_reading > LS_TAPEMODE_THRESHOLD_4)
     {
-        return LS_TAPEMODE_REFLECT;
+        return LS_TAPEMODE_LIGHT;
     }
     if (adc_reading > LS_TAPEMODE_THRESHOLD_3)
     {
@@ -46,11 +46,11 @@ static enum ls_tapemode_mode ls_tapemode_from_adc(uint32_t adc_reading)
     }
     if (adc_reading > LS_TAPEMODE_THRESHOLD_2)
     {
-        return LS_TAPEMODE_BLACK;
+        return LS_TAPEMODE_DARK;
     }
     if (adc_reading > LS_TAPEMODE_THRESHOLD_1)
     {
-        return LS_TAPEMODE_BLACK_SAFE;
+        return LS_TAPEMODE_DARK_SAFE;
     }
     return LS_TAPEMODE_SELFTEST;
 }
@@ -95,11 +95,11 @@ void ls_tapemode_selftest_task(void *pvParameter)
                 previous = current;
                 switch (current)
                 {
-                case LS_TAPEMODE_BLACK_SAFE:
+                case LS_TAPEMODE_DARK_SAFE:
                     ls_buzzer_tone((BaseType_t)LS_BUZZER_SCALE_G);
                     ls_event_enqueue(LSEVT_SELFTEST_MODE_DARKSAFE);
                     break;
-                case LS_TAPEMODE_BLACK:
+                case LS_TAPEMODE_DARK:
                     ls_buzzer_tone((BaseType_t)LS_BUZZER_SCALE_F);
                     ls_event_enqueue(LSEVT_SELFTEST_MODE_DARK);
                     break;
@@ -107,11 +107,11 @@ void ls_tapemode_selftest_task(void *pvParameter)
                     ls_buzzer_tone((BaseType_t)LS_BUZZER_SCALE_E);
                     ls_event_enqueue(LSEVT_SELFTEST_MODE_IGNORE);
                     break;
-                case LS_TAPEMODE_REFLECT:
+                case LS_TAPEMODE_LIGHT:
                     ls_buzzer_tone((BaseType_t)LS_BUZZER_SCALE_D);
                     ls_event_enqueue(LSEVT_SELFTEST_MODE_LIGHT);
                     break;
-                case LS_TAPEMODE_REFLECT_SAFE:
+                case LS_TAPEMODE_LIGHT_SAFE:
                     ls_buzzer_tone((BaseType_t)LS_BUZZER_SCALE_C);
                     ls_event_enqueue(LSEVT_SELFTEST_MODE_LIGHTSAFE);
                     break;
