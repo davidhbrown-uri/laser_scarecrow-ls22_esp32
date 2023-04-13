@@ -96,23 +96,23 @@ void ls_tapemode_selftest_task(void *pvParameter)
                 switch (current)
                 {
                 case LS_TAPEMODE_DARK_SAFE:
-                    ls_buzzer_tone((BaseType_t)LS_BUZZER_SCALE_G);
+                    ls_buzzer_note(LS_BUZZER_SCALE_G, pdMS_TO_TICKS(500));
                     ls_event_enqueue(LSEVT_SELFTEST_MODE_DARKSAFE);
                     break;
                 case LS_TAPEMODE_DARK:
-                    ls_buzzer_tone((BaseType_t)LS_BUZZER_SCALE_F);
+                    ls_buzzer_note(LS_BUZZER_SCALE_F, pdMS_TO_TICKS(500));
                     ls_event_enqueue(LSEVT_SELFTEST_MODE_DARK);
                     break;
                 case LS_TAPEMODE_IGNORE:
-                    ls_buzzer_tone((BaseType_t)LS_BUZZER_SCALE_E);
+                    ls_buzzer_note(LS_BUZZER_SCALE_E, pdMS_TO_TICKS(500));
                     ls_event_enqueue(LSEVT_SELFTEST_MODE_IGNORE);
                     break;
                 case LS_TAPEMODE_LIGHT:
-                    ls_buzzer_tone((BaseType_t)LS_BUZZER_SCALE_D);
+                    ls_buzzer_note(LS_BUZZER_SCALE_D, pdMS_TO_TICKS(500));
                     ls_event_enqueue(LSEVT_SELFTEST_MODE_LIGHT);
                     break;
                 case LS_TAPEMODE_LIGHT_SAFE:
-                    ls_buzzer_tone((BaseType_t)LS_BUZZER_SCALE_C);
+                    ls_buzzer_note(LS_BUZZER_SCALE_C, pdMS_TO_TICKS(500));
                     ls_event_enqueue(LSEVT_SELFTEST_MODE_LIGHTSAFE);
                     break;
                 default:; // don't play anything on return to selftest; we know that works or we wouldn't be here!
