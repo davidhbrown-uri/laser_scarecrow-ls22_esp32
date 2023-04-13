@@ -56,3 +56,7 @@ void ls_servo_moveto(uint32_t pulsewidth_us);
 void ls_servo_jumpto(uint32_t pulsewidth_us);
 
 void ls_servo_task(void* pvParameter);
+
+uint16_t ls_servo_get_top_pulse_ms(void);
+
+uint16_t ls_servo_get_bottom_pulse_ms(void);
