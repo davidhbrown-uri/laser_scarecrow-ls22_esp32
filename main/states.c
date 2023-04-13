@@ -289,6 +289,7 @@ ls_State ls_state_active(ls_event event)
         ls_stepper_random();
         ls_servo_random();
         ls_leds_off();
+        ls_oled_blank_screen();
         ls_coverage_task_handle = NULL;
 
         if (ls_map_get_status() == LS_MAP_STATUS_OK)

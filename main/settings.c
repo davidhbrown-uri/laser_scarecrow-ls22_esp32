@@ -40,8 +40,8 @@ static nvs_handle_t _ls_settings_nvs_handle;
 void ls_settings_set_defaults(void)
 {
     ls_settings_set_stepper_speed(LS_STEPPER_STEPS_PER_SECOND_DEFAULT);
-    ls_settings_set_servo_top(LS_SERVO_US_MIN);
-    ls_settings_set_servo_bottom(LS_SERVO_US_MAX);
+    ls_settings_set_servo_top(LS_SERVO_US_MIN); // all the way at the top
+    ls_settings_set_servo_bottom(100); // all the way to the bottom
 
     ls_settings_set_stepper_random_max(LS_STEPPER_MOVEMENT_STEPS_MAX);
     ls_settings_set_light_threshold_on((int)((int[]){LS_LIGHTSENSE_THRESHOLDS_ON_MV})[LS_LIGHTSENSE_THRESHOLD_DEFAULT]);

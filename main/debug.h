@@ -26,7 +26,7 @@
 #include "freertos/semphr.h"
 
 
-#define LSDEBUG_ENABLE
+//#define LSDEBUG_ENABLE
 
 #ifdef LSDEBUG_ENABLE
 
