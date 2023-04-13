@@ -281,7 +281,7 @@ BaseType_t ls_settings_map_control_to_servo_top(BaseType_t adc)
 void ls_settings_set_servo_top(BaseType_t microseconds)
 {
     _ls_settings_servo_top = _constrain(microseconds, LS_SERVO_US_MIN, LS_SERVO_US_MAX);
-    _ls_settings_servo_bottom = _constrain(_ls_settings_servo_bottom, _ls_settings_servo_top, LS_SERVO_US_MAX);
+//    _ls_settings_servo_bottom = _constrain(_ls_settings_servo_bottom, _ls_settings_servo_top, LS_SERVO_US_MAX);
 #ifdef LSDEBUG_SETTINGS
     ls_debug_printf("Setting servo_top = %d\n", _ls_settings_servo_top);
 #endif
@@ -295,13 +295,13 @@ BaseType_t ls_settings_map_control_to_servo_bottom(BaseType_t adc)
 {
     return _map(_constrain(adc, LS_CONTROLS_READING_BOTTOM, LS_CONTROLS_READING_TOP),
                 LS_CONTROLS_READING_TOP, LS_CONTROLS_READING_BOTTOM, // yes, inverted!
-                ls_settings_get_servo_top(), LS_SERVO_US_MAX);
+                0, 100);
 }
-void ls_settings_set_servo_bottom(BaseType_t microseconds)
+void ls_settings_set_servo_bottom(BaseType_t percent)
 {
-    _ls_settings_servo_bottom = _constrain(microseconds, ls_settings_get_servo_top(), LS_SERVO_US_MAX);
+    _ls_settings_servo_bottom = _constrain(percent, 0, 100);
 #ifdef LSDEBUG_SETTINGS
-    ls_debug_printf("Setting servo_bottom = %d\n", _ls_settings_servo_bottom);
+    ls_debug_printf("Setting servo_bottom = %d%%\n", _ls_settings_servo_bottom);
 #endif
 }
 BaseType_t ls_settings_get_servo_bottom(void)
