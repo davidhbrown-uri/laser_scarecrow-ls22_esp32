@@ -36,14 +36,14 @@
 #include "controls.h"
 #include "coverage.h"
 #include "leds.h"
+#include "oled.h"
 
-//static const char* TAG = "LS States"; // for ESP logging                                                                                                                       
+// static const char* TAG = "LS States"; // for ESP logging
 
 extern SemaphoreHandle_t print_mux;
 extern QueueHandle_t ls_event_queue;
 
 static TaskHandle_t ls_coverage_task_handle;
-
 
 #define LEDCYCLE_HOMING LEDCYCLE_RAINBOW
 #define LEDCYCLE_HOMING_FAIL LEDCYCLE_RED_FLASH
@@ -56,6 +56,8 @@ TimerHandle_t _ls_state_rehome_timer;
         ls_stepper_off();          \
         ls_laser_set_mode_off();   \
         ls_tape_sensor_disable();  \
+        ls_leds_off();             \
+        ls_oled_blank_screen();    \
     }
 
 void _ls_state_rehome_timer_callback(TimerHandle_t xTimer)
@@ -432,7 +434,7 @@ ls_State ls_state_home(ls_event event)
     default:
         ls_substate_home_handle_event(event);
     }
-    if(successor.func != ls_state_home)
+    if (successor.func != ls_state_home)
     {
         ls_leds_off();
     }
@@ -592,7 +594,7 @@ ls_State ls_state_wakeup(ls_event event)
 
 static int _ls_state_map_build_steps_remaining;
 static int _ls_state_map_enable_count = 0, _ls_state_map_disable_count = 0, _ls_state_map_misread_count = 0;
-
+static enum ls_buzzer_effects _ls_state_map_fail_reason_tune = LS_BUZZER_PLAY_NOTHING;
 ls_State ls_state_map_build(ls_event event)
 {
 #ifdef LSDEBUG_STATES
@@ -661,30 +663,44 @@ ls_State ls_state_map_build(ls_event event)
 #ifdef LSDEBUG_MAP
                 ls_debug_printf("\nBad map: must include at least one enabled and one disabled reading.\n");
 #endif
+                switch (ls_tapemode())
+                {
+                case LS_TAPEMODE_DARK:
+                case LS_TAPEMODE_DARK_SAFE:
+                    _ls_state_map_fail_reason_tune = (0 == _ls_state_map_enable_count) ? LS_BUZZER_PLAY_TAPE_DISABLE : LS_BUZZER_PLAY_TAPE_ENABLE;
+                    break;
+                case LS_TAPEMODE_LIGHT:
+                case LS_TAPEMODE_LIGHT_SAFE:
+                    _ls_state_map_fail_reason_tune = (0 == _ls_state_map_enable_count) ? LS_BUZZER_PLAY_TAPE_ENABLE : LS_BUZZER_PLAY_TAPE_DISABLE;
+                    break;
+                default:;
+                }
             }
             if (ls_map_is_excessive_misreads(_ls_state_map_misread_count))
             {
                 badmap = true;
+                _ls_state_map_fail_reason_tune = LS_BUZZER_PLAY_TAPE_MISREAD;
 #ifdef LSDEBUG_MAP
                 ls_debug_printf("\nBad map: too many misreads\n");
 #endif
             }
             if (badmap)
             {
-                ls_map_set_status(LS_MAP_STATUS_FAILED);
                 ls_buzzer_effect(LS_BUZZER_PLAY_NOTHING);
-                ls_buzzer_effect(LS_BUZZER_PLAY_MAP_FAIL);
                 switch (ls_tapemode())
                 {
                 case LS_TAPEMODE_DARK_SAFE:
                 case LS_TAPEMODE_LIGHT_SAFE:
+                    // fail if a Safe mode
+                    ls_map_set_status(LS_MAP_STATUS_FAILED);
                     successor.func = ls_state_error_map;
                     break;
                 default:
-                    if (0 == _ls_state_map_enable_count)
-                    {
-                        ls_map_set_status(LS_MAP_STATUS_IGNORE);
-                    }
+                    // just play the fail tone and ignore map
+                    ls_buzzer_effect(_ls_state_map_fail_reason_tune);
+                    vTaskDelay(pdMS_TO_TICKS(1000)); // rest a second
+                    ls_buzzer_effect(LS_BUZZER_PLAY_MAP_FAIL);
+                    ls_map_set_status(LS_MAP_STATUS_IGNORE);
                     break;
                 }
             } // handle bad map
@@ -717,9 +733,7 @@ ls_State ls_state_error_home(ls_event event)
     ls_leds_cycle(LEDCYCLE_HOMING_FAIL);
     successor.func = ls_state_error_home;
 #ifdef LSDEBUG_HOMING
-    xSemaphoreTake(print_mux, portMAX_DELAY);
     ls_debug_printf(">>>>HOMING FAILED<<<\n");
-    xSemaphoreGive(print_mux);
 #endif
     vTaskDelay(pdMS_TO_TICKS(30000)); // 30 seconds between alerts
     ls_buzzer_effect(LS_BUZZER_PLAY_HOME_FAIL);
@@ -733,27 +747,12 @@ ls_State ls_state_error_map(ls_event event)
     ls_State successor;
     successor.func = ls_state_error_map;
 #ifdef LSDEBUG_MAP
-    xSemaphoreTake(print_mux, portMAX_DELAY);
     ls_debug_printf(">>>>MAPPING FAILED<<<\n");
-    xSemaphoreGive(print_mux);
 #endif
-    vTaskDelay(pdMS_TO_TICKS(30000)); // 30 seconds between alerts
-    if (0 == _ls_state_map_enable_count)
-    {
-        ls_buzzer_effect(LS_BUZZER_PLAY_TAPE_DISABLE);
-        vTaskDelay(pdMS_TO_TICKS(1000)); // 1 second between tones
-    }
-    if (0 == _ls_state_map_disable_count)
-    {
-        ls_buzzer_effect(LS_BUZZER_PLAY_TAPE_ENABLE);
-        vTaskDelay(pdMS_TO_TICKS(1000)); // 1 second between tones
-    }
-    if (ls_map_is_excessive_misreads(_ls_state_map_misread_count))
-    {
-        ls_buzzer_effect(LS_BUZZER_PLAY_TAPE_MISREAD);
-        vTaskDelay(pdMS_TO_TICKS(1000)); // 1 second between tones
-    }
+    ls_buzzer_effect(_ls_state_map_fail_reason_tune);
+    vTaskDelay(pdMS_TO_TICKS(1000)); // 1 second between tones
     ls_buzzer_effect(LS_BUZZER_PLAY_MAP_FAIL);
+    vTaskDelay(pdMS_TO_TICKS(30000)); // 30 seconds between alerts
     ls_event_enqueue_noop();
     return successor;
 }
@@ -761,9 +760,7 @@ ls_State ls_state_error_map(ls_event event)
 ls_State ls_state_error_tilt(ls_event event)
 {
 #ifdef LSDEBUG_TILT
-    xSemaphoreTake(print_mux, portMAX_DELAY);
     ls_debug_printf("ERROR_TILT\n");
-    xSemaphoreGive(print_mux);
 #endif
     ls_State successor;
     successor.func = ls_state_error_tilt;
@@ -779,9 +776,7 @@ ls_State ls_state_error_tilt(ls_event event)
         case LS_TAPEMODE_DARK_SAFE:
         case LS_TAPEMODE_LIGHT_SAFE:
 #ifdef LSDEBUG_TILT
-            xSemaphoreTake(print_mux, portMAX_DELAY);
             ls_debug_printf("TILT_OK but safe mode requires power cycle to resume\n");
-            xSemaphoreGive(print_mux);
 #endif
             ls_buzzer_effect(LS_BUZZER_PLAY_TILT_FAIL);
             ls_buzzer_effect(LS_BUZZER_ALERT_1S);

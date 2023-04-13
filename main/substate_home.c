@@ -23,9 +23,13 @@
 #include "buzzer.h"
 #include "magnet.h"
 #include "map.h"
+#include "leds.h"
 
 extern QueueHandle_t ls_event_queue;
 extern SemaphoreHandle_t print_mux;
+
+#define LEDCYCLE_HOMING LEDCYCLE_RAINBOW
+#define LEDCYCLE_HOMING_FAIL LEDCYCLE_RED_FLASH
 
 /**
  * Basic plan: rotate quickly to find the magnet.
@@ -107,6 +111,7 @@ static void _ls_substate_home_slow_to_magnet(ls_event event)
     switch (event.type)
     {
     case LSEVT_SUBSTATE_ENTRY:
+        _ls_home_found_magnet = false; // have not yet found magnet
         ls_stepper_set_maximum_steps_per_second(LS_HOME_STEPPER_STEPS_PER_SECOND);
         ls_stepper_forward(LS_HOME_FORWARD_STEPS);
         break;
@@ -121,7 +126,7 @@ static void _ls_substate_home_slow_to_magnet(ls_event event)
             _ls_home_homing_required = true;
         }
         _ls_home_found_magnet = true;
-        _ls_substate_magnet_entry_offset = (int) event.value;
+        _ls_substate_magnet_entry_offset = (int)event.value;
         break;
     case LSEVT_STEPPER_FINISHED_MOVE:
         if (_ls_home_found_magnet)
@@ -131,7 +136,7 @@ static void _ls_substate_home_slow_to_magnet(ls_event event)
                 /** if we are setting home position, store offset in array */
                 _ls_home_homing_offsets[_ls_home_homing_index] = _ls_substate_magnet_entry_offset;
 #ifdef LSDEBUG_HOMING
-                    ls_debug_printf(">>>> offset[%d]=%d;\n", _ls_home_homing_index, _ls_home_homing_offsets[_ls_home_homing_index] );
+                ls_debug_printf(">>>> offset[%d]=%d;\n", _ls_home_homing_index, _ls_home_homing_offsets[_ls_home_homing_index]);
 #endif
                 /** if done collecting offsets, calculate/set new home; succeed */
                 _ls_home_homing_index++;
@@ -202,6 +207,7 @@ static void _ls_substate_home_rotate_to_magnet(ls_event event)
     case LSEVT_STEPPER_FINISHED_MOVE:
         if (_ls_home_found_magnet)
         {
+            ls_leds_cycle(LEDCYCLE_HOMING); // if a subsequent try might have been showing warning.
             _ls_substate_home_substate_phase = LS_HOME_SUBSTATE_BACKUP;
             ls_event_enqueue(LSEVT_SUBSTATE_ENTRY);
         } // if found magnet
@@ -241,6 +247,8 @@ static void _ls_substate_home_wait_for_stop(void)
 
 static void _ls_substate_home_failed(ls_event event)
 {
+    ls_leds_cycle(LEDCYCLE_HOMING_FAIL);
+    ls_buzzer_effect(LS_BUZZER_PLAY_HOME_FAIL);
     _ls_home_attempts++;
     if (_ls_home_attempts >= LS_HOME_ATTEMPTS_ALLOWED)
     {

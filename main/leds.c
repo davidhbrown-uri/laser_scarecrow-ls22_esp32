@@ -3,9 +3,6 @@
 #include "debug.h"
 #include "../components/ESP32-NeoPixel-WS2812-RMT/ws2812_control.h"
 
-static int _ledcycle_off[] = {GRB_OFF};
-ls_ledcycle_t LEDCYCLE_OFF = {sizeof(_ledcycle_off) / sizeof(int), portMAX_DELAY, 0, _ledcycle_off};
-
 // values calculated using a separate program and the Adafruit neopixel library, plus some regex massaging
 static int _ledcycle_rainbow[] = {0x00FF00, 0x03FF00, 0x14FF00, 0x39FF00, 0x78FF00, 0xD7FF00, 0xFFB400, 0xFF6000, 0xFF2A00, 0xFF0D00, 0xFF0100, 0xFF0000, 0xFF0007, 0xFF001E, 0xFF004B, 0xFF0094, 0xFF00FF, 0x9400FF, 0x4B00FF, 0x1E00FF, 0x0700FF, 0x0000FF, 0x0001FF, 0x000DFF, 0x002AFF, 0x0060FF, 0x00B4FF, 0x00FFD7, 0x00FF78, 0x00FF39, 0x00FF14, 0x00FF03};
 ls_ledcycle_t LEDCYCLE_RAINBOW = {sizeof(_ledcycle_rainbow) / sizeof(int), pdMS_TO_TICKS(100), 2, _ledcycle_rainbow};
@@ -27,7 +24,7 @@ static int _ledcycle_controls_both[] = {GRB_MAGENTA, GRB_OFF, GRB_GREEN, GRB_OFF
 ls_ledcycle_t LEDCYCLE_CONTROLS_BOTH = {sizeof(_ledcycle_controls_both) / sizeof(int), pdMS_TO_TICKS(200), 0, _ledcycle_controls_both};
 
 static int _ledcycle_static[CONFIG_WS2812_NUM_LEDS];
-ls_ledcycle_t LEDCYCLE_STATIC = {CONFIG_WS2812_NUM_LEDS, portMAX_DELAY, 1, _ledcycle_static};
+ls_ledcycle_t LEDCYCLE_STATIC = {CONFIG_WS2812_NUM_LEDS, portMAX_DELAY, 0, _ledcycle_static};
 
 static int _ledcycle_red_flash[] = {0x0F00, 0x7F00, 0xFF00, 0xFF00, 0x7F00, 0x0F00, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 ls_ledcycle_t LEDCYCLE_RED_FLASH = {sizeof(_ledcycle_red_flash) / sizeof(int), pdMS_TO_TICKS(100), 3, _ledcycle_red_flash};
@@ -50,7 +47,7 @@ void ls_leds_handler_task(void *pvParameter)
     }
     ws2812_write_leds(ws2812_state);
     ls_ledcycle_t cycle_queued;
-    ls_ledcycle_t current_cycle = LEDCYCLE_OFF;
+    ls_ledcycle_t current_cycle = LEDCYCLE_STATIC;
     uint16_t cycle_position = 0;
     TickType_t cycle_speed = current_cycle.speed;
     while (1)
@@ -64,24 +61,31 @@ void ls_leds_handler_task(void *pvParameter)
                 cycle_speed = current_cycle.speed;
             }
         }
+
         for (int i = 0; i < CONFIG_WS2812_NUM_LEDS; i++)
         {
-            ws2812_state.leds[i] = current_cycle.data[(cycle_position + i * current_cycle.offset) % current_cycle.length];
+            // if portMAX_DELAY, this is a static sequence, so ignore position and offset
+            ws2812_state.leds[i] = current_cycle.data[current_cycle.speed == portMAX_DELAY ? i % current_cycle.length : (cycle_position + i * current_cycle.offset) % current_cycle.length];
         }
-        ws2812_write_leds(ws2812_state);
         cycle_position++;
+        ws2812_write_leds(ws2812_state);
     } // while 1
 }
 
 void ls_leds_off(void)
 {
-    xQueueSend(ls_leds_queue, (void *)&LEDCYCLE_OFF, 0); // don't block if queue full
+    for (int i = 0; i < CONFIG_WS2812_NUM_LEDS; i++)
+    {
+        _ledcycle_static[i] = GRB_OFF;
+    }
+    xQueueSend(ls_leds_queue, (void *)&LEDCYCLE_STATIC, 0); // don't block if queue full
 }
 
 void ls_leds_init(void)
 {
     ws2812_control_init();
     ls_leds_queue = xQueueCreate(32, sizeof(ls_ledcycle_t));
+    ls_leds_off();
 }
 
 void ls_leds_cycle(struct ls_ledcycle ledcycle)
@@ -103,8 +107,8 @@ void ls_leds_single(int which, int color)
     if (which >= 0 && which < CONFIG_WS2812_NUM_LEDS)
     {
         _ledcycle_static[which] = color;
+        ls_leds_cycle(LEDCYCLE_STATIC);
     }
-    ls_leds_cycle(LEDCYCLE_STATIC);
 }
 
 static int _ledcycle_2sec[20];
@@ -114,7 +118,7 @@ void ls_leds_pulses_2sec(int count, int color)
 {
     int slots = sizeof(_ledcycle_2sec) / sizeof(int);
     count = _constrain(count, 1, slots / 2);
-    int step = (count * 3 < slots/2) ? 2 : 1;
+    int step = (count * 3 < slots / 2) ? 2 : 1;
     for (int i = 0; i < slots; i += step * 2)
     {
         _ledcycle_2sec[i] = (i / 2 / step < count) ? color : GRB_OFF;

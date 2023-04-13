@@ -259,7 +259,7 @@ void selftest_event_handler(ls_event event)
         break;
     case LSEVT_CONTROLS_BOTH:
         ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_ENTER);
-        ls_leds_single(2, GRB_WHITE);
+        ls_leds_single(2, GRB_CYAN);
         _selftest_detected_event(&_selftest_switches_both);
         break;
     case LSEVT_CONTROLS_OFF:
