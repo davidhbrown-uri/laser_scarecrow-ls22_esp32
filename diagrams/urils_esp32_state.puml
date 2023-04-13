@@ -5,12 +5,12 @@
 state read_tape_setting <<choice>>
 read_tape_setting : Jumper Mode
 read_tape_setting --> Active : [ignore tape]
-read_tape_setting --> MapSeekHome : [use tape]
 read_tape_setting --> SelfTest : [self-test]
+read_tape_setting --> MapSeekHome : [else]
 
 [*] --> PowerOn
 
-state PowerOn 
+state PowerOn
 PowerOn : /entry: initialize GPIO; read tape mode jumper
 PowerOn --> read_tape_setting
 
@@ -35,29 +35,29 @@ PreLaserWarningActive : /do: rotate full speed; make annoying sounds
 PreLaserWarningActive --> Active : LSEVT_BUZZER_WARNING_COMPLETE
 
 state Active {
-  Active : isn't quite right 
   [*] -->  Running
   Running : /do: random movement; laser per map
-  Running --> ActiveSeekHome : LSEVT_HOME_EXPIRED  
- ActiveSeekHome --> Running : LSEVT_HOME_COMPLETED
- ActiveSeekHome --> HomeError : LSEVT_HOME_FAILED
- ActiveSeekHome : /do: forward other events to SeekHome
+  Running --> ActiveSeekHome : LSEVT_HOME_EXPIRED
+  ActiveSeekHome --> Running : LSEVT_HOME_COMPLETED
+  ActiveSeekHome --> HomeError : LSEVT_HOME_FAILED
+  ActiveSeekHome : /do: forward other events to SeekHome
 }
 
-Active : /entry: laser OFF; read settings
 Active --> Sleep : LSEVT_LIGHT_NIGHT
-Active --> Manual : LSEVT_CONTROLS_ENABLE
-Manual --> Active : LSEVT_CONTROLS_DISABLE
+Active --> SettingsUpperSwitch : LSEVT_CONTROLS_UPPER
+Active --> SettingsLowerSwitch : LSEVT_CONTROLS_LOWER
+Active --> SettingsBothSwitches : LSEVT_CONTROLS_BOTH
 
-state SeekHome {
+state Home {
   [*] --> RotateToMagnet
-  RotateToMagnet --> SeekHomeFailed : LSEVT_STEPPER_FINISHED_MOVE
-  RotateToMagnet --> BackUpPastMagnet : LSEVT_MAGNET_ENTER
-  RotateToMagnet : /entry stepper forward 2 revolutions
-  RotateToMagnet : /exit stepper stop
-  BackUpPastMagnet --> SlowSeekToMagnet : LSEVT_MAGNET_LEAVE
-  BackUpPastMagnet : /entry tries := 25
-  BackUpPastMagnet : /do stepper reverse (revolution / 50); tries--
+  RotateToMagnet --> SeekHomeFailed : LSEVT_STEPPER_FINISHED_MOVE [foundMagnet==false]
+  RotateToMagnet --> BackUpPastMagnet : LSEVT_STEPPER_FINISHED_MOVE [foundMagnet==true]
+  RotateToMagnet : /entry stepper forward 3 revolutions
+  RotateToMagnet : /foundMagnet=true : LSEVT_MAGNET_ENTER
+  RotateToMagnet : /stepper_stop : LSEVT_MAGNET_ENTER
+
+  BackUpPastMagnet --> SlowSeekToMagnet : LSEVT_STEPPER_FINISHED_MOVE
+  BackUpPastMagnet : /entry stepper_reverse
   BackUpPastMagnet --> BackUpPastMagnet : LSEVT_STEPPER_FINISHED_MOVE\n[tries > 0]
   BackUpPastMagnet --> SeekHomeFailed : LSEVT_STEPPER_FINISHED_MOVE\n[tries <= 0]
   SlowSeekToMagnet : /entry: tries := 50
@@ -70,13 +70,13 @@ state SeekHome {
   SeekHomeFailed : /entry: queue LSEVT_HOME_FAILED
   SeekHomeFailed --> HomeError
 }
-SeekHome : /entry: laser OFF
-SeekHome : /exit: record home location (stepper_step := 0)
+Home : /entry: laser OFF; set tries=0
+Home : /exit: record home location (stepper_step := 0)
 
 state HomeError
 HomeError : /entry: turn off devices
-HomeError : /do: home error code beeps periodically
-HomeError : /exit: queue LSEVT_HOME_COMPLETED
+HomeError : /do: home error code beeps periodically; status LEDs pulse red
+HomeError --> HomeError
 
 
 state MapBuild {
@@ -99,16 +99,41 @@ MapSeekHome : /do: forward other events to SeekHome
 state Sleep
 Sleep : /entry: turn off all devices
 Sleep : /do: check ambient light; snore
+Sleep : /exit: do pre-laser wawrning
 Sleep --> PreLaserWarningActive : LSEVT_LIGHT_DAY
-Sleep --> Manual : LSEVT_CONTROLS_ENABLE
+Sleep --> SettingsUpperSwitch : LSEVT_CONTROLS_UPPER
+Sleep --> SettingsLowerSwitch : LSEVT_CONTROLS_LOWER
+Sleep --> SettingsBothSwitches : LSEVT_CONTROLS_BOTH
 
-Manual : /entry: save settings
-Manual : /exit: save settings
+SettingsUpperSwitch : /entry: play settings tune once
+SettingsUpperSwitch : /do: status LEDs flash yellow
+SettingsUpperSwitch : /do: rotate forward 450 degrees at a time
+SettingsUpperSwitch : /do: sweep angle from top to bottom
+SettingsUpperSwitch : /LSEVT_CONTROLS_SLIDER1: set rotation speed
+SettingsUpperSwitch : /LSEVT_CONTROLS_SLIDER2: set angle speed
+SettingsUpperSwitch : /LSEVT_CONTROLS_OFF: save settings
+SettingsUpperSwitch --> SettingsLowerSwitch : LSEVT_CONTROLS_LOWER
+SettingsUpperSwitch --> SettingsBothSwitches : LSEVT_CONTROLS_BOTH
+SettingsUpperSwitch --> Active : LSEVT_CONTROLS_OFF
 
-state Settings
+SettingsLowerSwitch : /entry: play settings tune twice
+SettingsLowerSwitch : /do: status LEDs flash magenta 2x
+SettingsLowerSwitch : /do: rotate forward 450 degrees at a time
+SettingsLowerSwitch : /do: sweep angle from top to bottom
+SettingsLowerSwitch : /LSEVT_CONTROLS_SLIDER1 : set top angle
+SettingsLowerSwitch : /LSEVT_CONTROLS_SLIDER2 : set bottom angle
+SettingsLowerSwitch : /LSEVT_CONTROLS_OFF: save settings
+SettingsLowerSwitch --> SettingsUpperSwitch : LSEVT_CONTROLS_UPPER
+SettingsLowerSwitch --> SettingsBothSwitches : LSEVT_CONTROLS_BOTH
+SettingsLowerSwitch --> Active : LSEVT_CONTROLS_OFF
 
-state SecondarySettings
-
-
+SettingsBothSwitches : /entry: play settings tune 3x
+SettingsBothSwitches : /entry: stop movement; turn off laser
+SettingsBothSwitches : /do: status LEDs flash magenta and yellow
+SettingsBothSwitches : /LSEVT_CONTROLS_SLIDER1 : set light sensitivity
+SettingsBothSwitches : /LSEVT_CONTROLS_OFF: save settings
+SettingsBothSwitches --> SettingsUpperSwitch : LSEVT_CONTROLS_UPPER
+SettingsBothSwitches --> SettingsLowerSwitch : LSEVT_CONTROLS_LOWER
+SettingsBothSwitches --> Active : LSEVT_CONTROLS_OFF
 
 @enduml
