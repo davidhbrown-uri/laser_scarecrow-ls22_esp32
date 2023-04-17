@@ -136,7 +136,7 @@ static void _selftest_update_oled(void)
     }
     else
     {
-        ls_oled_println("Tilte: %c %c", _selftest_tilt_detect ? ' ' : '/', _selftest_tilt_ok ? ' ' : '|');
+        ls_oled_println("Tilt: %c %c", _selftest_tilt_detect ? ' ' : '/', _selftest_tilt_ok ? ' ' : '|');
     }
 
     ls_oled_goto_line(2);
@@ -174,11 +174,11 @@ static void _selftest_update_oled(void)
     ls_oled_goto_line(6);
     if (_selftest_switches_off && _selftest_switches_upper && _selftest_switches_lower && _selftest_switches_both)
     {
-        ls_oled_println("> Buttons OK");
+        ls_oled_println("> Switches OK");
     }
     else
     {
-        ls_oled_println("Buttons: %c%c%c%c",
+        ls_oled_println("Switches: %c%c%c%c",
                         _selftest_switches_off ? ' ' : 'O',
                         _selftest_switches_upper ? ' ' : 'U',
                         _selftest_switches_lower ? ' ' : 'L',
@@ -212,6 +212,11 @@ void selftest_event_handler(ls_event event)
         _selftest_wait_for_buzzer_warning_complete = true;
         ls_servo_jumpto(LS_SERVO_US_MID);
         ls_leds_cycle(LEDCYCLE_RAINBOW);
+#ifdef LS_TAKING_A_PHOTO
+        ls_leds_single(0, GRB_MAGENTA);
+        ls_leds_single(1, GRB_BLUE);
+        ls_leds_single(2, GRB_CYAN);
+#endif
         vTaskDelay(pdMS_TO_TICKS(LS_SERVO_SELFTEST_HOLD_MS));
         ls_buzzer_effect(LS_BUZZER_PRE_LASER_WARNING);
         break;
@@ -254,10 +259,13 @@ void selftest_event_handler(ls_event event)
         break;
     case LSEVT_CONTROLS_LOWER:
         ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_ENTER);
+        ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_ENTER);
         ls_leds_single(2, GRB_MAGENTA);
         _selftest_detected_event(&_selftest_switches_lower);
         break;
     case LSEVT_CONTROLS_BOTH:
+        ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_ENTER);
+        ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_ENTER);
         ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_ENTER);
         ls_leds_single(2, GRB_CYAN);
         _selftest_detected_event(&_selftest_switches_both);

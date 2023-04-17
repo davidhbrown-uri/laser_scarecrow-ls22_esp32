@@ -27,6 +27,7 @@
 #include "settings.h"
 #include "states.h"
 #include "util.h"
+#include "tapemode.h"
 #ifdef LSDEBUG_LIGHTSENSE
 #include "oled.h"
 #endif
@@ -160,9 +161,9 @@ void ls_lightsense_read_task(void *pvParameter)
                 all_agree = false;
             }
         }
-        if (all_agree)
+        if (all_agree || ls_tapemode() == LS_TAPEMODE_SELFTEST)
         {
-            switch (levels[0])
+            switch (levels[level_index])
             {
             case LS_LIGHTSENSE_LEVEL_DAY:
                 if (ls_lightsense_current_mode() != LS_LIGHTSENSE_MODE_DAY)

@@ -158,9 +158,9 @@ LS_CONTROLS_SWITCH_THRESHOLD_BOTH < ADC < 4096 => LS_CONTROLS_STATUS_BOTH;
 #define LSADCATTEN_SWITCHES ADC_ATTEN_11db
 // to ensure the full range of value can be selected,
 // any ADC mV reading >= LS_CONTROLS_READING_TOP is considered max
-#define LS_CONTROLS_READING_TOP 3100
+#define LS_CONTROLS_READING_TOP 3000
 // any ADC mV reading <= LS_CONTROLS_READING_BOTTOM is considered min
-#define LS_CONTROLS_READING_BOTTOM 150
+#define LS_CONTROLS_READING_BOTTOM 200
 // any ADC mV reading must change by this much from its previous value to be registered.
 #define LS_CONTROLS_READING_MOVE_THRESHOLD 40
 #define LS_CONTROLS_READINGS_TO_AVERAGE 5
