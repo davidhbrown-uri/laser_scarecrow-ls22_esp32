@@ -75,3 +75,6 @@ void ls_buzzer_tone(BaseType_t frequency_hz);
 void ls_buzzer_handler_task(void *pvParameter);
 
 bool ls_buzzer_in_use(void);
+
+// used by sleep mode
+void ls_buzzer_snore(void);

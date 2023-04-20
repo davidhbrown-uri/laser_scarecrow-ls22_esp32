@@ -26,6 +26,7 @@ static BaseType_t _ls_settings_stepper_speed, _ls_settings_servo_top, _ls_settin
 static BaseType_t _ls_settings_stepper_random_max, _ls_settings_light_threshold_on, _ls_settings_light_threshold_off;
 static BaseType_t _ls_settings_servo_pulse_delta, _ls_settings_servo_random_pause_ms, _ls_settings_servo_sweep_pause_ms;
 static BaseType_t _ls_settings_tilt_threshold_detected, _ls_settings_tilt_threshold_ok;
+static bool _ls_settings_sleep_light_enable;
 
 static nvs_handle_t _ls_settings_nvs_handle;
 // caution: NVS keys and namespaces are restricted to 15 characters
@@ -36,12 +37,13 @@ static nvs_handle_t _ls_settings_nvs_handle;
 #define LS_SETTINGS_NVS_KEY_SERVO_DELTA "servo_delta"
 #define LS_SETTINGS_NVS_KEY_LIGHTSENSE_ON "light_on"
 #define LS_SETTINGS_NVS_KEY_LIGHTSENSE_OFF "light_off"
+#define LS_SETTINGS_NVS_KEY_SLEEP_LIGHT_ENABLE "sleep_light"
 
 void ls_settings_set_defaults(void)
 {
     ls_settings_set_stepper_speed(LS_STEPPER_STEPS_PER_SECOND_DEFAULT);
     ls_settings_set_servo_top(LS_SERVO_US_MIN); // all the way at the top
-    ls_settings_set_servo_bottom(100); // all the way to the bottom
+    ls_settings_set_servo_bottom(100);          // all the way to the bottom
 
     ls_settings_set_stepper_random_max(LS_STEPPER_MOVEMENT_STEPS_MAX);
     ls_settings_set_light_threshold_on((int)((int[]){LS_LIGHTSENSE_THRESHOLDS_ON_MV})[LS_LIGHTSENSE_THRESHOLD_DEFAULT]);
@@ -53,6 +55,8 @@ void ls_settings_set_defaults(void)
 
     ls_settings_set_tilt_threshold_mg_detected(LS_TILT_THRESHOLD_DETECTED_MG);
     ls_settings_set_tilt_threshold_mg_ok(LS_TILT_THRESHOLD_OK_MG);
+
+    ls_settings_set_sleep_light_enable(LS_SETTINGS_SLEEP_LIGHT_ENABLE_DEFAULT);
 }
 
 void ls_settings_reset_defaults(void)
@@ -151,6 +155,10 @@ void ls_settings_read(void)
     {
         ls_settings_set_light_threshold_on(nvs_value);
     }
+    if (ESP_OK == _ls_settings_read_from_nvs(LS_SETTINGS_NVS_KEY_SLEEP_LIGHT_ENABLE, &nvs_value))
+    {
+        ls_settings_set_sleep_light_enable((bool)nvs_value);
+    }
     _ls_settings_close_nvs();
 }
 
@@ -248,6 +256,21 @@ void ls_settings_save(void)
         ;
 #ifdef LSDEBUG_SETTINGS
         ls_debug_printf("Settings could not save light threshold on.\n");
+#endif
+    }
+    if (ESP_OK == nvs_set_i32(_ls_settings_nvs_handle, LS_SETTINGS_NVS_KEY_SLEEP_LIGHT_ENABLE,
+                              (int32_t) ls_settings_is_sleep_light_enabled()))
+    {
+        ;
+#ifdef LSDEBUG_SETTINGS
+        ls_debug_printf("Settings saved sleep light enabled=%d\n", (int32_t) ls_settings_is_sleep_light_enabled());
+#endif
+    }
+    else
+    {
+        ;
+#ifdef LSDEBUG_SETTINGS
+        ls_debug_printf("Settings could not save sleep light enabled.\n");
 #endif
     }
     _ls_settings_close_nvs();
@@ -387,4 +410,13 @@ void ls_settings_set_tilt_threshold_mg_ok(BaseType_t milli_gs)
 BaseType_t ls_settings_get_tilt_threshold_mg_ok(void)
 {
     return _ls_settings_tilt_threshold_ok;
+}
+
+void ls_settings_set_sleep_light_enable(bool enabled)
+{
+    _ls_settings_sleep_light_enable = enabled;
+}
+bool ls_settings_is_sleep_light_enabled(void)
+{
+    return _ls_settings_sleep_light_enable;
 }

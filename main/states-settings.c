@@ -272,7 +272,18 @@ ls_State ls_state_settings_both(ls_event event)
             ls_buzzer_note(_ls_state_settings_lightsense_scale[index], pdMS_TO_TICKS(50));
         }
         break;
-    case LSEVT_CONTROLS_SLIDER2:; // nothing assigned
+    case LSEVT_CONTROLS_SLIDER2:; // sleep light enable
+        control_value = *((BaseType_t *)event.value);
+        if (control_value >= LS_CONTROLS_READING_TOP && !ls_settings_is_sleep_light_enabled())
+        {
+            ls_settings_set_sleep_light_enable(true);
+            ls_buzzer_snore();
+        }
+        if (control_value <= LS_CONTROLS_READING_BOTTOM  && ls_settings_is_sleep_light_enabled())
+        {
+            ls_settings_set_sleep_light_enable(false);
+            ls_buzzer_snore();
+        }
         break;
     case LSEVT_CONTROLS_OFF:
         successor.func = ls_state_wakeup; // because we turned laser off, must do wakeup and pre-laser warning

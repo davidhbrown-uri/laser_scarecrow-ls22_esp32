@@ -23,6 +23,8 @@
 #include "buzzer.h"
 #include "debug.h"
 #include "events.h"
+#include "leds.h"
+#include "settings.h"
 #include "util.h"
 
 #define BUZZER_SPEED (LEDC_HIGH_SPEED_MODE)
@@ -36,11 +38,12 @@ bool _ls_buzzer_in_use = false;
 #define LS_BUZZER_REQUEST_DEFAULT_FREQUENCY 1000
 #define LS_BUZZER_REQUEST_DEFAULT_TICKS 1
 
-struct ls_buzzer_request_t {
+struct ls_buzzer_request_t
+{
     enum ls_buzzer_effects effect;
     BaseType_t frequency;
     TickType_t ticks;
-}ls_buzzer_request_t;
+} ls_buzzer_request_t;
 
 static void _ls_buzzer_frequency(uint32_t freq)
 {
@@ -81,7 +84,6 @@ bool ls_buzzer_in_use(void)
 {
     return (_ls_buzzer_in_use || (uxQueueMessagesWaiting(ls_buzzer_queue) > 0));
 }
-
 
 static void _ls_buzzer_effect_click(int frequency)
 {
@@ -292,7 +294,7 @@ void ls_buzzer_note(enum ls_buzzer_scale note, TickType_t ticks)
 {
     struct ls_buzzer_request_t request;
     request.effect = LS_BUZZER_PLAY_TONE;
-    request.frequency = _constrain((BaseType_t) note, 500, 22000);
+    request.frequency = _constrain((BaseType_t)note, 500, 22000);
     request.ticks = ticks;
     xQueueSend(ls_buzzer_queue, (void *)&request, 0); // don't block if queue full
 };
@@ -301,7 +303,28 @@ void ls_buzzer_tone(BaseType_t frequency_hz)
 {
     struct ls_buzzer_request_t request;
     request.effect = LS_BUZZER_PLAY_TONE;
-    request.frequency = (BaseType_t) _constrain(frequency_hz, 500, 22000);;
+    request.frequency = (BaseType_t)_constrain(frequency_hz, 500, 22000);
+    ;
     request.ticks = LS_BUZZER_REQUEST_DEFAULT_TICKS;
     xQueueSend(ls_buzzer_queue, (void *)&request, 0); // don't block if queue full
+}
+
+void ls_buzzer_snore(void)
+{
+    if (ls_settings_is_sleep_light_enabled())
+    {
+        ls_leds_off();
+        ls_leds_cycle(LEDCYCLE_SLEEP);
+    }
+    for (int i = 0; i < 20; i++)
+    {
+        ls_buzzer_effect(LS_BUZZER_CLICK);
+        vTaskDelay(5 - i / 5);
+    }
+    for (int i = 0; i < 40; i++)
+    {
+        ls_buzzer_effect(LS_BUZZER_CLICK);
+        vTaskDelay(1 + i / 3);
+    }
+    ls_leds_off();
 }

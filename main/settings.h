@@ -67,3 +67,6 @@ BaseType_t ls_settings_get_tilt_threshold_mg_detected(void);
 
 void ls_settings_set_tilt_threshold_mg_ok(BaseType_t milli_gs);
 BaseType_t ls_settings_get_tilt_threshold_mg_ok(void);
+
+void ls_settings_set_sleep_light_enable(bool);
+bool ls_settings_is_sleep_light_enabled(void);

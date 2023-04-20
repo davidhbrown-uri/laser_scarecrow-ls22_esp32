@@ -465,11 +465,13 @@ ls_State ls_state_sleep(ls_event event)
     case LSEVT_STATE_ENTRY:
         ls_laser_set_mode_off();
         ls_servo_off();
-        ls_stepper_forward(1);
+        ls_stepper_forward(1); // make sure we move past magnet
         ls_leds_off();
+        ls_oled_blank_screen();
         break;
     case LSEVT_STEPPER_FINISHED_MOVE:
         // the magnet sensor includes an LED which could pointlessly drain power during sleep
+        // yes, wind might blow the arm back to the magnet, but at least we tried!
         if (ls_magnet_is_detected())
         {
             ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION / 4);
@@ -486,30 +488,9 @@ ls_State ls_state_sleep(ls_event event)
 #endif
         successor.func = ls_state_wakeup;
         break;
-    case LSEVT_NOOP: // snore (?)
-        ls_leds_cycle(LEDCYCLE_SLEEP);
-
-        for (int i = 0; i < 20; i++)
-        {
-            ls_buzzer_effect(LS_BUZZER_CLICK);
-            vTaskDelay(5 - i / 5);
-        }
-        for (int i = 0; i < 40; i++)
-        {
-            ls_buzzer_effect(LS_BUZZER_CLICK);
-            vTaskDelay(1 + i / 3);
-        }
-        ls_leds_off();
-        for (int i = 0; i < 40; i++)
-        {
-            if (ls_event_queue_has_messages())
-            {
-                break;
-            }
-            vTaskDelay(pdMS_TO_TICKS(1000));
-        }
-
-        ls_event_enqueue_noop_if_queue_empty();
+    case LSEVT_NOOP: 
+    // rate determined by LS_EVENT_NOOP_TIMEOUT_MS
+        ls_buzzer_snore();
         break;
     case LSEVT_CONTROLS_UPPER:
 #ifdef LSDEBUG_STATES
