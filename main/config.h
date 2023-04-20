@@ -166,23 +166,15 @@ LS_CONTROLS_SWITCH_THRESHOLD_BOTH < ADC < 4096 => LS_CONTROLS_STATUS_BOTH;
 #define LS_CONTROLS_READINGS_TO_AVERAGE 5
 // when controls are connected, readings are sent every tick, so 50 reads=~5sec
 #define LS_CONTROLS_FASTREADS_AFTER_MOVE 50
-// a second connection must happen within this many microseconds to enter the secondary controls
-#define LS_CONTROLS_SECONDARY_US_TIME 6000000L
 
-// values read by ADC for tape reflectance sensor
-// based on testing conducted March 18 '22 for 2022 units
-// #define LS_REFLECTANCE_ADC_MAX_WHITE_BUCKET 1750
-// #define LS_REFLECTANCE_ADC_MIN_BLACK_TAPE 2750
-// #define LS_REFLECTANCE_ADC_MIN_BLACK_BUCKET 2000
-// #define LS_REFLECTANCE_ADC_MAX_SILVER_TAPE 500
 
-// values read by ADC for 2023 units, 100% sampling, Nov '22
+// raw values read by ADC for 2023 units, 100% sampling of tape reflectance sensor, Nov '22
 // do not expect to use with black buckets, so just two values needed
 // (more reflectance means more voltage to ground instead of ADC pin, so light is low and dark is high)
 #define LS_REFLECTANCE_ADC_MAX_LIGHT 1300
 #define LS_REFLECTANCE_ADC_MIN_DARK 2000
 
-// approximate midpoints between settings (3 boards tested Apr 2 '22)
+// approximate midpoints (raw ADC) between settings (3 boards tested Apr 2 '22)
 #define LS_TAPEMODE_THRESHOLD_1 300
 #define LS_TAPEMODE_THRESHOLD_2 975
 #define LS_TAPEMODE_THRESHOLD_3 1750
@@ -231,4 +223,8 @@ LS_CONTROLS_SWITCH_THRESHOLD_BOTH < ADC < 4096 => LS_CONTROLS_STATUS_BOTH;
 #define LS_TILT_REPORT_RATE_MS 1000
 #endif
 
-#define LS_EVENT_NOOP_TIMEOUT_MS 50000
+// The LS_EVENT_NOOP_TIMEOUT_MS also controls the "snoring" rate of the sleep mode
+// If no event is queued within this time, a LSEVT_NOOP will be sent to the current state
+#define LS_EVENT_NOOP_TIMEOUT_MS 110000
+
+#define LS_SETTINGS_SLEEP_LIGHT_ENABLE_DEFAULT false
