@@ -205,6 +205,7 @@ ls_State ls_state_poweron(ls_event event)
 static bool _ls_state_prelaserwarn_buzzer_complete;
 static bool _ls_state_prelaserwarn_movement_complete;
 static int _ls_state_prelaserwarn_rotation_count;
+static bool _ls_state_prelaserwarn_magnet_enter, _ls_state_prelaserwarn_magnet_leave;
 static void *_ls_state_prelaserwarn_successor = NULL;
 void ls_state_set_prelaserwarn_successor(void *successor)
 {
@@ -222,6 +223,8 @@ ls_State ls_state_prelaserwarn(ls_event event)
     case LSEVT_STATE_ENTRY:
         _ls_state_prelaserwarn_buzzer_complete = false;
         _ls_state_prelaserwarn_movement_complete = false;
+        _ls_state_prelaserwarn_magnet_enter = false;
+        _ls_state_prelaserwarn_magnet_leave = false;
         _ls_state_prelaserwarn_rotation_count = 0;
         ls_leds_cycle(LEDCYCLE_WARNING);
 
@@ -256,6 +259,12 @@ ls_State ls_state_prelaserwarn(ls_event event)
     case LSEVT_TILT_DETECTED:
         successor.func = ls_state_error_tilt;
         break;
+    case LSEVT_MAGNET_ENTER:
+        _ls_state_prelaserwarn_magnet_enter = true;
+        break;
+    case LSEVT_MAGNET_LEAVE:
+        _ls_state_prelaserwarn_magnet_leave = true;
+        break;
     default:; // does not handle other events
     }
     if (_ls_state_prelaserwarn_buzzer_complete && _ls_state_prelaserwarn_movement_complete)
@@ -263,7 +272,11 @@ ls_State ls_state_prelaserwarn(ls_event event)
         ls_leds_off();
         if (NULL == _ls_state_prelaserwarn_successor)
         {
-            _ls_state_prelaserwarn_successor = ls_state_active; // default
+            ls_state_set_prelaserwarn_successor(ls_state_active); // default
+        }
+        if(! (_ls_state_prelaserwarn_magnet_enter && _ls_state_prelaserwarn_magnet_leave))
+        {
+            ls_state_set_prelaserwarn_successor(ls_state_error_norotate);
         }
         successor.func = _ls_state_prelaserwarn_successor;
         _ls_state_prelaserwarn_successor = NULL;
@@ -802,5 +815,20 @@ ls_State ls_state_error_noaccel(ls_event event)
     vTaskDelay(pdMS_TO_TICKS(29000));
     esp_restart(); // software reset of the chip; starts execution again
     // will not be reached
+    return successor;
+}
+
+ls_State ls_state_error_norotate(ls_event event)
+{
+    _ls_state_everything_off();
+    ls_leds_cycle(LEDCYCLE_NOROTATE);
+    ls_buzzer_effect(LS_BUZZER_PLAY_NOROTATE);
+    ls_State successor;
+    successor.func = ls_state_error_norotate;
+#ifdef LSDEBUG_STATES
+    ls_debug_printf(">>>>NOT ROTATING<<<\n");
+#endif
+    vTaskDelay(pdMS_TO_TICKS(30000)); // 30 seconds between alerts
+    ls_event_enqueue_noop();
     return successor;
 }

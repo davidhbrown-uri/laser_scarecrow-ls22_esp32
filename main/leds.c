@@ -10,6 +10,10 @@ ls_ledcycle_t LEDCYCLE_RAINBOW = {sizeof(_ledcycle_rainbow) / sizeof(int), pdMS_
 static int _ledcycle_warning[] = {GRB_GREEN, GRB_RED, GRB_GREEN, GRB_OFF, GRB_GREEN, GRB_GREEN, GRB_OFF, GRB_OFF, GRB_GREEN, GRB_OFF};
 ls_ledcycle_t LEDCYCLE_WARNING = {sizeof(_ledcycle_warning) / sizeof(int), pdMS_TO_TICKS(100), 0, _ledcycle_warning};
 
+static int _ledcycle_not_rotating[] = {GRB_GREEN, GRB_OFF, GRB_RED, GRB_BLUE, GRB_OFF, GRB_OFF, GRB_OFF, GRB_OFF, GRB_BLUE, GRB_RED, GRB_OFF, GRB_GREEN, GRB_OFF, GRB_OFF, GRB_OFF, GRB_OFF, GRB_OFF, GRB_OFF, GRB_OFF, GRB_OFF};
+ls_ledcycle_t LEDCYCLE_NOROTATE = {sizeof(_ledcycle_not_rotating) / sizeof(int), pdMS_TO_TICKS(500), 0, _ledcycle_not_rotating};
+
+
 // the snoring sound is computed to take 357 ticks, peaking around 71-73; design this to take 360 ticks
 static int _ledcycle_sleep[] = {0x100020, 0x200040, 0x400080, 0x6000C0, 0x7000E0, 0x7F00FF, 0x7F00FF, 0x7F00FF, 0x7F00FF, 0x7000E0, 0x6000C0, 0x5B00B7, 0x5200A5, 0x5200A5, 0x490093, 0x490093, 0x400081, 0x400081, 0x37006F, 0x37006F, 0x320064, 0x2E005C, 0x2E005C, 0x200040, 0x180030, 0x180030, 0x180030, 0x180030, 0x100020, 0x100020, 0x100020, 0x080010, 0x080010, 0x040008, 0x020004, 0x010002};
 ls_ledcycle_t LEDCYCLE_SLEEP = {sizeof(_ledcycle_sleep) / sizeof(int), 10, 0, _ledcycle_sleep};

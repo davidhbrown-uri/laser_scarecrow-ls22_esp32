@@ -74,3 +74,4 @@ ls_State ls_state_error_home(ls_event);
 ls_State ls_state_error_map(ls_event);
 ls_State ls_state_error_tilt(ls_event);
 ls_State ls_state_error_noaccel(ls_event);
+ls_State ls_state_error_norotate(ls_event);
