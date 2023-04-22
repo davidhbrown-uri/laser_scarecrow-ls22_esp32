@@ -46,7 +46,6 @@ extern QueueHandle_t ls_event_queue;
 static TaskHandle_t ls_coverage_task_handle;
 
 #define LEDCYCLE_HOMING LEDCYCLE_RAINBOW
-#define LEDCYCLE_HOMING_FAIL LEDCYCLE_RED_FLASH
 
 TimerHandle_t _ls_state_rehome_timer;
 
@@ -205,6 +204,7 @@ ls_State ls_state_poweron(ls_event event)
 static bool _ls_state_prelaserwarn_buzzer_complete;
 static bool _ls_state_prelaserwarn_movement_complete;
 static int _ls_state_prelaserwarn_rotation_count;
+static bool _ls_state_prelaserwarn_magnet_enter, _ls_state_prelaserwarn_magnet_leave;
 static void *_ls_state_prelaserwarn_successor = NULL;
 void ls_state_set_prelaserwarn_successor(void *successor)
 {
@@ -222,6 +222,8 @@ ls_State ls_state_prelaserwarn(ls_event event)
     case LSEVT_STATE_ENTRY:
         _ls_state_prelaserwarn_buzzer_complete = false;
         _ls_state_prelaserwarn_movement_complete = false;
+        _ls_state_prelaserwarn_magnet_enter = false;
+        _ls_state_prelaserwarn_magnet_leave = false;
         _ls_state_prelaserwarn_rotation_count = 0;
         ls_leds_cycle(LEDCYCLE_WARNING);
 
@@ -256,6 +258,12 @@ ls_State ls_state_prelaserwarn(ls_event event)
     case LSEVT_TILT_DETECTED:
         successor.func = ls_state_error_tilt;
         break;
+    case LSEVT_MAGNET_ENTER:
+        _ls_state_prelaserwarn_magnet_enter = true;
+        break;
+    case LSEVT_MAGNET_LEAVE:
+        _ls_state_prelaserwarn_magnet_leave = true;
+        break;
     default:; // does not handle other events
     }
     if (_ls_state_prelaserwarn_buzzer_complete && _ls_state_prelaserwarn_movement_complete)
@@ -263,7 +271,12 @@ ls_State ls_state_prelaserwarn(ls_event event)
         ls_leds_off();
         if (NULL == _ls_state_prelaserwarn_successor)
         {
-            _ls_state_prelaserwarn_successor = ls_state_active; // default
+            ls_state_set_prelaserwarn_successor(ls_state_active); // default
+        }
+        if (!(_ls_state_prelaserwarn_magnet_enter && _ls_state_prelaserwarn_magnet_leave))
+        {
+            ls_state_set_prelaserwarn_successor(ls_state_error_norotate);
+            successor.func = ls_state_error_norotate;
         }
         successor.func = _ls_state_prelaserwarn_successor;
         _ls_state_prelaserwarn_successor = NULL;
@@ -488,8 +501,8 @@ ls_State ls_state_sleep(ls_event event)
 #endif
         successor.func = ls_state_wakeup;
         break;
-    case LSEVT_NOOP: 
-    // rate determined by LS_EVENT_NOOP_TIMEOUT_MS
+    case LSEVT_NOOP:
+        // rate determined by LS_EVENT_NOOP_TIMEOUT_MS
         ls_buzzer_snore();
         break;
     case LSEVT_CONTROLS_UPPER:
@@ -675,7 +688,7 @@ ls_State ls_state_map_build(ls_event event)
                 case LS_TAPEMODE_LIGHT_SAFE:
                     // fail if a Safe mode
                     ls_map_set_status(LS_MAP_STATUS_FAILED);
-                    successor.func = ls_state_error_map;
+                    successor.func = ls_state_error_scanning;
                     break;
                 default:
                     // just play the fail tone and ignore map
@@ -710,39 +723,60 @@ ls_State ls_state_map_build(ls_event event)
 
 ls_State ls_state_error_home(ls_event event)
 {
-    _ls_state_everything_off();
-    ls_State successor;
-    ls_leds_cycle(LEDCYCLE_HOMING_FAIL);
-    successor.func = ls_state_error_home;
+#ifdef LSDEBUG_STATES
+    ls_debug_printf(">>>>HOMING FAILED: ls_state_error_home<<<\n");
+#endif
 #ifdef LSDEBUG_HOMING
     ls_debug_printf(">>>>HOMING FAILED<<<\n");
 #endif
-    vTaskDelay(pdMS_TO_TICKS(30000)); // 30 seconds between alerts
+    _ls_state_everything_off();
+    ls_State successor;
+    successor.func = ls_state_error_home;
+    ls_leds_cycle(LEDCYCLE_FAIL_HOMING);
     ls_buzzer_effect(LS_BUZZER_PLAY_HOME_FAIL);
+    vTaskDelay(pdMS_TO_TICKS(LS_FAILURE_LEDS_OFF_AFTER));
+    ls_leds_off();
+    vTaskDelay(pdMS_TO_TICKS(LS_FAILURE_REPEAT_INTERVAL));
     ls_event_enqueue_noop();
     return successor;
 }
 
-ls_State ls_state_error_map(ls_event event)
+/** "map" is/was how I think of it, but "scanning" is more understandable to growers, I think*/
+ls_State ls_state_error_scanning(ls_event event)
 {
+#ifdef LSDEBUG_STATES
+    ls_debug_printf(">>>>Scanning FAILED: ls_state_error_scanning<<<\n");
+#endif
+#ifdef LSDEBUG_MAP
+    ls_debug_printf(">>>>Scanning FAILED<<<\n");
+#endif
     _ls_state_everything_off();
     ls_State successor;
-    successor.func = ls_state_error_map;
-#ifdef LSDEBUG_MAP
-    ls_debug_printf(">>>>MAPPING FAILED<<<\n");
-#endif
+    successor.func = ls_state_error_scanning;
+    ls_leds_cycle(LEDCYCLE_FAIL_SCANNING);
     ls_buzzer_effect(_ls_state_map_fail_reason_tune);
     vTaskDelay(pdMS_TO_TICKS(1000)); // 1 second between tones
     ls_buzzer_effect(LS_BUZZER_PLAY_MAP_FAIL);
-    vTaskDelay(pdMS_TO_TICKS(30000)); // 30 seconds between alerts
+    vTaskDelay(pdMS_TO_TICKS(LS_FAILURE_LEDS_OFF_AFTER - 1000));
+    ls_leds_off();
+#ifdef LSDEBUG_STATES
+    ls_debug_printf("LEDs off by ls_state_error_scanning<<<\n");
+#endif
+    vTaskDelay(pdMS_TO_TICKS(LS_FAILURE_REPEAT_INTERVAL));
     ls_event_enqueue_noop();
+#ifdef LSDEBUG_STATES
+    ls_debug_printf("LSEVT_NOOP enqueued by returning ls_state_error_scanning<<<\n");
+#endif
     return successor;
 }
 
 ls_State ls_state_error_tilt(ls_event event)
 {
+#ifdef LSDEBUG_STATES
+    ls_debug_printf(">>>>Tilt Error: ls_state_error_tilt<<<\n");
+#endif
 #ifdef LSDEBUG_TILT
-    ls_debug_printf("ERROR_TILT\n");
+    ls_debug_printf(">>>>Tilt Error<<<\n");
 #endif
     ls_State successor;
     successor.func = ls_state_error_tilt;
@@ -769,9 +803,14 @@ ls_State ls_state_error_tilt(ls_event event)
         } // switch on tapemode if TILT_OK
         break;
     default:
+        ls_leds_cycle(LEDCYCLE_FAIL_TILT);
         ls_buzzer_effect(LS_BUZZER_PLAY_TILT_FAIL);
-        // 30 seconds between alerts unless an event is pending
-        if (pdFALSE == xQueuePeek(ls_event_queue, &event, pdMS_TO_TICKS(30000)))
+        // ledcycle for 5 seconds between alerts unless an event is pending
+        if (pdFALSE == xQueuePeek(ls_event_queue, &event, pdMS_TO_TICKS(LS_FAILURE_LEDS_OFF_AFTER)))
+        {
+            ls_leds_off();
+        }
+        if (pdFALSE == xQueuePeek(ls_event_queue, &event, pdMS_TO_TICKS(LS_FAILURE_REPEAT_INTERVAL)))
         {
             ls_event_enqueue_noop();
         }
@@ -787,10 +826,15 @@ ls_State ls_state_error_tilt(ls_event event)
  */
 ls_State ls_state_error_noaccel(ls_event event)
 {
+#ifdef LSDEBUG_STATES
+    ls_debug_printf(">>>>NO ACCELEROMETER: ls_state_error_noaccel<<<\n");
+#endif
+    _ls_state_everything_off(); // not that we had a chance to turn anything on.
     ls_State successor;
     successor.func = ls_state_error_noaccel;
     // we're never really going to return
     ls_buzzer_effect(LS_BUZZER_PLAY_TILT_FAIL);
+    ls_leds_cycle(LEDCYCLE_FAIL_ACCELEROMETER);
     vTaskDelay(pdMS_TO_TICKS(500));
     // if this is the first attempt just try to restart
     if (esp_reset_reason() != ESP_RST_SW)
@@ -799,8 +843,27 @@ ls_State ls_state_error_noaccel(ls_event event)
     }
     // otherwise play the warning tone, too, and wait to try again
     ls_buzzer_effect(LS_BUZZER_ALTERNATE_HIGH);
-    vTaskDelay(pdMS_TO_TICKS(29000));
+    vTaskDelay(pdMS_TO_TICKS(LS_FAILURE_LEDS_OFF_AFTER));
+    ls_leds_off();
+    vTaskDelay(pdMS_TO_TICKS(LS_FAILURE_REPEAT_INTERVAL));
     esp_restart(); // software reset of the chip; starts execution again
-    // will not be reached
+    // will not be reached, but for consistency/type-correctness:
+    return successor;
+}
+
+ls_State ls_state_error_norotate(ls_event event)
+{
+#ifdef LSDEBUG_STATES
+    ls_debug_printf(">>>>NOT ROTATING: ls_state_error_norotate<<<\n");
+#endif
+    _ls_state_everything_off();
+    ls_State successor;
+    successor.func = ls_state_error_norotate;
+    ls_leds_cycle(LEDCYCLE_FAIL_ROTATE);
+    ls_buzzer_effect(LS_BUZZER_PLAY_NOROTATE);
+    vTaskDelay(pdMS_TO_TICKS(LS_FAILURE_LEDS_OFF_AFTER));
+    ls_leds_off();
+    vTaskDelay(pdMS_TO_TICKS(LS_FAILURE_REPEAT_INTERVAL));
+    ls_event_enqueue_noop();
     return successor;
 }

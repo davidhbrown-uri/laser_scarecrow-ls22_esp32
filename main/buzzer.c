@@ -276,6 +276,12 @@ void ls_buzzer_handler_task(void *pvParameter)
                 _ls_buzzer_play_note(LS_BUZZER_SCALE_CC, 100);
                 _ls_buzzer_play_note(LS_BUZZER_SCALE_C, 100);
                 break;
+            case LS_BUZZER_PLAY_NOROTATE:
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_Cx, 600);
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_C, 100);
+                vTaskDelay(pdMS_TO_TICKS(100));
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_C, 100);
+                break;
             case LS_BUZZER_PLAY_NOTHING:
                 ESP_ERROR_CHECK(ledc_stop(BUZZER_SPEED, BUZZER_CHANNEL, 0));
                 vTaskDelay(1);
