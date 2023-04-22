@@ -29,7 +29,6 @@ extern QueueHandle_t ls_event_queue;
 extern SemaphoreHandle_t print_mux;
 
 #define LEDCYCLE_HOMING LEDCYCLE_RAINBOW
-#define LEDCYCLE_HOMING_FAIL LEDCYCLE_RED_FLASH
 
 /**
  * Basic plan: rotate quickly to find the magnet.
@@ -247,7 +246,7 @@ static void _ls_substate_home_wait_for_stop(void)
 
 static void _ls_substate_home_failed(ls_event event)
 {
-    ls_leds_cycle(LEDCYCLE_HOMING_FAIL);
+    ls_leds_cycle(LEDCYCLE_FAIL_HOMING);
     ls_buzzer_effect(LS_BUZZER_PLAY_HOME_FAIL);
     _ls_home_attempts++;
     if (_ls_home_attempts >= LS_HOME_ATTEMPTS_ALLOWED)

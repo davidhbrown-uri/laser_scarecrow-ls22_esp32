@@ -223,6 +223,11 @@ LS_CONTROLS_SWITCH_THRESHOLD_BOTH < ADC < 4096 => LS_CONTROLS_STATUS_BOTH;
 #define LS_TILT_REPORT_RATE_MS 1000
 #endif
 
+// 18 steps in each cycle; 200ms/step; 1800 should allow three cycles
+#define LS_FAILURE_LEDS_OFF_AFTER 11000
+// after waiting for the LEDs also wait this long to play the tune and lights again
+#define LS_FAILURE_REPEAT_INTERVAL 24000
+
 // The LS_EVENT_NOOP_TIMEOUT_MS also controls the "snoring" rate of the sleep mode
 // If no event is queued within this time, a LSEVT_NOOP will be sent to the current state
 #define LS_EVENT_NOOP_TIMEOUT_MS 110000

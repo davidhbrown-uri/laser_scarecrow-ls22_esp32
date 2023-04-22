@@ -10,8 +10,33 @@ ls_ledcycle_t LEDCYCLE_RAINBOW = {sizeof(_ledcycle_rainbow) / sizeof(int), pdMS_
 static int _ledcycle_warning[] = {GRB_GREEN, GRB_RED, GRB_GREEN, GRB_OFF, GRB_GREEN, GRB_GREEN, GRB_OFF, GRB_OFF, GRB_GREEN, GRB_OFF};
 ls_ledcycle_t LEDCYCLE_WARNING = {sizeof(_ledcycle_warning) / sizeof(int), pdMS_TO_TICKS(100), 0, _ledcycle_warning};
 
-static int _ledcycle_not_rotating[] = {GRB_GREEN, GRB_OFF, GRB_RED, GRB_BLUE, GRB_OFF, GRB_OFF, GRB_OFF, GRB_OFF, GRB_BLUE, GRB_RED, GRB_OFF, GRB_GREEN, GRB_OFF, GRB_OFF, GRB_OFF, GRB_OFF, GRB_OFF, GRB_OFF, GRB_OFF, GRB_OFF};
-ls_ledcycle_t LEDCYCLE_NOROTATE = {sizeof(_ledcycle_not_rotating) / sizeof(int), pdMS_TO_TICKS(500), 0, _ledcycle_not_rotating};
+static int _ledcycle_fail_rotate[] = {GRB_RED, GRB_OFF, GRB_RED, GRB_OFF, GRB_OFF, GRB_OFF,
+                                      GRB_GREEN, GRB_GREEN, GRB_GREEN, GRB_OFF,
+                                      GRB_RED, GRB_RED, GRB_BLUE, GRB_BLUE,
+                                      GRB_OFF, GRB_OFF, GRB_OFF, GRB_OFF};
+ls_ledcycle_t LEDCYCLE_FAIL_ROTATE = {sizeof(_ledcycle_fail_rotate) / sizeof(int), pdMS_TO_TICKS(200), 0, _ledcycle_fail_rotate};
+
+static int _ledcycle_fail_accelerometer[] = {GRB_RED, GRB_OFF, GRB_RED, GRB_OFF,
+                                             GRB_CYAN, GRB_CYAN, GRB_OFF, GRB_OFF,
+                                             GRB_GREEN, GRB_GREEN, GRB_OFF, GRB_OFF,
+                                             GRB_BLUE, GRB_BLUE, GRB_OFF, GRB_OFF, GRB_OFF, GRB_OFF};
+ls_ledcycle_t LEDCYCLE_FAIL_ACCELEROMETER = {sizeof(_ledcycle_fail_accelerometer) / sizeof(int), pdMS_TO_TICKS(200), 0, _ledcycle_fail_accelerometer};
+
+static int _ledcycle_fail_tilt[] = {GRB_RED, GRB_OFF, GRB_RED, GRB_OFF, GRB_OFF, GRB_OFF,
+                                    GRB_CYAN, GRB_GREEN, GRB_BLUE, GRB_OFF, 
+                                    GRB_CYAN, GRB_GREEN, GRB_BLUE, GRB_OFF,
+                                    GRB_OFF, GRB_OFF, GRB_OFF, GRB_OFF};
+ls_ledcycle_t LEDCYCLE_FAIL_TILT = {sizeof(_ledcycle_fail_tilt) / sizeof(int), pdMS_TO_TICKS(200), 0, _ledcycle_fail_tilt};
+
+static int _ledcycle_fail_homing[] = {GRB_RED, GRB_OFF, GRB_RED, GRB_OFF, GRB_OFF, GRB_OFF,
+                                    0x39FF00, 0xFF6000, 0xFF0000, 0xFF0094, 0x1E00FF, 0x000DFF, 0x00FFD7, 0x00FF03,
+                                    GRB_OFF, GRB_OFF, GRB_OFF, GRB_OFF};
+ls_ledcycle_t LEDCYCLE_FAIL_HOMING = {sizeof(_ledcycle_fail_homing) / sizeof(int), pdMS_TO_TICKS(200), 0, _ledcycle_fail_homing};
+
+static int _ledcycle_fail_scanning[] = {GRB_RED, GRB_OFF, GRB_RED, GRB_OFF, GRB_OFF, GRB_OFF,
+                                    0x80C000, 0x0000FF, 0x80C000, 0x0000FF, 0x80C000, 0x0000FF, GRB_OFF, GRB_OFF,
+                                    GRB_OFF, GRB_OFF, GRB_OFF, GRB_OFF};
+ls_ledcycle_t LEDCYCLE_FAIL_SCANNING = {sizeof(_ledcycle_fail_scanning) / sizeof(int), pdMS_TO_TICKS(200), 0, _ledcycle_fail_scanning};
 
 
 // the snoring sound is computed to take 357 ticks, peaking around 71-73; design this to take 360 ticks
@@ -30,16 +55,16 @@ ls_ledcycle_t LEDCYCLE_CONTROLS_BOTH = {sizeof(_ledcycle_controls_both) / sizeof
 static int _ledcycle_static[CONFIG_WS2812_NUM_LEDS];
 ls_ledcycle_t LEDCYCLE_STATIC = {CONFIG_WS2812_NUM_LEDS, portMAX_DELAY, 0, _ledcycle_static};
 
-static int _ledcycle_red_flash[] = {0x0F00, 0x7F00, 0xFF00, 0xFF00, 0x7F00, 0x0F00, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-ls_ledcycle_t LEDCYCLE_RED_FLASH = {sizeof(_ledcycle_red_flash) / sizeof(int), pdMS_TO_TICKS(100), 3, _ledcycle_red_flash};
+// static int _ledcycle_red_flash[] = {0x0F00, 0x7F00, 0xFF00, 0xFF00, 0x7F00, 0x0F00, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+// ls_ledcycle_t LEDCYCLE_RED_FLASH = {sizeof(_ledcycle_red_flash) / sizeof(int), pdMS_TO_TICKS(100), 3, _ledcycle_red_flash};
 
-static int _ledcycle_green_pulse[] = {0x000000, 0x100000, 0x200000, 0x400000, 0x800000, 0xA00000, 0xC00000, 0xC00000,
-                                      0xC00000, 0xC00000, 0xA00000, 0x800000, 0x400000, 0x200000, 0x100000, 0x000000,
-                                      0, 0, 0, 0, 0, 0, 0, 0};
-ls_ledcycle_t LEDCYCLE_GREEN_PULSE = {sizeof(_ledcycle_green_pulse) / sizeof(int), pdMS_TO_TICKS(100), 2, _ledcycle_green_pulse};
-static int _ledcycle_yellow_pulse[] = {0x000000, 0x102000, 0x203000, 0x406000, 0x809000, 0xA0B000, 0xC0E000, 0xC0E000,
-                                       0xC0E000, 0xC0E000, 0xA0B000, 0x809000, 0x406000, 0x203000, 0x102000, 0x000000};
-ls_ledcycle_t LEDCYCLE_YELLOW_PULSE = {sizeof(_ledcycle_yellow_pulse) / sizeof(int), pdMS_TO_TICKS(100), 2, _ledcycle_yellow_pulse};
+// static int _ledcycle_green_pulse[] = {0x000000, 0x100000, 0x200000, 0x400000, 0x800000, 0xA00000, 0xC00000, 0xC00000,
+//                                       0xC00000, 0xC00000, 0xA00000, 0x800000, 0x400000, 0x200000, 0x100000, 0x000000,
+//                                       0, 0, 0, 0, 0, 0, 0, 0};
+// ls_ledcycle_t LEDCYCLE_GREEN_PULSE = {sizeof(_ledcycle_green_pulse) / sizeof(int), pdMS_TO_TICKS(100), 2, _ledcycle_green_pulse};
+// static int _ledcycle_yellow_pulse[] = {0x000000, 0x102000, 0x203000, 0x406000, 0x809000, 0xA0B000, 0xC0E000, 0xC0E000,
+//                                        0xC0E000, 0xC0E000, 0xA0B000, 0x809000, 0x406000, 0x203000, 0x102000, 0x000000};
+// ls_ledcycle_t LEDCYCLE_YELLOW_PULSE = {sizeof(_ledcycle_yellow_pulse) / sizeof(int), pdMS_TO_TICKS(100), 2, _ledcycle_yellow_pulse};
 ;
 
 void ls_leds_handler_task(void *pvParameter)
