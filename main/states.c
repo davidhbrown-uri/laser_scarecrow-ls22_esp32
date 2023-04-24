@@ -155,6 +155,7 @@ ls_State ls_state_poweron(ls_event event)
     switch (event.type)
     {
     case LSEVT_STATE_ENTRY:
+        ls_buzzer_effect(LS_BUZZER_POWERON);
         ls_tapemode_init();
         switch (ls_tapemode())
         {
@@ -235,7 +236,7 @@ ls_State ls_state_prelaserwarn(ls_event event)
         vTaskDelay(pdMS_TO_TICKS(1000)); // 1sec quiet/still before warning
         ls_buzzer_effect(LS_BUZZER_PRE_LASER_WARNING);
         ls_stepper_set_maximum_steps_per_second(LS_STEPPER_STEPS_PER_SECOND_WARNING);
-        ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION / 2);
+        ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION * 3 / 4);
         break;
     case LSEVT_BUZZER_WARNING_COMPLETE:
         _ls_state_prelaserwarn_buzzer_complete = true;
@@ -244,11 +245,11 @@ ls_State ls_state_prelaserwarn(ls_event event)
         _ls_state_prelaserwarn_rotation_count++;
         if (3 > _ls_state_prelaserwarn_rotation_count)
         {
-            ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION / 2);
+            ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION * 3 / 4);
         }
         if (3 == _ls_state_prelaserwarn_rotation_count)
         {
-            ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION * 3 / 2);
+            ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION * 2);
         }
         if (3 < _ls_state_prelaserwarn_rotation_count)
         {

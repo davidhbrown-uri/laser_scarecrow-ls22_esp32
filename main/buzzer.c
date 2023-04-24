@@ -123,8 +123,8 @@ static void _ls_buzzer_pre_laser_warning(void)
 #endif
     for (int i = 0; i < 2; i++)
     {
-        _ls_buzzer_effect_alternate_high(1500);
-        vTaskDelay(pdMS_TO_TICKS(1000));
+        _ls_buzzer_effect_alternate_high(2000);
+        vTaskDelay(pdMS_TO_TICKS(1250));
     }
     for (int i = 0; i < 4; i++)
     {
@@ -177,6 +177,13 @@ void ls_buzzer_handler_task(void *pvParameter)
             case LS_BUZZER_PRE_LASER_WARNING:
                 _ls_buzzer_pre_laser_warning();
                 break;
+            case LS_BUZZER_POWERON:
+                for(enum ls_buzzer_scale i = 500; i < 3000; i+=(i/10))
+                {
+                    _ls_buzzer_frequency(i);
+                    vTaskDelay(pdMS_TO_TICKS(20));
+                }
+            break;
             case LS_BUZZER_PLAY_TAPE_ENABLE:
                 _ls_buzzer_play_note(LS_BUZZER_SCALE_B, 200);
                 _ls_buzzer_play_note(LS_BUZZER_SCALE_CC, 200);

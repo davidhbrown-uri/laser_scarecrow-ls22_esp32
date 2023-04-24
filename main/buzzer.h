@@ -45,6 +45,7 @@ enum ls_buzzer_effects
     LS_BUZZER_ALERT_1S,
     LS_BUZZER_ALTERNATE_HIGH,
     LS_BUZZER_PRE_LASER_WARNING,
+    LS_BUZZER_POWERON,
     LS_BUZZER_PLAY_TAPE_ENABLE,            // enable tape read
     LS_BUZZER_PLAY_TAPE_DISABLE,           // disable tape read
     LS_BUZZER_PLAY_TAPE_MISREAD,           // bad tape read

@@ -55,7 +55,6 @@ SemaphoreHandle_t print_mux = NULL;
 
 static esp_adc_cal_characteristics_t *adc_chars;
 
-
 static void print_char_val_type(esp_adc_cal_value_t val_type)
 {
     if (val_type == ESP_ADC_CAL_VAL_EFUSE_TP)
@@ -97,6 +96,9 @@ void app_main(void)
     esp_adc_cal_value_t val_type = esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_11db, ADC_WIDTH_12Bit, 1100, adc_chars);
     print_char_val_type(val_type);
     check_efuse();
+    ls_buzzer_init();
+    ls_stepper_init();
+    ls_servo_init();
     ls_leds_init();
     ls_oled_init();
     ls_oled_show_logo();
@@ -105,17 +107,8 @@ void app_main(void)
     ls_settings_set_defaults();
     ls_settings_read();
     printf("Loaded settings\n");
-    adc_chars = calloc(1, sizeof(esp_adc_cal_characteristics_t));
-    ls_state_current.func = ls_state_poweron; // default
-    if(ls_i2c_accelerometer_device()==LS_I2C_ACCELEROMETER_NONE)
-    {
-        printf("No accelerometer detected!\n");
-        ls_state_current.func = ls_state_error_noaccel;
-    }
+
     ls_event_queue_init();
-    ls_buzzer_init();
-    ls_stepper_init();
-    ls_servo_init();
     ls_state_init();
     // do not set magnet ISR up before event queue
     ls_magnet_isr_begin();
@@ -124,6 +117,13 @@ void app_main(void)
 #ifdef LS_TEST_SPANNODE
     ls_map_test_spannode();
 #endif
+
+    ls_state_current.func = ls_state_poweron; // default
+    if (ls_i2c_accelerometer_device() == LS_I2C_ACCELEROMETER_NONE)
+    {
+        printf("No accelerometer detected!\n");
+        ls_state_current.func = ls_state_error_noaccel;
+    }
 
     // higher priority tasks get higher priority values
 
@@ -140,7 +140,7 @@ void app_main(void)
     xTaskCreate(&ls_leds_handler_task, "leds_handler", configMINIMAL_STACK_SIZE * 2, NULL, 6, NULL);
     xTaskCreate(&ls_buzzer_handler_task, "buzzer_handler", configMINIMAL_STACK_SIZE * 2, NULL, 5, NULL);
     xTaskCreate(&ls_servo_task, "servo_task", configMINIMAL_STACK_SIZE * 3, NULL, 3, NULL);
-//    xTaskCreate(&ls_coverage_task, "coverage_task", configMINIMAL_STACK_SIZE * 3, NULL, 2, NULL); // cannot do before map is ready
+    //    xTaskCreate(&ls_coverage_task, "coverage_task", configMINIMAL_STACK_SIZE * 3, NULL, 2, NULL); // cannot do before map is ready
     xTaskCreate(&ls_tilt_task, "tilt_task", configMINIMAL_STACK_SIZE * 3, NULL, 2, NULL);
     xTaskCreate(&ls_lightsense_read_task, "lightsense_read", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
 
