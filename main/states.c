@@ -1,6 +1,6 @@
 /*
     Control software for URI Laser Scarecrow, 2022 Model
-    Copyright (C) 2022  David H. Brown
+    Copyright (C) 2022-2023 David H. Brown
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -203,9 +203,7 @@ void ls_state_set_prelaserwarn_successor(void *successor)
 ls_State ls_state_prelaserwarn(ls_event event)
 {
 #ifdef LSDEBUG_STATES
-    xSemaphoreTake(print_mux, portMAX_DELAY);
     ls_debug_printf("STATE_PRELASERWARN handling event\n");
-    xSemaphoreGive(print_mux);
 #endif
     ls_State successor;
     successor.func = ls_state_prelaserwarn;
@@ -292,19 +290,19 @@ ls_State ls_state_active(ls_event event)
         break;
     case LSEVT_MAGNET_ENTER:
 #ifdef LSDEBUG_STATES
-        ls_debug_printf("Magnet Enter @ %d %s\n", *(int32_t *)event.value, ls_stepper_direction ? "-->" : "<--");
+        ls_debug_printf("Magnet Enter @ %d %s\n", (int32_t)event.value, ls_stepper_get_direction() ? "-->" : "<--");
 #endif
         ls_buzzer_effect(LS_BUZZER_CLICK);
         break;
     case LSEVT_MAGNET_LEAVE:
 #ifdef LSDEBUG_STATES
-        ls_debug_printf("Magnet Leave @ %d %s\n", *(int32_t *)event.value, ls_stepper_direction ? "-->" : "<--");
+        ls_debug_printf("Magnet Leave @ %d %s\n", (int32_t)event.value, ls_stepper_get_direction() ? "-->" : "<--");
 #endif
         ls_buzzer_effect(LS_BUZZER_CLICK);
         break;
     case LSEVT_STEPPER_FINISHED_MOVE:
 #ifdef LSDEBUG_STATES
-        ls_debug_printf("Stepper finished %s move @%d \n", ls_stepper_direction ? "-->" : "<--", ls_stepper_get_position());
+        ls_debug_printf("Stepper finished %s move @%d \n", ls_stepper_get_direction() ? "-->" : "<--", ls_stepper_get_position());
 #endif
         break;
     case LSEVT_SERVO_SWEEP_TOP:
@@ -536,7 +534,7 @@ ls_State ls_state_secondary_settings(ls_event event)
     case LSEVT_STATE_ENTRY:
         ls_laser_set_mode_off();
         ls_stepper_stop();
-        ls_stepper_sleep();
+        ls_stepper_sleep(); // why? loses homing
         ls_servo_off();
         ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_ENTER);
         ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_ENTER);
@@ -597,6 +595,7 @@ ls_State ls_state_secondary_settings(ls_event event)
     }         // switch event type
     if (ls_state_secondary_settings != successor.func)
     {
+        ls_substate_home_require_rehome(); 
         ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_LEAVE);
         ls_settings_save();
     }
@@ -700,6 +699,7 @@ ls_State ls_state_wakeup(ls_event event)
     case LSEVT_STATE_ENTRY:
         if (ls_map_get_status() == LS_MAP_STATUS_OK)
         {
+            ls_substate_home_require_rehome();
             ls_substate_home_init();
             ls_event_enqueue_noop();
         }

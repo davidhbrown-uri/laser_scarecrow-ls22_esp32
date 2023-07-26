@@ -1,6 +1,6 @@
 /*
     Control software for URI Laser Scarecrow, 2022 Model
-    Copyright (C) 2022  David H. Brown
+    Copyright (C) 2022-2023 David H. Brown
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -82,12 +82,13 @@ bool ls_buzzer_in_use(void)
     return (_ls_buzzer_in_use || (uxQueueMessagesWaiting(ls_buzzer_queue) > 0));
 }
 
-static void _ls_buzzer_effect_click(void)
+
+static void _ls_buzzer_effect_click(int frequency)
 {
 #ifdef LSDEBUG_BUZZER
-    ls_debug_printf("Buzzer Click\n");
+    ls_debug_printf("Buzzer Click at %dHz\n", frequency);
 #endif
-    _ls_buzzer_frequency(500);
+    _ls_buzzer_frequency(frequency);
     vTaskDelay(1);
 }
 
@@ -151,7 +152,10 @@ void ls_buzzer_handler_task(void *pvParameter)
             switch (received.effect)
             {
             case LS_BUZZER_CLICK:
-                _ls_buzzer_effect_click();
+                _ls_buzzer_effect_click(500);
+                break;
+            case LS_BUZZER_CLICK_HIGH:
+                _ls_buzzer_effect_click(600);
                 break;
             case LS_BUZZER_ALERT_1S:
 #ifdef LSDEBUG_BUZZER

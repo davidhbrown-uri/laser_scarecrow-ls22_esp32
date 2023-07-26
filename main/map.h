@@ -1,6 +1,6 @@
 /*
     Control software for URI Laser Scarecrow, 2022 Model
-    Copyright (C) 2022  David H. Brown
+    Copyright (C) 2022-2023 David H. Brown
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -68,7 +68,7 @@ void _ls_state_map_build_set_map(int *enable_count, int *disable_count, int *mis
 void _ls_state_map_build_read_and_set_map(int *enable_count, int *disable_count, int *misread_count);
 
 int ls_map_find_spans(); 
-struct ls_map_SpanNode* ls_map_span_next(ls_stepper_position_t step, enum ls_stepper_direction direction, struct ls_map_SpanNode* starting_span);
+struct ls_map_SpanNode* ls_map_span_next(ls_stepper_position_t step, enum ls_stepper_direction_t direction, struct ls_map_SpanNode* starting_span);
 struct ls_map_SpanNode* ls_map_span_at(ls_stepper_position_t step);
 void ls_stepper_random_strategy_map_spans(struct ls_stepper_move_t *move);
 

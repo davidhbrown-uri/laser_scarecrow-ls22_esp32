@@ -1,6 +1,6 @@
 /*
     Control software for URI Laser Scarecrow, 2022 Model
-    Copyright (C) 2022  David H. Brown
+    Copyright (C) 2022-2023 David H. Brown
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -57,7 +57,7 @@ struct ls_stepper_move_t ls_stepper_move;
 
 QueueHandle_t ls_stepper_queue;
 // A4988 datasheet gives decay mode and other information while DIR=H, so make FORWARD==1
-enum ls_stepper_direction {LS_STEPPER_DIRECTION_REVERSE, LS_STEPPER_DIRECTION_FORWARD} ls_stepper_direction;
+enum ls_stepper_direction_t {LS_STEPPER_DIRECTION_REVERSE, LS_STEPPER_DIRECTION_FORWARD} ls_stepper_direction_t;
 
 // don't need 32 bits, but IRAM read/write must be 32-bit
 static IRAM_ATTR volatile ls_stepper_position_t ls_stepper_position;
@@ -71,12 +71,13 @@ void ls_stepper_set_random_strategy(StepperMoveStrategy strategy);
 bool ls_stepper_is_stopped(void);
 #define ls_stepper_is_moving() (!ls_stepper_is_stopped())
 
-enum ls_stepper_direction ls_stepper_get_direction();
+enum ls_stepper_direction_t ls_stepper_get_direction();
 
 BaseType_t ls_stepper_get_steps_taken(void);
 
 ls_stepper_position_t ls_stepper_get_position(void);
 void ls_stepper_set_home_position(void);
+void ls_stepper_set_home_offset(int offset);
 
 void ls_stepper_stop(void);
 void ls_stepper_forward(uint16_t steps);
