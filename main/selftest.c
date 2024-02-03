@@ -148,7 +148,7 @@ static void _selftest_update_oled(void)
     {
         ls_oled_println("Magnet: %c %c", _selftest_magnet_enter ? ' ' : '+', _selftest_magnet_leave ? ' ' : '-');
     }
-    if (_selftest_tape_dark && _selftest_magnet_leave)
+    if (_selftest_tape_light && _selftest_tape_dark)
     {
         ls_oled_println("> Tape OK");
     }
