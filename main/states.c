@@ -25,16 +25,16 @@
 #include "buzzer.h"
 #include "magnet.h"
 #include "tapemode.h"
-#include "tape.h"
-#include "map.h"
+// #include "tape.h"
+// #include "map.h"
 #include "init.h"
-#include "substate_home.h"
+// #include "substate_home.h"
 #include "laser.h"
 #include "settings.h"
 #include "selftest.h"
 #include "util.h"
 #include "controls.h"
-#include "coverage.h"
+// #include "coverage.h"
 #include "leds.h"
 #include "oled.h"
 
@@ -54,33 +54,34 @@ TimerHandle_t _ls_state_rehome_timer;
         ls_servo_off();            \
         ls_stepper_off();          \
         ls_laser_set_mode_off();   \
-        ls_tape_sensor_disable();  \
         ls_leds_off();             \
         ls_oled_blank_screen();    \
     }
 
-void _ls_state_rehome_timer_callback(TimerHandle_t xTimer)
-{
-    ls_event event;
-    event.type = LSEVT_REHOME_REQUIRED;
-    event.value = NULL;
-    if (xQueueSendToBack(ls_event_queue, (void *)&event, pdMS_TO_TICKS(5000)) != pdPASS)
-    {
-#ifdef LSDEBUG_STATES
-        ls_debug_printf("WARNING: Could not enqueue LSEVT_REHOME_REQUIRED; will try to try again later\n");
-#endif
-        xTimerReset(_ls_state_rehome_timer, pdMS_TO_TICKS(5000));
-    }
-}
+//         ls_tape_sensor_disable();  // was part of previous #define with trailing backslash
+
+// void _ls_state_rehome_timer_callback(TimerHandle_t xTimer)
+// {
+//     ls_event event;
+//     event.type = LSEVT_REHOME_REQUIRED;
+//     event.value = NULL;
+//     if (xQueueSendToBack(ls_event_queue, (void *)&event, pdMS_TO_TICKS(5000)) != pdPASS)
+//     {
+// #ifdef LSDEBUG_STATES
+//         ls_debug_printf("WARNING: Could not enqueue LSEVT_REHOME_REQUIRED; will try to try again later\n");
+// #endif
+//         xTimerReset(_ls_state_rehome_timer, pdMS_TO_TICKS(5000));
+//     }
+// }
 
 void ls_state_init(void)
 {
-    _ls_state_rehome_timer = xTimerCreate("rehome_timer",                                 // pcTimerName
-                                          pdMS_TO_TICKS(LS_STATE_REHOME_TIMER_PERIOD_MS), // xTimerPeriodInTicks
-                                          pdFALSE,                                        // uxAutoReload
-                                          0,                                              // pvTimerId not used; only timer for callback
-                                          _ls_state_rehome_timer_callback                 // pxCallbackFunction
-    );
+    // _ls_state_rehome_timer = xTimerCreate("rehome_timer",                                 // pcTimerName
+    //                                       pdMS_TO_TICKS(LS_STATE_REHOME_TIMER_PERIOD_MS), // xTimerPeriodInTicks
+    //                                       pdFALSE,                                        // uxAutoReload
+    //                                       0,                                              // pvTimerId not used; only timer for callback
+    //                                       _ls_state_rehome_timer_callback                 // pxCallbackFunction
+    // );
 }
 
 /**
@@ -156,7 +157,7 @@ ls_State ls_state_poweron(ls_event event)
     {
     case LSEVT_STATE_ENTRY:
         ls_buzzer_effect(LS_BUZZER_POWERON);
-        ls_tapemode_init();
+        // ls_tapemode_init();
         switch (ls_tapemode())
         {
         case LS_TAPEMODE_IGNORE:
@@ -172,24 +173,27 @@ ls_State ls_state_poweron(ls_event event)
             successor.func = ls_state_selftest;
             break;
         default:
-#ifdef LSDEBUG_STATES
-            ls_debug_printf("During poweron, ls_map_get_status()=> %d\n", ls_map_get_status());
-#endif
-            if (ls_map_get_status() == LS_MAP_STATUS_OK)
-            {
-#ifdef LSDEBUG_STATES
-                ls_debug_printf("State poweron (LS_MAP_STATUS_OK)=> pre-laser warning\n");
-#endif
-                successor.func = ls_state_prelaserwarn;
-            }
-            else
-            {
-#ifdef LSDEBUG_STATES
-                ls_debug_printf("State poweron => map_build_substate_home\n");
-#endif
-                ls_state_set_home_successor(ls_state_map_build);
-                successor.func = ls_state_home; // ls_state_map_build_substate_home;
-            }
+        // not using tapemode except for selftest
+            successor.func = ls_state_prelaserwarn;
+
+// #ifdef LSDEBUG_STATES
+//             ls_debug_printf("During poweron, ls_map_get_status()=> %d\n", ls_map_get_status());
+// #endif
+//             if (ls_map_get_status() == LS_MAP_STATUS_OK)
+//             {
+// #ifdef LSDEBUG_STATES
+//                 ls_debug_printf("State poweron (LS_MAP_STATUS_OK)=> pre-laser warning\n");
+// #endif
+//                 successor.func = ls_state_prelaserwarn;
+//             }
+//             else
+//             {
+// #ifdef LSDEBUG_STATES
+//                 ls_debug_printf("State poweron => map_build_substate_home\n");
+// #endif
+//                 ls_state_set_home_successor(ls_state_map_build);
+//                 successor.func = ls_state_home; // ls_state_map_build_substate_home;
+            // }
 
         } // switch tapemode
         break;
@@ -306,16 +310,16 @@ ls_State ls_state_active(ls_event event)
         ls_oled_blank_screen();
         ls_coverage_task_handle = NULL;
 
-        if (ls_map_get_status() == LS_MAP_STATUS_OK)
-        {
-            ls_laser_set_mode_mapped();
-            xTimerReset(_ls_state_rehome_timer, pdMS_TO_TICKS(5000));
-            xTaskCreate(&ls_coverage_task, "coverage_task", configMINIMAL_STACK_SIZE * 3, NULL, 2, &ls_coverage_task_handle); // cannot do before map is ready
-        }
-        else
-        {
+        // if (ls_map_get_status() == LS_MAP_STATUS_OK)
+        // {
+        //     ls_laser_set_mode_mapped();
+        //     xTimerReset(_ls_state_rehome_timer, pdMS_TO_TICKS(5000));
+        //     xTaskCreate(&ls_coverage_task, "coverage_task", configMINIMAL_STACK_SIZE * 3, NULL, 2, &ls_coverage_task_handle); // cannot do before map is ready
+        // }
+        // else
+        // {
             ls_laser_set_mode_on();
-        }
+        // }
         break;
     case LSEVT_MAGNET_ENTER:
 #ifdef LSDEBUG_STATES
@@ -397,64 +401,64 @@ ls_State ls_state_active(ls_event event)
     return successor;
 }
 
-static void *_ls_state_home_successor = NULL;
-void ls_state_set_home_successor(void *successor)
-{
-    _ls_state_home_successor = successor;
-}
-ls_State ls_state_home(ls_event event)
-{
-#ifdef LSDEBUG_STATES
-    ls_debug_printf("STATE_HOME handling event\n");
-#endif
-    ls_State successor;
-    successor.func = ls_state_home;
-    switch (event.type)
-    {
-    case LSEVT_STATE_ENTRY:
-        ls_leds_cycle(LEDCYCLE_HOMING);
-        ls_substate_home_init();
-        ls_event_enqueue_noop();
-        break;
-    case LSEVT_HOME_COMPLETED:
-        if (NULL == _ls_state_home_successor)
-        {
-            _ls_state_home_successor = ls_state_active;
-        }
-        successor.func = _ls_state_home_successor;
-        _ls_state_home_successor = ls_state_active;
-        ls_event_enqueue_noop();
-        break;
-    case LSEVT_HOME_FAILED:
-        ls_buzzer_effect(LS_BUZZER_PLAY_HOME_FAIL);
-        switch (ls_tapemode())
-        {
-        case LS_TAPEMODE_DARK_SAFE:
-        case LS_TAPEMODE_LIGHT_SAFE:
-            successor.func = ls_state_error_home;
-            break;
-        default:
-            if (NULL == _ls_state_home_successor)
-            {
-                _ls_state_home_successor = ls_state_active;
-            }
-            ls_state_set_prelaserwarn_successor(ls_state_active);
-            successor.func = ls_state_prelaserwarn;
-        }
-        ls_event_enqueue_noop();
-        break;
-    case LSEVT_TILT_DETECTED:
-        successor.func = ls_state_error_tilt;
-        break;
-    default:
-        ls_substate_home_handle_event(event);
-    }
-    if (successor.func != ls_state_home)
-    {
-        ls_leds_off();
-    }
-    return successor;
-}
+// static void *_ls_state_home_successor = NULL;
+// void ls_state_set_home_successor(void *successor)
+// {
+//     _ls_state_home_successor = successor;
+// }
+// ls_State ls_state_home(ls_event event)
+// {
+// #ifdef LSDEBUG_STATES
+//     ls_debug_printf("STATE_HOME handling event\n");
+// #endif
+//     ls_State successor;
+//     successor.func = ls_state_home;
+//     switch (event.type)
+//     {
+//     case LSEVT_STATE_ENTRY:
+//         ls_leds_cycle(LEDCYCLE_HOMING);
+//         ls_substate_home_init();
+//         ls_event_enqueue_noop();
+//         break;
+//     case LSEVT_HOME_COMPLETED:
+//         if (NULL == _ls_state_home_successor)
+//         {
+//             _ls_state_home_successor = ls_state_active;
+//         }
+//         successor.func = _ls_state_home_successor;
+//         _ls_state_home_successor = ls_state_active;
+//         ls_event_enqueue_noop();
+//         break;
+//     case LSEVT_HOME_FAILED:
+//         ls_buzzer_effect(LS_BUZZER_PLAY_HOME_FAIL);
+//         switch (ls_tapemode())
+//         {
+//         case LS_TAPEMODE_DARK_SAFE:
+//         case LS_TAPEMODE_LIGHT_SAFE:
+//             successor.func = ls_state_error_home;
+//             break;
+//         default:
+//             if (NULL == _ls_state_home_successor)
+//             {
+//                 _ls_state_home_successor = ls_state_active;
+//             }
+//             ls_state_set_prelaserwarn_successor(ls_state_active);
+//             successor.func = ls_state_prelaserwarn;
+//         }
+//         ls_event_enqueue_noop();
+//         break;
+//     case LSEVT_TILT_DETECTED:
+//         successor.func = ls_state_error_tilt;
+//         break;
+//     default:
+//         ls_substate_home_handle_event(event);
+//     }
+//     if (successor.func != ls_state_home)
+//     {
+//         ls_leds_off();
+//     }
+//     return successor;
+// }
 
 ls_State ls_state_selftest(ls_event event)
 {
@@ -511,30 +515,30 @@ ls_State ls_state_sleep(ls_event event)
         ls_debug_printf("Entering settings upper from sleep\n");
 #endif
         ls_state_set_prelaserwarn_successor(ls_state_settings_upper);
-        if (ls_map_get_status() == LS_MAP_STATUS_OK)
-        {
-            ls_state_set_home_successor(ls_state_prelaserwarn);
-            successor.func = ls_state_home;
-        }
-        else
-        {
+        // if (ls_map_get_status() == LS_MAP_STATUS_OK)
+        // {
+        //     ls_state_set_home_successor(ls_state_prelaserwarn);
+        //     successor.func = ls_state_home;
+        // }
+        // else
+        // {
             successor.func = ls_state_prelaserwarn;
-        }
+        // }
         break;
     case LSEVT_CONTROLS_LOWER:
 #ifdef LSDEBUG_STATES
         ls_debug_printf("Entering settings lower from sleep\n");
 #endif
         ls_state_set_prelaserwarn_successor(ls_state_settings_lower);
-        if (ls_map_get_status() == LS_MAP_STATUS_OK)
-        {
-            ls_state_set_home_successor(ls_state_prelaserwarn);
-            successor.func = ls_state_home;
-        }
-        else
-        {
+        // if (ls_map_get_status() == LS_MAP_STATUS_OK)
+        // {
+        //     ls_state_set_home_successor(ls_state_prelaserwarn);
+        //     successor.func = ls_state_home;
+        // }
+        // else
+        // {
             successor.func = ls_state_prelaserwarn;
-        }
+        // }
         break;
     case LSEVT_CONTROLS_BOTH:
 #ifdef LSDEBUG_STATES
@@ -560,216 +564,217 @@ ls_State ls_state_wakeup(ls_event event)
     switch (event.type)
     {
     case LSEVT_STATE_ENTRY:
-        if (ls_map_get_status() == LS_MAP_STATUS_OK)
-        {
-            ls_substate_home_require_rehome();
-            ls_substate_home_init();
-            ls_event_enqueue_noop();
-        }
-        else
-        {
+        // if (ls_map_get_status() == LS_MAP_STATUS_OK)
+        // {
+        //     ls_substate_home_require_rehome();
+        //     ls_substate_home_init();
+        //     ls_event_enqueue_noop();
+        // }
+        // else
+        // {
             successor.func = ls_state_prelaserwarn;
-        }
+        // }
         break;
-    case LSEVT_HOME_COMPLETED:
-        successor.func = ls_state_prelaserwarn;
-        ls_event_enqueue_noop();
-        break;
-    case LSEVT_HOME_FAILED:
-        successor.func = ls_state_error_home;
-        ls_event_enqueue_noop();
-        break;
+    // case LSEVT_HOME_COMPLETED:
+    //     successor.func = ls_state_prelaserwarn;
+    //     ls_event_enqueue_noop();
+    //     break;
+    // case LSEVT_HOME_FAILED:
+    //     successor.func = ls_state_error_home;
+    //     ls_event_enqueue_noop();
+    //     break;
     case LSEVT_TILT_DETECTED:
         successor.func = ls_state_error_tilt;
         break;
     default:
-        ls_substate_home_handle_event(event);
+        // ls_substate_home_handle_event(event);
+            successor.func = ls_state_prelaserwarn; //?ok default with no tape sensor?
     }
     return successor;
 }
 
-static int _ls_state_map_build_steps_remaining;
-static int _ls_state_map_enable_count = 0, _ls_state_map_disable_count = 0, _ls_state_map_misread_count = 0;
-static enum ls_buzzer_effects _ls_state_map_fail_reason_tune = LS_BUZZER_PLAY_NOTHING;
-ls_State ls_state_map_build(ls_event event)
-{
-#ifdef LSDEBUG_STATES
-    ls_debug_printf("STATE_MAP_BUILD handling event %d with %d steps remaining\n", event.type, _ls_state_map_build_steps_remaining);
-#endif
-    ls_State successor;
-    successor.func = ls_state_map_build;
-    switch (event.type)
-    {
-    case LSEVT_STATE_ENTRY:
-        _ls_state_map_build_steps_remaining = LS_STEPPER_STEPS_PER_ROTATION / LS_MAP_RESOLUTION;
-        ls_tape_sensor_enable();
-        while (ls_buzzer_in_use() || ls_stepper_is_moving())
-        {
-            // if we start moving while the buzzer is still indicating successfull homing,
-            // we get a bunch of pitches queued that play faster than the others
-            vTaskDelay(1);
-        }
-        ls_event_empty_queue(); // in case of a trailing LSEVT_STEPPER_FINISHED_MOVE
-        ls_stepper_set_maximum_steps_per_second(LS_STEPPER_STEPS_PER_SECOND_MAPPING);
-        ls_stepper_forward(LS_MAP_RESOLUTION);
-        break;
-    case LSEVT_STEPPER_FINISHED_MOVE:
-#ifdef LSDEBUG_STATES
-        ls_debug_printf("case LSEVT_STEPPER_FINISHED_MOVE...\n");
-#endif
-        if (_ls_state_map_build_steps_remaining > 0)
-        {
-            _ls_state_map_build_read_and_set_map(&_ls_state_map_enable_count, &_ls_state_map_disable_count, &_ls_state_map_misread_count);
-#ifdef LSDEBUG_STATES
-            ls_debug_printf("continuing to next position...\n");
-#endif
-            ls_stepper_forward(LS_MAP_RESOLUTION);
-            _ls_state_map_build_steps_remaining--;
-        }
-        else
-        { // we're done building the map
-            bool badmap = false;
-            int low_peak_bin, high_peak_bin, low_edge_bin, high_edge_bin;
-            _ls_state_map_build_histogram(ls_map_min_adc(), ls_map_max_adc());
-            _ls_state_map_build_histogram_get_peaks_edges(&low_peak_bin, &low_edge_bin, &high_peak_bin, &high_edge_bin);
-            if (low_edge_bin >= high_edge_bin) // mapping failed; insufficient contrast (probably no tape)
-            {
-                badmap = true;
-            }
-            else // reset the map based on customized histogram
-            {
-                // rebuild the histogram just between the peaks
-                uint16_t low_peak_adc = _map(low_peak_bin, 0, LS_MAP_HISTOGRAM_BINCOUNT - 1, ls_map_min_adc(), ls_map_max_adc());
-                uint16_t high_peak_adc = _map(high_peak_bin, 0, LS_MAP_HISTOGRAM_BINCOUNT - 1, ls_map_min_adc(), ls_map_max_adc());
-                _ls_state_map_build_histogram(low_peak_adc, high_peak_adc);
-                _ls_state_map_build_histogram_get_peaks_edges(&low_peak_bin, &low_edge_bin, &high_peak_bin, &high_edge_bin);
-                // remap to custom thresholds
-                _ls_state_map_build_set_map(&_ls_state_map_enable_count, &_ls_state_map_disable_count, &_ls_state_map_misread_count,
-                                            _map(low_edge_bin, 0, LS_MAP_HISTOGRAM_BINCOUNT - 1, low_peak_adc, high_peak_adc), // low threshold
-                                            _map(high_edge_bin, 0, LS_MAP_HISTOGRAM_BINCOUNT - 1, low_peak_adc, high_peak_adc) // high threshold
-                );
-            }
-#ifdef LSDEBUG_MAP
-            ls_debug_printf("\nMapping completed with %d enabled, %d disabled, and %d misreads\n", _ls_state_map_enable_count, _ls_state_map_disable_count, _ls_state_map_misread_count);
-#endif
-            successor.func = ls_state_prelaserwarn;
-            if (0 == _ls_state_map_enable_count || 0 == _ls_state_map_disable_count)
-            {
-                badmap = true;
-#ifdef LSDEBUG_MAP
-                ls_debug_printf("\nBad map: must include at least one enabled and one disabled reading.\n");
-#endif
-                switch (ls_tapemode())
-                {
-                case LS_TAPEMODE_DARK:
-                case LS_TAPEMODE_DARK_SAFE:
-                    _ls_state_map_fail_reason_tune = (0 == _ls_state_map_enable_count) ? LS_BUZZER_PLAY_TAPE_DISABLE : LS_BUZZER_PLAY_TAPE_ENABLE;
-                    break;
-                case LS_TAPEMODE_LIGHT:
-                case LS_TAPEMODE_LIGHT_SAFE:
-                    _ls_state_map_fail_reason_tune = (0 == _ls_state_map_enable_count) ? LS_BUZZER_PLAY_TAPE_ENABLE : LS_BUZZER_PLAY_TAPE_DISABLE;
-                    break;
-                default:;
-                }
-            }
-            if (ls_map_is_excessive_misreads(_ls_state_map_misread_count))
-            {
-                badmap = true;
-                _ls_state_map_fail_reason_tune = LS_BUZZER_PLAY_TAPE_MISREAD;
-#ifdef LSDEBUG_MAP
-                ls_debug_printf("\nBad map: too many misreads\n");
-#endif
-            }
-            if (badmap)
-            {
-                ls_buzzer_effect(LS_BUZZER_PLAY_NOTHING);
-                switch (ls_tapemode())
-                {
-                case LS_TAPEMODE_DARK_SAFE:
-                case LS_TAPEMODE_LIGHT_SAFE:
-                    // fail if a Safe mode
-                    ls_map_set_status(LS_MAP_STATUS_FAILED);
-                    successor.func = ls_state_error_scanning;
-                    break;
-                default:
-                    // just play the fail tone and ignore map
-                    ls_buzzer_effect(_ls_state_map_fail_reason_tune);
-                    vTaskDelay(pdMS_TO_TICKS(1000)); // rest a second
-                    ls_buzzer_effect(LS_BUZZER_PLAY_MAP_FAIL);
-                    ls_map_set_status(LS_MAP_STATUS_IGNORE);
-                    break;
-                }
-            } // handle bad map
-            else
-            {
-#ifdef LSDEBUG_MAP
-                int32_t total = ls_map_find_spans();
-                ls_debug_printf("Set LS_MAP_STATUS_OK; random map span strategy has %d steps in total.\n", total);
-#else
-                ls_map_find_spans();
-#endif
-                ls_stepper_set_random_strategy(ls_stepper_random_strategy_map_spans);
-                ls_map_set_status(LS_MAP_STATUS_OK);
-            }
-            ls_tape_sensor_disable();
-        } // done building map
-        break;
-    case LSEVT_TILT_DETECTED:
-        successor.func = ls_state_error_tilt;
-        break;
-    default:; // nothing to do for event of this type
-    }         // switch  on event
-    return successor;
-}
+// static int _ls_state_map_build_steps_remaining;
+// static int _ls_state_map_enable_count = 0, _ls_state_map_disable_count = 0, _ls_state_map_misread_count = 0;
+// static enum ls_buzzer_effects _ls_state_map_fail_reason_tune = LS_BUZZER_PLAY_NOTHING;
+// ls_State ls_state_map_build(ls_event event)
+// {
+// #ifdef LSDEBUG_STATES
+//     ls_debug_printf("STATE_MAP_BUILD handling event %d with %d steps remaining\n", event.type, _ls_state_map_build_steps_remaining);
+// #endif
+//     ls_State successor;
+//     successor.func = ls_state_map_build;
+//     switch (event.type)
+//     {
+//     case LSEVT_STATE_ENTRY:
+//         _ls_state_map_build_steps_remaining = LS_STEPPER_STEPS_PER_ROTATION / LS_MAP_RESOLUTION;
+//         ls_tape_sensor_enable();
+//         while (ls_buzzer_in_use() || ls_stepper_is_moving())
+//         {
+//             // if we start moving while the buzzer is still indicating successfull homing,
+//             // we get a bunch of pitches queued that play faster than the others
+//             vTaskDelay(1);
+//         }
+//         ls_event_empty_queue(); // in case of a trailing LSEVT_STEPPER_FINISHED_MOVE
+//         ls_stepper_set_maximum_steps_per_second(LS_STEPPER_STEPS_PER_SECOND_MAPPING);
+//         ls_stepper_forward(LS_MAP_RESOLUTION);
+//         break;
+//     case LSEVT_STEPPER_FINISHED_MOVE:
+// #ifdef LSDEBUG_STATES
+//         ls_debug_printf("case LSEVT_STEPPER_FINISHED_MOVE...\n");
+// #endif
+//         if (_ls_state_map_build_steps_remaining > 0)
+//         {
+//             _ls_state_map_build_read_and_set_map(&_ls_state_map_enable_count, &_ls_state_map_disable_count, &_ls_state_map_misread_count);
+// #ifdef LSDEBUG_STATES
+//             ls_debug_printf("continuing to next position...\n");
+// #endif
+//             ls_stepper_forward(LS_MAP_RESOLUTION);
+//             _ls_state_map_build_steps_remaining--;
+//         }
+//         else
+//         { // we're done building the map
+//             bool badmap = false;
+//             int low_peak_bin, high_peak_bin, low_edge_bin, high_edge_bin;
+//             _ls_state_map_build_histogram(ls_map_min_adc(), ls_map_max_adc());
+//             _ls_state_map_build_histogram_get_peaks_edges(&low_peak_bin, &low_edge_bin, &high_peak_bin, &high_edge_bin);
+//             if (low_edge_bin >= high_edge_bin) // mapping failed; insufficient contrast (probably no tape)
+//             {
+//                 badmap = true;
+//             }
+//             else // reset the map based on customized histogram
+//             {
+//                 // rebuild the histogram just between the peaks
+//                 uint16_t low_peak_adc = _map(low_peak_bin, 0, LS_MAP_HISTOGRAM_BINCOUNT - 1, ls_map_min_adc(), ls_map_max_adc());
+//                 uint16_t high_peak_adc = _map(high_peak_bin, 0, LS_MAP_HISTOGRAM_BINCOUNT - 1, ls_map_min_adc(), ls_map_max_adc());
+//                 _ls_state_map_build_histogram(low_peak_adc, high_peak_adc);
+//                 _ls_state_map_build_histogram_get_peaks_edges(&low_peak_bin, &low_edge_bin, &high_peak_bin, &high_edge_bin);
+//                 // remap to custom thresholds
+//                 _ls_state_map_build_set_map(&_ls_state_map_enable_count, &_ls_state_map_disable_count, &_ls_state_map_misread_count,
+//                                             _map(low_edge_bin, 0, LS_MAP_HISTOGRAM_BINCOUNT - 1, low_peak_adc, high_peak_adc), // low threshold
+//                                             _map(high_edge_bin, 0, LS_MAP_HISTOGRAM_BINCOUNT - 1, low_peak_adc, high_peak_adc) // high threshold
+//                 );
+//             }
+// #ifdef LSDEBUG_MAP
+//             ls_debug_printf("\nMapping completed with %d enabled, %d disabled, and %d misreads\n", _ls_state_map_enable_count, _ls_state_map_disable_count, _ls_state_map_misread_count);
+// #endif
+//             successor.func = ls_state_prelaserwarn;
+//             if (0 == _ls_state_map_enable_count || 0 == _ls_state_map_disable_count)
+//             {
+//                 badmap = true;
+// #ifdef LSDEBUG_MAP
+//                 ls_debug_printf("\nBad map: must include at least one enabled and one disabled reading.\n");
+// #endif
+//                 switch (ls_tapemode())
+//                 {
+//                 case LS_TAPEMODE_DARK:
+//                 case LS_TAPEMODE_DARK_SAFE:
+//                     _ls_state_map_fail_reason_tune = (0 == _ls_state_map_enable_count) ? LS_BUZZER_PLAY_TAPE_DISABLE : LS_BUZZER_PLAY_TAPE_ENABLE;
+//                     break;
+//                 case LS_TAPEMODE_LIGHT:
+//                 case LS_TAPEMODE_LIGHT_SAFE:
+//                     _ls_state_map_fail_reason_tune = (0 == _ls_state_map_enable_count) ? LS_BUZZER_PLAY_TAPE_ENABLE : LS_BUZZER_PLAY_TAPE_DISABLE;
+//                     break;
+//                 default:;
+//                 }
+//             }
+//             if (ls_map_is_excessive_misreads(_ls_state_map_misread_count))
+//             {
+//                 badmap = true;
+//                 _ls_state_map_fail_reason_tune = LS_BUZZER_PLAY_TAPE_MISREAD;
+// #ifdef LSDEBUG_MAP
+//                 ls_debug_printf("\nBad map: too many misreads\n");
+// #endif
+//             }
+//             if (badmap)
+//             {
+//                 ls_buzzer_effect(LS_BUZZER_PLAY_NOTHING);
+//                 switch (ls_tapemode())
+//                 {
+//                 case LS_TAPEMODE_DARK_SAFE:
+//                 case LS_TAPEMODE_LIGHT_SAFE:
+//                     // fail if a Safe mode
+//                     ls_map_set_status(LS_MAP_STATUS_FAILED);
+//                     successor.func = ls_state_error_scanning;
+//                     break;
+//                 default:
+//                     // just play the fail tone and ignore map
+//                     ls_buzzer_effect(_ls_state_map_fail_reason_tune);
+//                     vTaskDelay(pdMS_TO_TICKS(1000)); // rest a second
+//                     ls_buzzer_effect(LS_BUZZER_PLAY_MAP_FAIL);
+//                     ls_map_set_status(LS_MAP_STATUS_IGNORE);
+//                     break;
+//                 }
+//             } // handle bad map
+//             else
+//             {
+// #ifdef LSDEBUG_MAP
+//                 int32_t total = ls_map_find_spans();
+//                 ls_debug_printf("Set LS_MAP_STATUS_OK; random map span strategy has %d steps in total.\n", total);
+// #else
+//                 ls_map_find_spans();
+// #endif
+//                 ls_stepper_set_random_strategy(ls_stepper_random_strategy_map_spans);
+//                 ls_map_set_status(LS_MAP_STATUS_OK);
+//             }
+//             ls_tape_sensor_disable();
+//         } // done building map
+//         break;
+//     case LSEVT_TILT_DETECTED:
+//         successor.func = ls_state_error_tilt;
+//         break;
+//     default:; // nothing to do for event of this type
+//     }         // switch  on event
+//     return successor;
+// }
 
-ls_State ls_state_error_home(ls_event event)
-{
-#ifdef LSDEBUG_STATES
-    ls_debug_printf(">>>>HOMING FAILED: ls_state_error_home<<<\n");
-#endif
-#ifdef LSDEBUG_HOMING
-    ls_debug_printf(">>>>HOMING FAILED<<<\n");
-#endif
-    _ls_state_everything_off();
-    ls_State successor;
-    successor.func = ls_state_error_home;
-    ls_leds_cycle(LEDCYCLE_FAIL_HOMING);
-    ls_buzzer_effect(LS_BUZZER_PLAY_HOME_FAIL);
-    vTaskDelay(pdMS_TO_TICKS(LS_FAILURE_LEDS_OFF_AFTER));
-    ls_leds_off();
-    vTaskDelay(pdMS_TO_TICKS(LS_FAILURE_REPEAT_INTERVAL));
-    ls_event_enqueue_noop();
-    return successor;
-}
+// ls_State ls_state_error_home(ls_event event)
+// {
+// #ifdef LSDEBUG_STATES
+//     ls_debug_printf(">>>>HOMING FAILED: ls_state_error_home<<<\n");
+// #endif
+// #ifdef LSDEBUG_HOMING
+//     ls_debug_printf(">>>>HOMING FAILED<<<\n");
+// #endif
+//     _ls_state_everything_off();
+//     ls_State successor;
+//     successor.func = ls_state_error_home;
+//     ls_leds_cycle(LEDCYCLE_FAIL_HOMING);
+//     ls_buzzer_effect(LS_BUZZER_PLAY_HOME_FAIL);
+//     vTaskDelay(pdMS_TO_TICKS(LS_FAILURE_LEDS_OFF_AFTER));
+//     ls_leds_off();
+//     vTaskDelay(pdMS_TO_TICKS(LS_FAILURE_REPEAT_INTERVAL));
+//     ls_event_enqueue_noop();
+//     return successor;
+// }
 
-/** "map" is/was how I think of it, but "scanning" is more understandable to growers, I think*/
-ls_State ls_state_error_scanning(ls_event event)
-{
-#ifdef LSDEBUG_STATES
-    ls_debug_printf(">>>>Scanning FAILED: ls_state_error_scanning<<<\n");
-#endif
-#ifdef LSDEBUG_MAP
-    ls_debug_printf(">>>>Scanning FAILED<<<\n");
-#endif
-    _ls_state_everything_off();
-    ls_State successor;
-    successor.func = ls_state_error_scanning;
-    ls_leds_cycle(LEDCYCLE_FAIL_SCANNING);
-    ls_buzzer_effect(_ls_state_map_fail_reason_tune);
-    vTaskDelay(pdMS_TO_TICKS(1000)); // 1 second between tones
-    ls_buzzer_effect(LS_BUZZER_PLAY_MAP_FAIL);
-    vTaskDelay(pdMS_TO_TICKS(LS_FAILURE_LEDS_OFF_AFTER - 1000));
-    ls_leds_off();
-#ifdef LSDEBUG_STATES
-    ls_debug_printf("LEDs off by ls_state_error_scanning<<<\n");
-#endif
-    vTaskDelay(pdMS_TO_TICKS(LS_FAILURE_REPEAT_INTERVAL));
-    ls_event_enqueue_noop();
-#ifdef LSDEBUG_STATES
-    ls_debug_printf("LSEVT_NOOP enqueued by returning ls_state_error_scanning<<<\n");
-#endif
-    return successor;
-}
+// /** "map" is/was how I think of it, but "scanning" is more understandable to growers, I think*/
+// ls_State ls_state_error_scanning(ls_event event)
+// {
+// #ifdef LSDEBUG_STATES
+//     ls_debug_printf(">>>>Scanning FAILED: ls_state_error_scanning<<<\n");
+// #endif
+// #ifdef LSDEBUG_MAP
+//     ls_debug_printf(">>>>Scanning FAILED<<<\n");
+// #endif
+//     _ls_state_everything_off();
+//     ls_State successor;
+//     successor.func = ls_state_error_scanning;
+//     ls_leds_cycle(LEDCYCLE_FAIL_SCANNING);
+//     ls_buzzer_effect(_ls_state_map_fail_reason_tune);
+//     vTaskDelay(pdMS_TO_TICKS(1000)); // 1 second between tones
+//     ls_buzzer_effect(LS_BUZZER_PLAY_MAP_FAIL);
+//     vTaskDelay(pdMS_TO_TICKS(LS_FAILURE_LEDS_OFF_AFTER - 1000));
+//     ls_leds_off();
+// #ifdef LSDEBUG_STATES
+//     ls_debug_printf("LEDs off by ls_state_error_scanning<<<\n");
+// #endif
+//     vTaskDelay(pdMS_TO_TICKS(LS_FAILURE_REPEAT_INTERVAL));
+//     ls_event_enqueue_noop();
+// #ifdef LSDEBUG_STATES
+//     ls_debug_printf("LSEVT_NOOP enqueued by returning ls_state_error_scanning<<<\n");
+// #endif
+//     return successor;
+// }
 
 ls_State ls_state_error_tilt(ls_event event)
 {

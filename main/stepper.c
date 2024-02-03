@@ -125,10 +125,12 @@ static bool IRAM_ATTR ls_stepper_step_isr_callback(void *args)
             {
                 ls_stepper_position -= LS_STEPPER_STEPS_PER_ROTATION;
             }
+#ifdef LS_TAPESENSOR
             if (ls_laser_mode_is_mappped())
             {
                 gpio_set_level(LSGPIO_LASERPOWERENABLE, ls_map_is_enabled_at(ls_stepper_position));
             }
+#endif
         }
         else
         { // ending the step pulse (low)
@@ -178,13 +180,14 @@ void ls_stepper_init(void)
 
 static void _ls_stepper_set_speed(void)
 {
+#ifdef LS_TAPESENSOR
     // if doing random movements and outside a span, allow faster movement (skipping)
     if (_ls_stepper_enable_skipping)
     {
         ls_stepper_set_maximum_steps_per_second(ls_map_is_enabled_at(ls_stepper_position) ? _ls_stepper_speed_not_skipping : _ls_stepper_speed_when_skipping);
     }
+#endif
     int steps_to_decelerate = _ls_stepper_steps_to_decelerate(_ls_stepper_speed_current_rate);
-
     bool could_accelerate = (int)ls_stepper_steps_remaining > steps_to_decelerate && _ls_stepper_speed_current_rate < _ls_stepper_steps_per_second_max;
     bool should_decelerate = (int)ls_stepper_steps_remaining < steps_to_decelerate || _ls_stepper_speed_current_rate > _ls_stepper_steps_per_second_max;
     // are enough steps remaining to accelerate?
@@ -380,11 +383,13 @@ void ls_stepper_reverse(uint16_t steps)
 
 void ls_stepper_random(void)
 {
+#ifdef LS_TAPESENSOR
     _ls_stepper_enable_skipping = LS_MAP_STATUS_OK == ls_map_get_status();
     if (_ls_stepper_enable_skipping)
     {
         _ls_stepper_speed_not_skipping = _ls_stepper_steps_per_second_max;
     }
+#endif
     ls_stepper_action_message message;
     message.action = LS_STEPPER_ACTION_RANDOM;
     message.steps = 0;

@@ -78,8 +78,8 @@ void ls_servo_init()
     // Enable bootloader random (for esp_random())
     bootloader_random_enable();
 
-    // Set PWM0A to LSGPIO_SERVOPULSE (from the example code)
-    mcpwm_gpio_init(LS_SERVO_MCPWM_UNIT, LS_SERVO_MCPWM_IO_SIGNALS, LSGPIO_SERVOPULSE);
+    // Set PWM0A to LSGPIO_SERVO1PULSEE (from the example code)
+    mcpwm_gpio_init(LS_SERVO_MCPWM_UNIT, LS_SERVO_MCPWM_IO_SIGNALS, LSGPIO_SERVO1PULSE);
     mcpwm_config_t pwm_config = {
         .frequency = 50, // Frequency = 50Hz, i.e. for every servo motor time period should be 20ms
         .cmpr_a = 0,     // Duty cycle of PWMxA = 0

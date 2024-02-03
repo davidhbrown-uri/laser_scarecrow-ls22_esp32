@@ -32,6 +32,8 @@ gpio_num_t lsgpio_servopowerenable(void);
 gpio_num_t lsgpio_servopulse(void);
 */
 
+#undef LS_TAPESENSOR
+
 // assignments of our devices to ESP32 peripherals
 #define LSBUZZER_HS_LEDC_CHANNEL 0
 
@@ -43,8 +45,10 @@ gpio_num_t lsgpio_servopulse(void);
 #define LSADC1_LIGHTSENSE ADC1_CHANNEL_0
 #define LSGPIO_LASERTEMP 39
 #define LSADC1_LASERTEMP ADC1_CHANNEL_3
+#ifdef LS_TAPESENSOR
 #define LSGPIO_REFLECTANCESENSE 34
 #define LSADC1_REFLECTANCESENSE ADC1_CHANNEL_6
+#endif
 #define LSGPIO_TAPESETTING 35
 #define LSADC1_TAPESETTING ADC1_CHANNEL_7
 
@@ -63,7 +67,9 @@ gpio_num_t lsgpio_servopulse(void);
 #define LSGPIO_LASERPOWERENABLE 32
 #define LSGPIO_SERVOPOWERENABLE 25
 #define LSGPIO_LASERHEATERENABLE 26
+#ifdef LS_TAPESENSOR
 #define LSGPIO_REFLECTANCEENABLE 27
+#endif
 #define LSGPIO_STEPPERDIRECTION 19
 #define LSGPIO_STEPPERSTEP 18
 // #define LSGPIO_STEPPERTXRX 23
@@ -74,7 +80,8 @@ gpio_num_t lsgpio_servopulse(void);
 #define STEPPERENABLE_DISABLE 1
 
 // PWM output (LEDC)
-#define LSGPIO_SERVOPULSE 33
+#define LSGPIO_SERVO1PULSE 33
+#define LSGPIO_SERVO2PULSE 27
 #define LSGPIO_BUZZERENABLE 2
 // I2C (using controller 0; pins selected to match Arduino usage; maybe they have a reason?)
 #define LSI2C_PORT I2C_NUM_0

@@ -15,6 +15,8 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+#ifdef LS_TAPESENSOR
+
 #include "tape.h"
 #include "config.h"
 #include "events.h"
@@ -88,3 +90,4 @@ void ls_tape_sensor_selftest_task(void *pvParameter)
         vTaskDelay(1);
     }
 }
+#endif

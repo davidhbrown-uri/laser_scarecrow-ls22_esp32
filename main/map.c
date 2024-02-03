@@ -15,6 +15,8 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+#ifdef LS_TAPESENSOR
+
 #include "map.h"
 #include "tape.h"
 #include "config.h"
@@ -28,6 +30,7 @@
 #define LS_MAP_LOWPITCH 1024
 #define LS_MAP_HIGHPITCH 2048
 #define LS_MAP_ENTRIES_REQUIRED (LS_STEPPER_STEPS_PER_ROTATION / 32 / LS_MAP_RESOLUTION)
+
 static uint32_t IRAM_ATTR _ls_map_data[LS_MAP_ENTRIES_REQUIRED];
 
 static int32_t _ls_map_all_spans_total_steps = 0;
@@ -724,5 +727,6 @@ void ls_map_test_spannode()
     free(mid);
     free(wrap);
 }
+#endif
 #endif
 #endif

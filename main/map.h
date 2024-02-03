@@ -15,6 +15,7 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+#ifdef LS_TAPESENSOR
 #pragma once
 #include <stdlib.h>
 #include "config.h"
@@ -38,10 +39,7 @@ enum ls_map_status_t {
     LS_STATE_MAP_READING_INIT
 }ls_state_map_reading;
 
-/**
- * @brief 
- * 
- */
+
 struct ls_map_SpanNode {
     ls_stepper_position_t begin, end;
     uint32_t permil;
@@ -78,3 +76,5 @@ void ls_map_test_spannode();
 
 uint16_t ls_map_min_adc(void);
 uint16_t ls_map_max_adc(void);
+
+#endif

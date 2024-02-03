@@ -38,8 +38,8 @@
 #include "states.h"
 #include "controls.h"
 #include "tapemode.h"
-#include "tape.h"
-#include "map.h"
+// #include "tape.h"
+// #include "map.h"
 #include "coverage.h"
 #include "lightsense.h"
 #include "servo.h"
@@ -145,7 +145,7 @@ void app_main(void)
     xTaskCreate(&ls_lightsense_read_task, "lightsense_read", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
 
 #ifdef LSDEBUG_TAPEMODE
-    xTaskCreate(&ls_tapemode_debug_task, "tapemode_debug_task", configMINIMAL_STACK_SIZE * 3, NULL, 2, NULL);
+    // xTaskCreate(&ls_tapemode_debug_task, "tapemode_debug_task", configMINIMAL_STACK_SIZE * 3, NULL, 2, NULL);
 #endif
 #ifdef LSDEBUG_STEPPER
     xTaskCreate(&ls_stepper_debug_task, "stepper_debug", configMINIMAL_STACK_SIZE * 3, NULL, 2, NULL);

@@ -15,6 +15,8 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+#ifdef LS_TAPESENSOR
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -172,4 +174,5 @@ void ls_coverage_debug_task(void *pvParameter)
         vTaskDelay(pdMS_TO_TICKS(200));
     }
 }
+#endif
 #endif

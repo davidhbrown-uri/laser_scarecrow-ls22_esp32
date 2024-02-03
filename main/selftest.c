@@ -148,7 +148,8 @@ static void _selftest_update_oled(void)
     {
         ls_oled_println("Magnet: %c %c", _selftest_magnet_enter ? ' ' : '+', _selftest_magnet_leave ? ' ' : '-');
     }
-    if (_selftest_tape_dark && _selftest_magnet_leave)
+    #ifdef LS_TAPESENSOR
+    if (_selftest_tape_dark && _selftest_tape_light)
     {
         ls_oled_println("> Tape OK");
     }
@@ -156,6 +157,7 @@ static void _selftest_update_oled(void)
     {
         ls_oled_println("Tape: %s %s", _selftest_tape_light ? "  " : "Lt", _selftest_tape_dark ? "  " : "Dk");
     }
+    #endif
     if (_selftest_tapemode_darksafe && _selftest_tapemode_dark && _selftest_tapemode_ignore && _selftest_tapemode_light && _selftest_tapemode_lightsafe)
     {
         ls_oled_println("> Mode OK");
@@ -224,7 +226,9 @@ void selftest_event_handler(ls_event event)
         _selftest_wait_for_buzzer_warning_complete = false;
         ls_settings_reset_defaults();
         ls_leds_off();
+#ifdef LS_TAPESENSOR
         xTaskCreate(&ls_tape_sensor_selftest_task, "tapesense_selftest", configMINIMAL_STACK_SIZE * 2, NULL, 10, NULL);
+#endif
         xTaskCreate(&ls_tapemode_selftest_task, "tapemode_selftest", configMINIMAL_STACK_SIZE * 2, NULL, 10, NULL);
         ls_laser_pulse_init();
         ls_settings_set_servo_bottom(LS_SERVO_US_MAX);

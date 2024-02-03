@@ -47,7 +47,11 @@ ls_State ls_state_settings_upper(ls_event event)
     {
     case LSEVT_STATE_ENTRY:
         ls_stepper_set_maximum_steps_per_second(ls_settings_get_stepper_speed());
+#ifdef LS_TAPESENSOR
         ls_laser_set_mode((ls_map_get_status() == LS_MAP_STATUS_OK) ? LS_LASER_MAPPED : LS_LASER_ON);
+#else 
+ls_laser_set_mode(LS_LASER_ON);
+#endif
         ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION * 5 / 4);
         ls_servo_sweep();
         ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_ENTER);
@@ -124,7 +128,11 @@ ls_State ls_state_settings_lower(ls_event event)
     {
     case LSEVT_STATE_ENTRY:
         ls_stepper_set_maximum_steps_per_second(ls_settings_get_stepper_speed());
+#ifdef LS_TAPESENSOR
         ls_laser_set_mode((ls_map_get_status() == LS_MAP_STATUS_OK) ? LS_LASER_MAPPED : LS_LASER_ON);
+#else 
+ls_laser_set_mode(LS_LASER_ON);
+#endif
         ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION * 5 / 4);
         ls_servo_sweep();
         ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_ENTER);
@@ -310,6 +318,7 @@ ls_State ls_state_settings_both(ls_event event)
         ls_debug_printf("Entering upper from both settings control\n")
 #endif
             ls_state_set_prelaserwarn_successor(ls_state_settings_upper);
+#ifdef LS_TAPESENSOR
         if (ls_map_get_status() == LS_MAP_STATUS_OK)
         {
             ls_state_set_home_successor(ls_state_prelaserwarn);
@@ -319,12 +328,16 @@ ls_State ls_state_settings_both(ls_event event)
         {
             successor.func = ls_state_prelaserwarn;
         }
+#else
+            successor.func = ls_state_prelaserwarn;
+#endif
         break;
     case LSEVT_CONTROLS_LOWER:
 #ifdef LSDEBUG_STATES
         ls_debug_printf("Entering lower from both settings control\n")
 #endif
             ls_state_set_prelaserwarn_successor(ls_state_settings_lower);
+#ifdef LS_TAPESENSOR
         if (ls_map_get_status() == LS_MAP_STATUS_OK)
         {
             ls_state_set_home_successor(ls_state_prelaserwarn);
@@ -334,6 +347,9 @@ ls_State ls_state_settings_both(ls_event event)
         {
             successor.func = ls_state_prelaserwarn;
         }
+#else
+            successor.func = ls_state_prelaserwarn;
+#endif
         break;
     case LSEVT_TILT_DETECTED:
         successor.func = ls_state_error_tilt;

@@ -15,6 +15,7 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+#ifdef LS_TAPESENSOR
 #pragma once
 #include "stepper.h"
 
@@ -35,3 +36,4 @@ ls_stepper_position_t ls_laser_positions[LS_COVERAGE_POSITIONS_COUNT];
 void ls_coverage_task(void *pvParameter);
 bool ls_coverage_ready(void);
 struct ls_map_SpanNode *ls_coverage_next_span(void);
+#endif

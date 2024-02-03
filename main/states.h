@@ -67,11 +67,11 @@ ls_State ls_state_active(ls_event);
 void ls_state_set_home_successor(void*);
 ls_State ls_state_home(ls_event);
 
-ls_State ls_state_map_build(ls_event);
-ls_State ls_state_map_build_substate_home(ls_event);
+// ls_State ls_state_map_build(ls_event);
+// ls_State ls_state_map_build_substate_home(ls_event);
 
 ls_State ls_state_error_home(ls_event);
-ls_State ls_state_error_scanning(ls_event);
+// ls_State ls_state_error_scanning(ls_event);
 ls_State ls_state_error_tilt(ls_event);
 ls_State ls_state_error_noaccel(ls_event);
 ls_State ls_state_error_norotate(ls_event);

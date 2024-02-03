@@ -15,6 +15,8 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+#ifdef LS_TAPESENSOR
+
 #pragma once
 #include <stdlib.h>
 #include "freertos/FreeRTOS.h"
@@ -24,3 +26,4 @@ void ls_tape_sensor_disable(void);
 uint32_t ls_tape_sensor_read(void);
 bool ls_tape_sensor_is_enabled(void);
 void ls_tape_sensor_selftest_task(void *pvParameter);
+#endif
