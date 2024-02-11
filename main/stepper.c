@@ -61,8 +61,10 @@ enum ls_stepper_direction_t IRAM_ATTR ls_stepper_direction = LS_STEPPER_ACTION_F
 static bool _ls_stepper_enable_skipping = false;
 static int _ls_stepper_steps_per_second_max = LS_STEPPER_STEPS_PER_SECOND_DEFAULT;
 
+#ifdef LS_TAPESENSOR
 static int _ls_stepper_speed_when_skipping = LS_STEPPER_STEPS_PER_SECOND_MAX;
 static int _ls_stepper_speed_not_skipping = LS_STEPPER_STEPS_PER_SECOND_DEFAULT;
+#endif
 static int _ls_stepper_speed_current_rate = LS_STEPPER_STEPS_PER_SECOND_MIN;
 
 static uint8_t _ls_stepper_random_reverse_per255 = LS_STEPPER_MOVEMENT_REVERSE_PER255;

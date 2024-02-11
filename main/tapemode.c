@@ -69,7 +69,7 @@ enum ls_tapemode_mode ls_tapemode_current(void)
 {
     xSemaphoreTake(adc1_mux, portMAX_DELAY);
     adc1_config_width(ADC_WIDTH_BIT_12);
-    adc1_config_channel_atten(LSADC1_TAPESETTING, ADC_ATTEN_DB_11);
+    adc1_config_channel_atten(LSADC1_TAPESETTING, ADC_ATTEN_DB_12); // was ADC_ATTEN_DB_11 in previous ESP-IDF versions
     uint32_t adc_reading = 0;
     for (int i = 0; i < 4; i++)
     {
