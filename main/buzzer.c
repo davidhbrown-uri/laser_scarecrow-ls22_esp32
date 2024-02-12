@@ -23,6 +23,8 @@
 #include "buzzer.h"
 #include "debug.h"
 #include "events.h"
+#include "leds.h"
+#include "settings.h"
 #include "util.h"
 
 #define BUZZER_SPEED (LEDC_HIGH_SPEED_MODE)
@@ -36,11 +38,12 @@ bool _ls_buzzer_in_use = false;
 #define LS_BUZZER_REQUEST_DEFAULT_FREQUENCY 1000
 #define LS_BUZZER_REQUEST_DEFAULT_TICKS 1
 
-struct ls_buzzer_request_t {
+struct ls_buzzer_request_t
+{
     enum ls_buzzer_effects effect;
     BaseType_t frequency;
     TickType_t ticks;
-}ls_buzzer_request_t;
+} ls_buzzer_request_t;
 
 static void _ls_buzzer_frequency(uint32_t freq)
 {
@@ -82,7 +85,6 @@ bool ls_buzzer_in_use(void)
     return (_ls_buzzer_in_use || (uxQueueMessagesWaiting(ls_buzzer_queue) > 0));
 }
 
-
 static void _ls_buzzer_effect_click(int frequency)
 {
 #ifdef LSDEBUG_BUZZER
@@ -106,9 +108,9 @@ static void _ls_buzzer_effect_alternate_high(int duration_ms)
 #endif
     for (int i = 0; i < pdMS_TO_TICKS(duration_ms); i += 2)
     {
-        _ls_buzzer_frequency(3100); // resonant frequency of bucket piezo
+        _ls_buzzer_frequency(3100); // resonant frequency of bucket piezo (Adafruit spec)
         vTaskDelay(1);
-        _ls_buzzer_frequency(4000); // resonant frequency of external control piezo
+        _ls_buzzer_frequency(2900); // resonant frequency of external control piezo (PS1720P02 apx from graph)
         vTaskDelay(1);
     }
     ESP_ERROR_CHECK(ledc_stop(BUZZER_SPEED, BUZZER_CHANNEL, 0));
@@ -121,8 +123,8 @@ static void _ls_buzzer_pre_laser_warning(void)
 #endif
     for (int i = 0; i < 2; i++)
     {
-        _ls_buzzer_effect_alternate_high(1500);
-        vTaskDelay(pdMS_TO_TICKS(1000));
+        _ls_buzzer_effect_alternate_high(2000);
+        vTaskDelay(pdMS_TO_TICKS(1250));
     }
     for (int i = 0; i < 4; i++)
     {
@@ -175,6 +177,13 @@ void ls_buzzer_handler_task(void *pvParameter)
             case LS_BUZZER_PRE_LASER_WARNING:
                 _ls_buzzer_pre_laser_warning();
                 break;
+            case LS_BUZZER_POWERON:
+                for(enum ls_buzzer_scale i = 500; i < 3000; i+=(i/10))
+                {
+                    _ls_buzzer_frequency(i);
+                    vTaskDelay(pdMS_TO_TICKS(20));
+                }
+            break;
             case LS_BUZZER_PLAY_TAPE_ENABLE:
                 _ls_buzzer_play_note(LS_BUZZER_SCALE_B, 200);
                 _ls_buzzer_play_note(LS_BUZZER_SCALE_CC, 200);
@@ -274,6 +283,12 @@ void ls_buzzer_handler_task(void *pvParameter)
                 _ls_buzzer_play_note(LS_BUZZER_SCALE_CC, 100);
                 _ls_buzzer_play_note(LS_BUZZER_SCALE_C, 100);
                 break;
+            case LS_BUZZER_PLAY_NOROTATE:
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_Cx, 600);
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_C, 100);
+                vTaskDelay(pdMS_TO_TICKS(100));
+                _ls_buzzer_play_note(LS_BUZZER_SCALE_C, 100);
+                break;
             case LS_BUZZER_PLAY_NOTHING:
                 ESP_ERROR_CHECK(ledc_stop(BUZZER_SPEED, BUZZER_CHANNEL, 0));
                 vTaskDelay(1);
@@ -292,7 +307,7 @@ void ls_buzzer_note(enum ls_buzzer_scale note, TickType_t ticks)
 {
     struct ls_buzzer_request_t request;
     request.effect = LS_BUZZER_PLAY_TONE;
-    request.frequency = _constrain((BaseType_t) note, 500, 22000);
+    request.frequency = _constrain((BaseType_t)note, 500, 22000);
     request.ticks = ticks;
     xQueueSend(ls_buzzer_queue, (void *)&request, 0); // don't block if queue full
 };
@@ -301,7 +316,28 @@ void ls_buzzer_tone(BaseType_t frequency_hz)
 {
     struct ls_buzzer_request_t request;
     request.effect = LS_BUZZER_PLAY_TONE;
-    request.frequency = (BaseType_t) _constrain(frequency_hz, 500, 22000);;
+    request.frequency = (BaseType_t)_constrain(frequency_hz, 500, 22000);
+    ;
     request.ticks = LS_BUZZER_REQUEST_DEFAULT_TICKS;
     xQueueSend(ls_buzzer_queue, (void *)&request, 0); // don't block if queue full
+}
+
+void ls_buzzer_snore(void)
+{
+    if (ls_settings_is_sleep_light_enabled())
+    {
+        ls_leds_off();
+        ls_leds_cycle(LEDCYCLE_SLEEP);
+    }
+    for (int i = 0; i < 20; i++)
+    {
+        ls_buzzer_effect(LS_BUZZER_CLICK);
+        vTaskDelay(5 - i / 5);
+    }
+    for (int i = 0; i < 40; i++)
+    {
+        ls_buzzer_effect(LS_BUZZER_CLICK);
+        vTaskDelay(1 + i / 3);
+    }
+    ls_leds_off();
 }

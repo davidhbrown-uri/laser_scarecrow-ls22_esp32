@@ -77,6 +77,15 @@ static int _ls_stepper_steps_to_decelerate(int current_rate)
            10;                                                                                // 'c' constant term for steps left over after steps delta has been removed each time (3600 is not divisible by 800)
 }
 
+ls_stepper_position_t ls_stepper_position_constrained(ls_stepper_position_t position)
+{
+    position = position % LS_STEPPER_STEPS_PER_ROTATION;
+    if(position < 0) {
+        position += LS_STEPPER_STEPS_PER_ROTATION;
+    }
+    return position;
+}
+
 void ls_stepper_set_maximum_steps_per_second(int steps_per_second)
 {
 #ifdef LSDEBUG_STEPPER
@@ -145,7 +154,7 @@ void ls_stepper_init(void)
     ls_stepper_position = 0;
     ls_stepper_direction = LS_STEPPER_DIRECTION_FORWARD;
     bootloader_random_enable();
-    gpio_set_level(LSGPIO_STEPPERSLEEP, 0); // don't do anything while we get ready
+    gpio_set_level(LSGPIO_STEPPERENABLE, STEPPERENABLE_DISABLE); // don't do anything while we get ready
     ls_stepper_queue = xQueueCreate(8, sizeof(ls_stepper_action_message));
     ls_stepper_steps_remaining = 0;
     ls_stepper_steps_taken = 0;
@@ -240,7 +249,7 @@ void ls_stepper_task(void *pvParameter)
             _ls_stepper_set_speed();
             break;
         case LS_STEPPER_ACTION_FORWARD_STEPS:
-            gpio_set_level(LSGPIO_STEPPERSLEEP, 1);
+            gpio_set_level(LSGPIO_STEPPERENABLE, STEPPERENABLE_ENABLE);
             if (ls_stepper_steps_remaining <= 0)
             {
 #ifdef LSDEBUG_STEPPER
@@ -262,7 +271,7 @@ void ls_stepper_task(void *pvParameter)
             _ls_stepper_set_speed();
             break;
         case LS_STEPPER_ACTION_REVERSE_STEPS:
-            gpio_set_level(LSGPIO_STEPPERSLEEP, 1);
+            gpio_set_level(LSGPIO_STEPPERENABLE, STEPPERENABLE_ENABLE);
             if (ls_stepper_steps_remaining <= 0)
             {
 #ifdef LSDEBUG_STEPPER
@@ -287,7 +296,7 @@ void ls_stepper_task(void *pvParameter)
 #ifdef LSDEBUG_STEPPER
             ls_debug_printf("Stepper stopping\n");
 #endif
-            gpio_set_level(LSGPIO_STEPPERSLEEP, 1);
+            gpio_set_level(LSGPIO_STEPPERENABLE, STEPPERENABLE_ENABLE); // enabled because we need to control deceleration
             ls_stepper_steps_remaining = _constrain(ls_stepper_steps_remaining, 0, _ls_stepper_steps_to_decelerate(_ls_stepper_speed_current_rate));
             _ls_stepper_set_speed();
             if (ls_stepper_steps_remaining <= 0)
@@ -296,7 +305,7 @@ void ls_stepper_task(void *pvParameter)
             }
             break;
         case LS_STEPPER_ACTION_RANDOM:
-            gpio_set_level(LSGPIO_STEPPERSLEEP, 1);
+            gpio_set_level(LSGPIO_STEPPERENABLE, STEPPERENABLE_ENABLE);
             if (ls_stepper_steps_remaining <= 0)
             {
                 // invoke the current move strategy
@@ -315,7 +324,7 @@ void ls_stepper_task(void *pvParameter)
 #ifdef LSDEBUG_STEPPER
             ls_debug_printf("Stepper sleeping\n");
 #endif
-            gpio_set_level(LSGPIO_STEPPERSLEEP, 0);
+            gpio_set_level(LSGPIO_STEPPERENABLE, STEPPERENABLE_DISABLE);
             current_action = LS_STEPPER_ACTION_IDLE;
             break;
         }

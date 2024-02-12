@@ -58,17 +58,23 @@ extern SemaphoreHandle_t print_mux; // in ls2022_esp32.c
 
 //#define LSDEBUG_CONTROLS
 
+//#define LSDEBUG_CONTROLS_VERBOSE
+
 //#define LSDEBUG_TAPEMODE
 
 //#define LSDEBUG_BUZZER
 
+// REMEMBER #define LSDEBUG_ENABLE at top if you aren't getting any output!
+
 //#define LSDEBUG_MAP
 
 //#define LSDEBUG_LIGHTSENSE
-
+ 
 //#define LSDEBUG_SERVO
 
 //#define LSDEBUG_SETTINGS
+
+//#define LSDEBUG_LEDS
 
 //#define LSDEBUG_I2C
 

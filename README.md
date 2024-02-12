@@ -16,4 +16,4 @@ under Visual Studio Code (on Windows). In case Google is broken...
 - 1.1.0 Initial release: https://github.com/davidhbrown-uri/laser_scarecrow-ls22_esp32/releases/tag/v1.1.0
 
 ## For model 2023 *only* releases
-No releases yet, but work has begun primarily in the "2023" branch.
+- 2.0.0 Initial release (April 24, 2023)

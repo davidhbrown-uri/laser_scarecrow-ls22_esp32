@@ -26,6 +26,7 @@ static BaseType_t _ls_settings_stepper_speed, _ls_settings_servo_top, _ls_settin
 static BaseType_t _ls_settings_stepper_random_max, _ls_settings_light_threshold_on, _ls_settings_light_threshold_off;
 static BaseType_t _ls_settings_servo_pulse_delta, _ls_settings_servo_random_pause_ms, _ls_settings_servo_sweep_pause_ms;
 static BaseType_t _ls_settings_tilt_threshold_detected, _ls_settings_tilt_threshold_ok;
+static bool _ls_settings_sleep_light_enable;
 
 static nvs_handle_t _ls_settings_nvs_handle;
 // caution: NVS keys and namespaces are restricted to 15 characters
@@ -36,16 +37,17 @@ static nvs_handle_t _ls_settings_nvs_handle;
 #define LS_SETTINGS_NVS_KEY_SERVO_DELTA "servo_delta"
 #define LS_SETTINGS_NVS_KEY_LIGHTSENSE_ON "light_on"
 #define LS_SETTINGS_NVS_KEY_LIGHTSENSE_OFF "light_off"
+#define LS_SETTINGS_NVS_KEY_SLEEP_LIGHT_ENABLE "sleep_light"
 
 void ls_settings_set_defaults(void)
 {
     ls_settings_set_stepper_speed(LS_STEPPER_STEPS_PER_SECOND_DEFAULT);
-    ls_settings_set_servo_top(LS_SERVO_US_MIN);
-    ls_settings_set_servo_bottom(LS_SERVO_US_MAX);
+    ls_settings_set_servo_top(LS_SERVO_US_MIN); // all the way at the top
+    ls_settings_set_servo_bottom(100);          // all the way to the bottom
 
     ls_settings_set_stepper_random_max(LS_STEPPER_MOVEMENT_STEPS_MAX);
-    ls_settings_set_light_threshold_on(LS_LIGHTSENSE_DAY_THRESHOLD);
-    ls_settings_set_light_threshold_off(LS_LIGHTSENSE_NIGHT_THRESHOLD);
+    ls_settings_set_light_threshold_on((int)((int[]){LS_LIGHTSENSE_THRESHOLDS_ON_MV})[LS_LIGHTSENSE_THRESHOLD_DEFAULT]);
+    ls_settings_set_light_threshold_off((int)((int[]){LS_LIGHTSENSE_THRESHOLDS_OFF_MV})[LS_LIGHTSENSE_THRESHOLD_DEFAULT]);
 
     ls_settings_set_servo_random_pause_ms(LS_SERVO_RANDOM_PAUSE_MS);
     ls_settings_set_servo_sweep_pause_ms(LS_SERVO_SWEEP_PAUSE_MS);
@@ -53,6 +55,8 @@ void ls_settings_set_defaults(void)
 
     ls_settings_set_tilt_threshold_mg_detected(LS_TILT_THRESHOLD_DETECTED_MG);
     ls_settings_set_tilt_threshold_mg_ok(LS_TILT_THRESHOLD_OK_MG);
+
+    ls_settings_set_sleep_light_enable(LS_SETTINGS_SLEEP_LIGHT_ENABLE_DEFAULT);
 }
 
 void ls_settings_reset_defaults(void)
@@ -150,6 +154,10 @@ void ls_settings_read(void)
     if (ESP_OK == _ls_settings_read_from_nvs(LS_SETTINGS_NVS_KEY_LIGHTSENSE_ON, &nvs_value))
     {
         ls_settings_set_light_threshold_on(nvs_value);
+    }
+    if (ESP_OK == _ls_settings_read_from_nvs(LS_SETTINGS_NVS_KEY_SLEEP_LIGHT_ENABLE, &nvs_value))
+    {
+        ls_settings_set_sleep_light_enable((bool)nvs_value);
     }
     _ls_settings_close_nvs();
 }
@@ -250,6 +258,21 @@ void ls_settings_save(void)
         ls_debug_printf("Settings could not save light threshold on.\n");
 #endif
     }
+    if (ESP_OK == nvs_set_i32(_ls_settings_nvs_handle, LS_SETTINGS_NVS_KEY_SLEEP_LIGHT_ENABLE,
+                              (int32_t) ls_settings_is_sleep_light_enabled()))
+    {
+        ;
+#ifdef LSDEBUG_SETTINGS
+        ls_debug_printf("Settings saved sleep light enabled=%d\n", (int32_t) ls_settings_is_sleep_light_enabled());
+#endif
+    }
+    else
+    {
+        ;
+#ifdef LSDEBUG_SETTINGS
+        ls_debug_printf("Settings could not save sleep light enabled.\n");
+#endif
+    }
     _ls_settings_close_nvs();
 }
 
@@ -281,7 +304,7 @@ BaseType_t ls_settings_map_control_to_servo_top(BaseType_t adc)
 void ls_settings_set_servo_top(BaseType_t microseconds)
 {
     _ls_settings_servo_top = _constrain(microseconds, LS_SERVO_US_MIN, LS_SERVO_US_MAX);
-    _ls_settings_servo_bottom = _constrain(_ls_settings_servo_bottom, _ls_settings_servo_top, LS_SERVO_US_MAX);
+//    _ls_settings_servo_bottom = _constrain(_ls_settings_servo_bottom, _ls_settings_servo_top, LS_SERVO_US_MAX);
 #ifdef LSDEBUG_SETTINGS
     ls_debug_printf("Setting servo_top = %d\n", _ls_settings_servo_top);
 #endif
@@ -295,13 +318,13 @@ BaseType_t ls_settings_map_control_to_servo_bottom(BaseType_t adc)
 {
     return _map(_constrain(adc, LS_CONTROLS_READING_BOTTOM, LS_CONTROLS_READING_TOP),
                 LS_CONTROLS_READING_TOP, LS_CONTROLS_READING_BOTTOM, // yes, inverted!
-                ls_settings_get_servo_top(), LS_SERVO_US_MAX);
+                0, 100);
 }
-void ls_settings_set_servo_bottom(BaseType_t microseconds)
+void ls_settings_set_servo_bottom(BaseType_t percent)
 {
-    _ls_settings_servo_bottom = _constrain(microseconds, ls_settings_get_servo_top(), LS_SERVO_US_MAX);
+    _ls_settings_servo_bottom = _constrain(percent, 0, 100);
 #ifdef LSDEBUG_SETTINGS
-    ls_debug_printf("Setting servo_bottom = %d\n", _ls_settings_servo_bottom);
+    ls_debug_printf("Setting servo_bottom = %d%%\n", _ls_settings_servo_bottom);
 #endif
 }
 BaseType_t ls_settings_get_servo_bottom(void)
@@ -318,40 +341,22 @@ BaseType_t ls_settings_get_stepper_random_max(void)
     return _ls_settings_stepper_random_max;
 }
 
-void ls_settings_set_light_threshold_on(BaseType_t adc)
+void ls_settings_set_light_threshold_on(int mV)
 {
-    _ls_settings_light_threshold_on = _constrain(adc, 0, 4095);
+    _ls_settings_light_threshold_on = _constrain(mV, 0, 3300);
 }
 BaseType_t ls_settings_get_light_threshold_on(void)
 {
     return _ls_settings_light_threshold_on;
 }
 
-void ls_settings_set_light_threshold_off(BaseType_t adc)
+void ls_settings_set_light_threshold_off(int mV)
 {
-    _ls_settings_light_threshold_off = _constrain(adc, 0, 4095);
+    _ls_settings_light_threshold_off = _constrain(mV, 0, 3300);
 }
 BaseType_t ls_settings_get_light_threshold_off(void)
 {
     return _ls_settings_light_threshold_off;
-}
-
-void ls_settings_set_light_thresholds_from_0to10(int index)
-{
-    if (index < 0 || index > 10)
-    {
-#ifdef LSDEBUG_SETTINGS
-        ls_debug_printf("Ignoring invalid lightsense threshold index %d must be 0..10 inclusive.\n", index);
-#endif
-        return;
-    }
-#ifdef LSDEBUG_SETTINGS
-        ls_debug_printf("Setting lightsense thresholds from index value %d (range 0..10 inclusive).\n", index);
-#endif
-    // off will range from 0 to 2010; 5 => 505 (near default)
-    ls_settings_set_light_threshold_off(20 * (index * index) + (1 * index) + 0);
-    // off will range from 50 to 4070; 5 => 1060 (near default)
-    ls_settings_set_light_threshold_on(40 * (index * index) + (2 * index) + 50);
 }
 
 BaseType_t ls_settings_map_control_to_servo_pulse_delta(BaseType_t adc)
@@ -405,4 +410,13 @@ void ls_settings_set_tilt_threshold_mg_ok(BaseType_t milli_gs)
 BaseType_t ls_settings_get_tilt_threshold_mg_ok(void)
 {
     return _ls_settings_tilt_threshold_ok;
+}
+
+void ls_settings_set_sleep_light_enable(bool enabled)
+{
+    _ls_settings_sleep_light_enable = enabled;
+}
+bool ls_settings_is_sleep_light_enabled(void)
+{
+    return _ls_settings_sleep_light_enable;
 }

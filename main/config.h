@@ -19,6 +19,7 @@
 #include "debug.h"
 #include "driver/gpio.h"
 
+/*
 // these GPIO assignments changed from the Nov '21 test board (rectangular)
 // to the January/April '22 kit boards. On detecting the MPU6050 accelerometer
 // that was on only the Nov '21 boards, these can be return different values.
@@ -29,13 +30,14 @@ gpio_num_t lsgpio_stepperdirection(void);
 gpio_num_t lsgpio_steppersleep(void);
 gpio_num_t lsgpio_servopowerenable(void);
 gpio_num_t lsgpio_servopulse(void);
+*/
 
 // assignments of our devices to ESP32 peripherals
 #define LSBUZZER_HS_LEDC_CHANNEL 0
 
 // Laser Scarecrow GPIO and ADC channel 0 pin usage
 // GPIO => ADC1 channel mapping:
-// 25=>8, 32=> 4, 33=>5, 34=>6, 35=>7, 36=>0, 39=>3 
+// 25=>8, 32=> 4, 33=>5, 34=>6, 35=>7, 36=>0, 39=>3
 // ADC channels
 #define LSGPIO_LIGHTSENSE 36
 #define LSADC1_LIGHTSENSE ADC1_CHANNEL_0
@@ -45,39 +47,54 @@ gpio_num_t lsgpio_servopulse(void);
 #define LSADC1_REFLECTANCESENSE ADC1_CHANNEL_6
 #define LSGPIO_TAPESETTING 35
 #define LSADC1_TAPESETTING ADC1_CHANNEL_7
+
 // GPIO => ADC2 channel mapping:
 // 0=>1, 2=>2, 4=>0, 15=>3, 13=>4, 12=>5, 14=>6, 15=>3, 27=>7
-// "KNOB#" refers to the pin # on the connector labeled "Knobs" on the January '22 boards
-#define LSGPIO_KNOB3 14
-#define LSADC2_KNOB3 ADC2_CHANNEL_6
-#define LSGPIO_KNOB4 12
-#define LSADC2_KNOB4 ADC2_CHANNEL_5
-#define LSGPIO_KNOB5 13
-#define LSADC2_KNOB5 ADC2_CHANNEL_4
-#define LSGPIO_KNOB6 15
-#define LSADC2_KNOB6 ADC2_CHANNEL_3
+#define LSGPIO_SLIDER1 14
+#define LSADC2_SLIDER1 ADC2_CHANNEL_6
+#define LSGPIO_SLIDER2 13
+#define LSADC2_SLIDER2 ADC2_CHANNEL_4
+#define LSGPIO_SWITCHES 15
+#define LSADC2_SWITCHES ADC2_CHANNEL_3
+
 // MAGNETSENSE is digital input (ISR), not ADC
 #define LSGPIO_MAGNETSENSE 4
 // Binary output
-#define LSGPIO_LASERPOWERENABLE (lsgpio_laserpowerenable())
-#define LSGPIO_SERVOPOWERENABLE (lsgpio_servopowerenable())
-#define LSGPIO_LASERHEATERENABLE (lsgpio_laserheaterenable())
+#define LSGPIO_LASERPOWERENABLE 32
+#define LSGPIO_SERVOPOWERENABLE 25
+#define LSGPIO_LASERHEATERENABLE 26
 #define LSGPIO_REFLECTANCEENABLE 27
-#define LSGPIO_STEPPERDIRECTION (lsgpio_stepperdirection())
+#define LSGPIO_STEPPERDIRECTION 19
 #define LSGPIO_STEPPERSTEP 18
-#define LSGPIO_STEPPERSLEEP (lsgpio_steppersleep())
+// #define LSGPIO_STEPPERTXRX 23
+// STEPPER_TXRX is STEPPER_ENABLE in EN-Diag mode
+#define LSGPIO_STEPPERENABLE 23
+// Stepper TMC2209 is enabled when pin is brought low
+#define STEPPERENABLE_ENABLE 0
+#define STEPPERENABLE_DISABLE 1
+
 // PWM output (LEDC)
-#define LSGPIO_SERVOPULSE (lsgpio_servopulse())
+#define LSGPIO_SERVOPULSE 33
 #define LSGPIO_BUZZERENABLE 2
 // I2C (using controller 0; pins selected to match Arduino usage; maybe they have a reason?)
 #define LSI2C_PORT I2C_NUM_0
 #define LSI2C_SDA 21
 #define LSI2C_SCL 22
-#define LSI2C_FREQ_HZ 400000
-// currently unused
-#define LSGPIO_SPARE2 23
-#define LSGPIO_SPARE3 1
-#define LSGPIO_SPARE4 3
+#define LSI2C_FREQ_HZ 100000
+// how many ticks a task can block waiting for the i2c_mux
+#define LSI2C_MUX_TICKS 50
+
+// https://github.com/JSchaenzle/ESP32-NeoPixel-WS2812-RMT/blob/master/Kconfig
+// --- use menuconfig to set, but be sure the Kconfig file correctly labels the parameters!
+// #define CONFIG_WS2812_NUM_LEDS 3
+// #define CONFIG_WS2812_LED_RMT_TX_GPIO 5
+// #define CONFIG_WS2812_LED_RMT_TX_CHANNEL 0
+// // XL-5050RGBC-WS2812B
+// // T0H 0.25μs => 10; T0LK 1μs => 40; T1H 0.85μs => 34; T1L 0.4μs => 16
+// #define CONFIG_WS2812_T0H 10
+// #define CONFIG_WS2812_T0L 40
+// #define CONFIG_WS2812_T1H 34
+// #define CONFIG_WS2812_T1L 16
 
 // default parameters for the servo
 #define LS_SERVO_US_MIN 750
@@ -113,33 +130,51 @@ gpio_num_t lsgpio_servopulse(void);
 #define LS_STEPPER_STEPS_PER_SECOND_DEFAULT 2400
 // LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_SECOND will be added or subtracted to the steps per second when accelerating or decelerating
 #define LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_SECOND 8000
-#define LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_TICK ( LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_SECOND / pdMS_TO_TICKS(1000))
+#define LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_TICK (LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_SECOND / pdMS_TO_TICKS(1000))
 
+/*
+2023 dual switch setup with upper 22k, lower 10k resistors to 3V3 and 10k to ground
+Testing on 2023-04-05 using final boards, 15ft Cat5 and 2x RJ45 cable glands
+Observed min/max over about 15-20 seconds (11dB attenuator)
+Off: 160-172mV  (USB: 220-228mV)
+Upper (22k): 993-1017mV (USB: 773-777mV)
+Lower (10k): 1554-1562mV (USB: 1123-1124mV)
+Both: (~6.9k): 1835-1843mV   (USB: 1279-1281mV)
+*/
 // values read by ADC from external controls
-#define LS_CONTROLS_ADC_MAX_DISCONNECT 200
-#define LS_CONTROLS_ADC_MIN_CONNECT 1600
-#define LS_CONTROLS_ADC_MAX_CONNECT 1900
+/* The calibrated mV ADC value read from the switches input should be compared to these thresholds to determine the controls status:
+0 < ADC < LS_CONTROLS_SWITCH_THRESHOLD_UPPER => LS_CONTROLS_STATUS_OFF;
+LS_CONTROLS_SWITCH_THRESHOLD_UPPER < ADC < LS_CONTROLS_SWITCH_THRESHOLD_LOWER => LS_CONTROLS_STATUS_UPPER;
+LS_CONTROLS_SWITCH_THRESHOLD_LOWER < ADC < LS_CONTROLS_SWITCH_THRESHOLD_BOTH => LS_CONTROLS_STATUS_UPPER;
+LS_CONTROLS_SWITCH_THRESHOLD_BOTH < ADC < 4096 => LS_CONTROLS_STATUS_BOTH;
+*/
+#define LS_CONTROLS_SWITCH_THRESHOLD_UPPER 500
+
+#define LS_CONTROLS_SWITCH_THRESHOLD_LOWER 1200
+
+#define LS_CONTROLS_SWITCH_THRESHOLD_BOTH 1650
+
+#define LSADCATTEN_SLIDER ADC_ATTEN_11db
+#define LSADCATTEN_SWITCHES ADC_ATTEN_11db
 // to ensure the full range of value can be selected,
-// any ADC reading >= LS_CONTROLS_READING_TOP is considered max
-#define LS_CONTROLS_READING_TOP 4040
-// any ADC reading <= LS_CONTROLS_READING_BOTTOM is considered min
-#define LS_CONTROLS_READING_BOTTOM 50
-// any ADC reading must change by this much from its previous value to be registered.
-#define LS_CONTROLS_READING_MOVE_THRESHOLD 20
+// any ADC mV reading >= LS_CONTROLS_READING_TOP is considered max
+#define LS_CONTROLS_READING_TOP 3000
+// any ADC mV reading <= LS_CONTROLS_READING_BOTTOM is considered min
+#define LS_CONTROLS_READING_BOTTOM 200
+// any ADC mV reading must change by this much from its previous value to be registered.
+#define LS_CONTROLS_READING_MOVE_THRESHOLD 40
 #define LS_CONTROLS_READINGS_TO_AVERAGE 5
 // when controls are connected, readings are sent every tick, so 50 reads=~5sec
 #define LS_CONTROLS_FASTREADS_AFTER_MOVE 50
-// a second connection must happen within this many microseconds to enter the secondary controls
-#define LS_CONTROLS_SECONDARY_US_TIME 6000000L
 
-// values read by ADC for tape reflectance sensor
-// based on testing conducted March 18 '22
-#define LS_REFLECTANCE_ADC_MAX_WHITE_BUCKET 1750
-#define LS_REFLECTANCE_ADC_MIN_BLACK_TAPE 2750
-#define LS_REFLECTANCE_ADC_MIN_BLACK_BUCKET 2000
-#define LS_REFLECTANCE_ADC_MAX_SILVER_TAPE 500
 
-// approximate midpoints between settings (3 boards tested Apr 2 '22)
+// raw values read by ADC for 2023 units, 100% sampling of tape reflectance sensor, Nov '22
+// do not expect to use with black buckets, so just two values needed
+// (more reflectance means more voltage to ground instead of ADC pin, so light is low and dark is high)
+#define LS_REFLECTANCE_ADC_MAX_LIGHT 1300
+#define LS_REFLECTANCE_ADC_MIN_DARK 2000
+
+// approximate midpoints (raw ADC) between settings (3 boards tested Apr 2 '22)
 #define LS_TAPEMODE_THRESHOLD_1 300
 #define LS_TAPEMODE_THRESHOLD_2 975
 #define LS_TAPEMODE_THRESHOLD_3 1750
@@ -157,7 +192,7 @@ gpio_num_t lsgpio_servopulse(void);
 #define LS_HOME_HOMINGS_TO_AVERAGE 5
 #define LS_HOME_INITIAL_ROTATIONS 5
 #define LS_HOME_STEPPER_STEPS_PER_SECOND 400
-#define LS_HOME_INITIAL_STEPPER_STEPS_PER_SECOND 1800
+#define LS_HOME_INITIAL_STEPPER_STEPS_PER_SECOND 2400
 #define LS_HOME_BACKUP_ADDITIONAL_STEPS (LS_STEPPER_STEPS_PER_ROTATION / 10)
 #define LS_HOME_FORWARD_STEPS (LS_STEPPER_STEPS_PER_ROTATION / 4)
 #define LS_HOME_OFFSET_THRESHOLD_TO_REHOME (LS_STEPPER_STEPS_PER_ROTATION/20)
@@ -169,20 +204,32 @@ gpio_num_t lsgpio_servopulse(void);
 #define LS_STATE_REHOME_TIMER_PERIOD_MS 1800000
 #endif
 
-// light levels based on sample data recorded in lightsense.h; roughly 40lux on, 20lux off
-#define LS_LIGHTSENSE_DAY_THRESHOLD 1000
-#define LS_LIGHTSENSE_NIGHT_THRESHOLD 500
+// Thresholds based on sample data recorded in lightsense.h
+// must be comma-separated list
+#define LS_LIGHTSENSE_THRESHOLDS_ON_MV 80, 100, 130, 190, 265, 430, 600, 1070, 1850
+#define LS_LIGHTSENSE_THRESHOLDS_OFF_MV 75, 95, 120, 180, 255, 395, 540, 980, 1690
+#define LS_LIGHTSENSE_THRESHOLDS_COUNT 9
+#define LS_LIGHTSENSE_THRESHOLD_DEFAULT 4
 #define LS_LIGHTSENSE_READING_INTERVAL_MS 4000
-#define LS_LIGHTSENSE_READINGS_TO_SWITCH 4 
+#define LS_LIGHTSENSE_READINGS_TO_SWITCH 4
 
-#define LS_TILT_THRESHOLD_DETECTED_MG 890
-#define LS_TILT_THRESHOLD_OK_MG 920
+#define LS_TILT_THRESHOLD_DETECTED_MG 900
+#define LS_TILT_THRESHOLD_OK_MG 950
 #ifdef LSDEBUG_I2C
 // the accelerometer will check this frequently if I2C debug is active
-#define LS_TILT_REPORT_RATE_MS 200
+#define LS_TILT_REPORT_RATE_MS 500
 #else
 // the accelerometer will check this frequently during normal operation
-#define LS_TILT_REPORT_RATE_MS 400
+#define LS_TILT_REPORT_RATE_MS 1000
 #endif
 
-#define LS_EVENT_NOOP_TIMEOUT_MS 50000
+// 18 steps in each cycle; 200ms/step; 1800 should allow three cycles
+#define LS_FAILURE_LEDS_OFF_AFTER 11000
+// after waiting for the LEDs also wait this long to play the tune and lights again
+#define LS_FAILURE_REPEAT_INTERVAL 24000
+
+// The LS_EVENT_NOOP_TIMEOUT_MS also controls the "snoring" rate of the sleep mode
+// If no event is queued within this time, a LSEVT_NOOP will be sent to the current state
+#define LS_EVENT_NOOP_TIMEOUT_MS 110000
+
+#define LS_SETTINGS_SLEEP_LIGHT_ENABLE_DEFAULT false

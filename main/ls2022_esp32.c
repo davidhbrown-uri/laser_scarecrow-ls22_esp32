@@ -15,7 +15,7 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-#define VERSION_MESSAGE "URI Laser Scarecrow 2022 version 1.3.0 (Apr 4, 2023)\n"
+#define VERSION_MESSAGE "URI Laser Scarecrow 2023 version 2.0.0 (Apr 24, 2023)\n"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -45,6 +45,8 @@
 #include "servo.h"
 #include "settings.h"
 #include "i2c.h"
+#include "leds.h"
+#include "oled.h"
 
 SemaphoreHandle_t adc1_mux = NULL;
 SemaphoreHandle_t adc2_mux = NULL;
@@ -52,7 +54,6 @@ SemaphoreHandle_t i2c_mux = NULL;
 SemaphoreHandle_t print_mux = NULL;
 
 static esp_adc_cal_characteristics_t *adc_chars;
-
 
 static void print_char_val_type(esp_adc_cal_value_t val_type)
 {
@@ -86,44 +87,43 @@ void app_main(void)
     adc1_mux = xSemaphoreCreateMutex();
     adc2_mux = xSemaphoreCreateMutex();
     print_mux = xSemaphoreCreateMutex();
+    i2c_mux = xSemaphoreCreateMutex();
     printf("Initializing I2C...\n");
     ls_i2c_init();
-    if(ls_i2c_accelerometer_device() == LS_I2C_ACCELEROMETER_MPU6050)
-    {
-        printf("November '21 test board detected via MPU6050 accelerometer\n");
-
-        ls_config_set_gpio_nov21();
-    }
     printf("Initializing GPIO...\n");
     ls_gpio_initialize();
     adc_chars = calloc(1, sizeof(esp_adc_cal_characteristics_t));
     esp_adc_cal_value_t val_type = esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_11db, ADC_WIDTH_12Bit, 1100, adc_chars);
     print_char_val_type(val_type);
     check_efuse();
+    ls_buzzer_init();
+    ls_stepper_init();
+    ls_servo_init();
+    ls_leds_init();
+    ls_oled_init();
+    ls_oled_show_logo();
+
     printf("Initialized Hardware\n");
     ls_settings_set_defaults();
     ls_settings_read();
     printf("Loaded settings\n");
-    adc_chars = calloc(1, sizeof(esp_adc_cal_characteristics_t));
-    ls_state_current.func = ls_state_poweron; // default
-    if(ls_i2c_accelerometer_device()==LS_I2C_ACCELEROMETER_NONE)
-    {
-        printf("No accelerometer detected!\n");
-        ls_state_current.func = ls_state_error_noaccel;
-    }
+
     ls_event_queue_init();
-    ls_buzzer_init();
-    ls_stepper_init();
-    ls_servo_init();
     ls_state_init();
     // do not set magnet ISR up before event queue
     ls_magnet_isr_begin();
-
     printf("Initialized queues / semaphores / IRQs\n");
 
 #ifdef LS_TEST_SPANNODE
     ls_map_test_spannode();
 #endif
+
+    ls_state_current.func = ls_state_poweron; // default
+    if (ls_i2c_accelerometer_device() == LS_I2C_ACCELEROMETER_NONE)
+    {
+        printf("No accelerometer detected!\n");
+        ls_state_current.func = ls_state_error_noaccel;
+    }
 
     // higher priority tasks get higher priority values
 
@@ -137,10 +137,11 @@ void app_main(void)
     xTaskCreate(&event_handler_state_machine, "event_handler_state_machine", configMINIMAL_STACK_SIZE * 3, NULL, 15, NULL);
 
     // lowest priority (1-9)
-    xTaskCreate(&ls_tilt_task, "tilt_task", configMINIMAL_STACK_SIZE * 3, NULL, 7, NULL);
+    xTaskCreate(&ls_leds_handler_task, "leds_handler", configMINIMAL_STACK_SIZE * 2, NULL, 6, NULL);
     xTaskCreate(&ls_buzzer_handler_task, "buzzer_handler", configMINIMAL_STACK_SIZE * 2, NULL, 5, NULL);
     xTaskCreate(&ls_servo_task, "servo_task", configMINIMAL_STACK_SIZE * 3, NULL, 3, NULL);
-//    xTaskCreate(&ls_coverage_task, "coverage_task", configMINIMAL_STACK_SIZE * 3, NULL, 2, NULL); // cannot do before map is ready
+    //    xTaskCreate(&ls_coverage_task, "coverage_task", configMINIMAL_STACK_SIZE * 3, NULL, 2, NULL); // cannot do before map is ready
+    xTaskCreate(&ls_tilt_task, "tilt_task", configMINIMAL_STACK_SIZE * 3, NULL, 2, NULL);
     xTaskCreate(&ls_lightsense_read_task, "lightsense_read", configMINIMAL_STACK_SIZE * 3, NULL, 1, NULL);
 
 #ifdef LSDEBUG_TAPEMODE
@@ -152,7 +153,6 @@ void app_main(void)
 #ifdef LSDEBUG_COVERAGE_MEASURE
     xTaskCreate(&ls_coverage_debug_task, "coverage_debug", configMINIMAL_STACK_SIZE * 3, NULL, 2, NULL);
 #endif
-
 
     xSemaphoreTake(print_mux, portMAX_DELAY);
     printf("app_main() has finished.\n");

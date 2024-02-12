@@ -34,11 +34,11 @@ static enum ls_tapemode_mode ls_tapemode_from_adc(uint32_t adc_reading)
 {
     if (adc_reading > LS_TAPEMODE_THRESHOLD_5)
     {
-        return LS_TAPEMODE_REFLECT_SAFE;
+        return LS_TAPEMODE_LIGHT_SAFE;
     }
     if (adc_reading > LS_TAPEMODE_THRESHOLD_4)
     {
-        return LS_TAPEMODE_REFLECT;
+        return LS_TAPEMODE_LIGHT;
     }
     if (adc_reading > LS_TAPEMODE_THRESHOLD_3)
     {
@@ -46,11 +46,11 @@ static enum ls_tapemode_mode ls_tapemode_from_adc(uint32_t adc_reading)
     }
     if (adc_reading > LS_TAPEMODE_THRESHOLD_2)
     {
-        return LS_TAPEMODE_BLACK;
+        return LS_TAPEMODE_DARK;
     }
     if (adc_reading > LS_TAPEMODE_THRESHOLD_1)
     {
-        return LS_TAPEMODE_BLACK_SAFE;
+        return LS_TAPEMODE_DARK_SAFE;
     }
     return LS_TAPEMODE_SELFTEST;
 }
@@ -82,27 +82,47 @@ enum ls_tapemode_mode ls_tapemode_current(void)
 
 void ls_tapemode_selftest_task(void *pvParameter)
 {
+    enum ls_tapemode_mode previous = ls_tapemode_current();
+    int stable_count = 0;
     while (1)
     {
-        switch (ls_tapemode_current())
+        enum ls_tapemode_mode current = ls_tapemode_current();
+        if (current != previous)
         {
-        case LS_TAPEMODE_BLACK_SAFE:
-            ls_buzzer_tone((BaseType_t)LS_BUZZER_SCALE_G);
-            break;
-        case LS_TAPEMODE_BLACK:
-            ls_buzzer_tone((BaseType_t)LS_BUZZER_SCALE_F);
-            break;
-        case LS_TAPEMODE_IGNORE:
-            ls_buzzer_tone((BaseType_t)LS_BUZZER_SCALE_E);
-            break;
-        case LS_TAPEMODE_REFLECT:
-            ls_buzzer_tone((BaseType_t)LS_BUZZER_SCALE_D);
-            break;
-        case LS_TAPEMODE_REFLECT_SAFE:
-            ls_buzzer_tone((BaseType_t)LS_BUZZER_SCALE_C);
-            break;
-        default:; // don't play anything on return to selftest; we know that works or we wouldn't be here!
-        }         // switch
+            if (stable_count >= 15)
+            {
+                stable_count = 0;
+                previous = current;
+                switch (current)
+                {
+                case LS_TAPEMODE_DARK_SAFE:
+                    ls_buzzer_note(LS_BUZZER_SCALE_A, pdMS_TO_TICKS(500));
+                    ls_event_enqueue(LSEVT_SELFTEST_MODE_DARKSAFE);
+                    break;
+                case LS_TAPEMODE_DARK:
+                    ls_buzzer_note(LS_BUZZER_SCALE_G, pdMS_TO_TICKS(500));
+                    ls_event_enqueue(LSEVT_SELFTEST_MODE_DARK);
+                    break;
+                case LS_TAPEMODE_IGNORE:
+                    ls_buzzer_note(LS_BUZZER_SCALE_Fx, pdMS_TO_TICKS(500));
+                    ls_event_enqueue(LSEVT_SELFTEST_MODE_IGNORE);
+                    break;
+                case LS_TAPEMODE_LIGHT:
+                    ls_buzzer_note(LS_BUZZER_SCALE_E, pdMS_TO_TICKS(500));
+                    ls_event_enqueue(LSEVT_SELFTEST_MODE_LIGHT);
+                    break;
+                case LS_TAPEMODE_LIGHT_SAFE:
+                    ls_buzzer_note(LS_BUZZER_SCALE_D, pdMS_TO_TICKS(500));
+                    ls_event_enqueue(LSEVT_SELFTEST_MODE_LIGHTSAFE);
+                    break;
+                default:; // don't play anything on return to selftest; we know that works or we wouldn't be here!
+                }         // switch
+            }  // if stable
+            else
+            {
+                stable_count++;
+            }
+        }
         vTaskDelay(3);
     }
 }

@@ -28,22 +28,23 @@
     (1ULL<<LSGPIO_LASERHEATERENABLE) | \
     (1ULL<<LSGPIO_SERVOPOWERENABLE) | \
     (1ULL<<LSGPIO_REFLECTANCEENABLE) | \
+    (1ULL<<LSGPIO_STEPPERENABLE) | \
     (1ULL<<LSGPIO_STEPPERSTEP) | \
     (1ULL<<LSGPIO_STEPPERDIRECTION) | \
-    (1ULL<<LSGPIO_STEPPERSLEEP) | \
     (1ULL<<LSGPIO_BUZZERENABLE) \
     )
+
 #define LSGPIO_INPUT_PIN_SEL (\
-    (1ULL<<LSGPIO_KNOB3) | \
-    (1ULL<<LSGPIO_KNOB4) | \
-    (1ULL<<LSGPIO_KNOB5) | \
-    (1ULL<<LSGPIO_KNOB6) | \
+    (1ULL<<LSGPIO_SLIDER1) | \
+    (1ULL<<LSGPIO_SLIDER2) | \
+    (1ULL<<LSGPIO_SWITCHES) | \
     (1ULL<<LSGPIO_LASERTEMP) | \
     (1ULL<<LSGPIO_LIGHTSENSE) | \
     (1ULL<<LSGPIO_MAGNETSENSE) | \
     (1ULL<<LSGPIO_REFLECTANCESENSE) | \
     (1ULL<<LSGPIO_TAPESETTING) \
 )
+
 
 void ls_gpio_initialize(void)
 {
@@ -65,7 +66,7 @@ void ls_gpio_initialize(void)
     gpio_set_level(LSGPIO_LASERPOWERENABLE, 0);
     gpio_set_level(LSGPIO_LASERHEATERENABLE, 0);
     gpio_set_level(LSGPIO_REFLECTANCEENABLE, 0);
-    gpio_set_level(LSGPIO_STEPPERSLEEP, 0);
+    gpio_set_level(LSGPIO_STEPPERENABLE, STEPPERENABLE_DISABLE); //TMS2209 Enable is active low
     // ... might as well set these low, too, just for consistency
     gpio_set_level(LSGPIO_STEPPERDIRECTION, 0);
     gpio_set_level(LSGPIO_STEPPERSTEP, 0);

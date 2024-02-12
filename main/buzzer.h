@@ -45,6 +45,7 @@ enum ls_buzzer_effects
     LS_BUZZER_ALERT_1S,
     LS_BUZZER_ALTERNATE_HIGH,
     LS_BUZZER_PRE_LASER_WARNING,
+    LS_BUZZER_POWERON,
     LS_BUZZER_PLAY_TAPE_ENABLE,            // enable tape read
     LS_BUZZER_PLAY_TAPE_DISABLE,           // disable tape read
     LS_BUZZER_PLAY_TAPE_MISREAD,           // bad tape read
@@ -59,6 +60,7 @@ enum ls_buzzer_effects
     LS_BUZZER_PLAY_WAKE,                   // ascending scale alternating with root
     LS_BUZZER_PLAY_SLEEP,                  // descending scale alternating with octave
     LS_BUZZER_PLAY_TONE,                   // specify frequency using ls_buzzer_tone() instead of ls_buzzer_effect()
+    LS_BUZZER_PLAY_NOROTATE,                // long c# followed by two short c
     LS_BUZZER_PLAY_NOTHING                 // 1 tick silence
 } ls_buzzer_effects;
 
@@ -75,3 +77,6 @@ void ls_buzzer_tone(BaseType_t frequency_hz);
 void ls_buzzer_handler_task(void *pvParameter);
 
 bool ls_buzzer_in_use(void);
+
+// used by sleep mode
+void ls_buzzer_snore(void);

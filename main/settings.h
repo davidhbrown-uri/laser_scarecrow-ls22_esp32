@@ -56,21 +56,17 @@ BaseType_t ls_settings_get_servo_pulse_delta(void);
 void ls_settings_set_stepper_random_max(BaseType_t steps);
 BaseType_t ls_settings_get_stepper_random_max(void);
 
-void ls_settings_set_light_threshold_on(BaseType_t adc);
+void ls_settings_set_light_threshold_on(BaseType_t mV);
 BaseType_t ls_settings_get_light_threshold_on(void);
 
-void ls_settings_set_light_threshold_off(BaseType_t adc);
+void ls_settings_set_light_threshold_off(BaseType_t mV);
 BaseType_t ls_settings_get_light_threshold_off(void);
-
-/**
- * @brief Set thresholds to identifiable values with a logrithmic response
- * 
- * @param index 
- */
-void ls_settings_set_light_thresholds_from_0to10(int index);
 
 void ls_settings_set_tilt_threshold_mg_detected(BaseType_t milli_gs);
 BaseType_t ls_settings_get_tilt_threshold_mg_detected(void);
 
 void ls_settings_set_tilt_threshold_mg_ok(BaseType_t milli_gs);
 BaseType_t ls_settings_get_tilt_threshold_mg_ok(void);
+
+void ls_settings_set_sleep_light_enable(bool);
+bool ls_settings_is_sleep_light_enabled(void);
