@@ -19,18 +19,40 @@
 #include "debug.h"
 #include "driver/gpio.h"
 
-/*
-// these GPIO assignments changed from the Nov '21 test board (rectangular)
-// to the January/April '22 kit boards. On detecting the MPU6050 accelerometer
-// that was on only the Nov '21 boards, these can be return different values.
-void ls_config_set_gpio_nov21(void);
-gpio_num_t IRAM_ATTR lsgpio_laserpowerenable(void);
-gpio_num_t lsgpio_laserheaterenable(void);
-gpio_num_t lsgpio_stepperdirection(void);
-gpio_num_t lsgpio_steppersleep(void);
-gpio_num_t lsgpio_servopowerenable(void);
-gpio_num_t lsgpio_servopulse(void);
+// at least for now, the tape sensor and second laser/servo cannot coexist
+#define LS_HAS_DUAL_LASER
+#undef LS_HAS_TAPE_SENSOR
+
+
+/* ESP32 Devkit C GPIO
+(Unlisted GPIO are not available... not broken out or used internally [SPIRAM, flash, USB, etc])
+
+02 => Buzzer
+04 => Magnet Sense
+05 => NeoPixel (on reset, sets SDIO [Secure Digital] slave sampling edge... don't think we use this?)
+12 => n.c. (on reset, sets VDD_FLASH; must be low on reset if connected; if we need this, may need to use https://docs.espressif.com/projects/esptool/en/latest/esp32/espefuse/set-flash-voltage-cmd.html to set correct value)
+13 => Slider 2
+14 => Slider 1
+15 => Switches (on reset, sets LOG; seems to have no ill effect)
+18 => Stepper Step
+19 => Stepper Direction
+21 => I2C SDA
+22 => I2C SCL
+23 => Stepper Enable
+25 => Servo Enable
+26 => n.c. 
+27 => Reflectance Enable / Servo 2 Pulse
+32 => Laser Power Enable
+33 => Servo Pulse (1)
+34 => Reflectance Sense
+35 => Tape Setting
+36 => Light Sense
+39 => n.c. -- is physically next to 34... maybe use for Serial TX to TMC 2209 in dual laser?
+
 */
+
+
+
 
 // assignments of our devices to ESP32 peripherals
 #define LSBUZZER_HS_LEDC_CHANNEL 0
@@ -41,10 +63,10 @@ gpio_num_t lsgpio_servopulse(void);
 // ADC channels
 #define LSGPIO_LIGHTSENSE 36
 #define LSADC1_LIGHTSENSE ADC1_CHANNEL_0
-#define LSGPIO_LASERTEMP 39
-#define LSADC1_LASERTEMP ADC1_CHANNEL_3
+#ifdef LS_HAS_TAPE_SENSOR
 #define LSGPIO_REFLECTANCESENSE 34
 #define LSADC1_REFLECTANCESENSE ADC1_CHANNEL_6
+#endif
 #define LSGPIO_TAPESETTING 35
 #define LSADC1_TAPESETTING ADC1_CHANNEL_7
 
@@ -62,11 +84,11 @@ gpio_num_t lsgpio_servopulse(void);
 // Binary output
 #define LSGPIO_LASERPOWERENABLE 32
 #define LSGPIO_SERVOPOWERENABLE 25
-#define LSGPIO_LASERHEATERENABLE 26
+#ifdef LS_HAS_TAPE_SENSOR
 #define LSGPIO_REFLECTANCEENABLE 27
+#endif
 #define LSGPIO_STEPPERDIRECTION 19
 #define LSGPIO_STEPPERSTEP 18
-// #define LSGPIO_STEPPERTXRX 23
 // STEPPER_TXRX is STEPPER_ENABLE in EN-Diag mode
 #define LSGPIO_STEPPERENABLE 23
 // Stepper TMC2209 is enabled when pin is brought low
@@ -75,6 +97,10 @@ gpio_num_t lsgpio_servopulse(void);
 
 // PWM output (LEDC)
 #define LSGPIO_SERVOPULSE 33
+#ifdef LS_HAS_DUAL_LASER
+// GPIO27 is tape sensor enable in 2023-2024 models
+#define LSGPIO_SERVOPULSE2 27
+#endif
 #define LSGPIO_BUZZERENABLE 2
 // I2C (using controller 0; pins selected to match Arduino usage; maybe they have a reason?)
 #define LSI2C_PORT I2C_NUM_0

@@ -23,10 +23,32 @@
 #include "driver/i2c.h"
 #include "sdkconfig.h"
 
+#ifdef LS_HAS_DUAL_LASER
 #define LSGPIO_OUTPUT_PIN_SEL (\
     (1ULL<<LSGPIO_LASERPOWERENABLE) | \
-    (1ULL<<LSGPIO_LASERHEATERENABLE) | \
     (1ULL<<LSGPIO_SERVOPOWERENABLE) | \
+    (1ULL<<LSGPIO_SERVOPULSE) | \
+    (1ULL<<LSGPIO_SERVOPULSE2) | \
+    (1ULL<<LSGPIO_STEPPERENABLE) | \
+    (1ULL<<LSGPIO_STEPPERSTEP) | \
+    (1ULL<<LSGPIO_STEPPERDIRECTION) | \
+    (1ULL<<LSGPIO_BUZZERENABLE) \
+    )
+
+#define LSGPIO_INPUT_PIN_SEL (\
+    (1ULL<<LSGPIO_SLIDER1) | \
+    (1ULL<<LSGPIO_SLIDER2) | \
+    (1ULL<<LSGPIO_SWITCHES) | \
+    (1ULL<<LSGPIO_LIGHTSENSE) | \
+    (1ULL<<LSGPIO_MAGNETSENSE) | \
+    (1ULL<<LSGPIO_TAPESETTING) \
+)
+#endif
+#ifdef LS_HAS_TAPE_SENSOR
+#define LSGPIO_OUTPUT_PIN_SEL (\
+    (1ULL<<LSGPIO_LASERPOWERENABLE) | \
+    (1ULL<<LSGPIO_SERVOPOWERENABLE) | \
+    (1ULL<<LSGPIO_SERVOPULSE) | \
     (1ULL<<LSGPIO_REFLECTANCEENABLE) | \
     (1ULL<<LSGPIO_STEPPERENABLE) | \
     (1ULL<<LSGPIO_STEPPERSTEP) | \
@@ -38,13 +60,12 @@
     (1ULL<<LSGPIO_SLIDER1) | \
     (1ULL<<LSGPIO_SLIDER2) | \
     (1ULL<<LSGPIO_SWITCHES) | \
-    (1ULL<<LSGPIO_LASERTEMP) | \
     (1ULL<<LSGPIO_LIGHTSENSE) | \
     (1ULL<<LSGPIO_MAGNETSENSE) | \
     (1ULL<<LSGPIO_REFLECTANCESENSE) | \
     (1ULL<<LSGPIO_TAPESETTING) \
 )
-
+#endif
 
 void ls_gpio_initialize(void)
 {
@@ -64,14 +85,18 @@ void ls_gpio_initialize(void)
     gpio_config(&io_conf);
     // ... and turn off (set low) the outputs
     gpio_set_level(LSGPIO_LASERPOWERENABLE, 0);
-    gpio_set_level(LSGPIO_LASERHEATERENABLE, 0);
+#ifdef LS_HAS_TAPE_SENSOR
     gpio_set_level(LSGPIO_REFLECTANCEENABLE, 0);
+#endif
     gpio_set_level(LSGPIO_STEPPERENABLE, STEPPERENABLE_DISABLE); //TMS2209 Enable is active low
     // ... might as well set these low, too, just for consistency
     gpio_set_level(LSGPIO_STEPPERDIRECTION, 0);
     gpio_set_level(LSGPIO_STEPPERSTEP, 0);
     gpio_set_level(LSGPIO_BUZZERENABLE, 0);
     gpio_set_level(LSGPIO_SERVOPULSE, 0);
+#ifdef LS_HAS_DUAL_LASER
+    gpio_set_level(LSGPIO_SERVOPULSE2, 0);
+#endif
 
     // now our inputs
     io_conf.mode = GPIO_MODE_INPUT;

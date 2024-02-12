@@ -33,6 +33,7 @@ bool ls_tape_sensor_is_enabled(void)
 }
 uint32_t ls_tape_sensor_read(void)
 {
+#ifdef LS_HAS_TAPE_SENSOR
     bool was_disabled = ! ls_tape_sensor_is_enabled();
     if(was_disabled) 
     {
@@ -40,7 +41,8 @@ uint32_t ls_tape_sensor_read(void)
     }
     xSemaphoreTake(adc1_mux, portMAX_DELAY);
     adc1_config_width(ADC_WIDTH_BIT_12);
-    adc1_config_channel_atten(LSADC1_REFLECTANCESENSE, ADC_ATTEN_DB_11);
+    //had been using: ADC_ATTEN_DB_11 __attribute__((deprecated)) = ADC_ATTEN_DB_12,  ///<This is deprecated, it behaves the same as `ADC_ATTEN_DB_12`
+    adc1_config_channel_atten(LSADC1_REFLECTANCESENSE, ADC_ATTEN_DB_12);
     uint32_t adc_reading = 0;
     for (int i = 0; i < 4; i++)
     {
@@ -53,22 +55,30 @@ uint32_t ls_tape_sensor_read(void)
         ls_tape_sensor_disable();
     }
     return (int) adc_reading;
+#else
+    return 0;
+#endif
 }
 
 void ls_tape_sensor_enable(void)
 {
+#ifdef LS_HAS_TAPE_SENSOR
     gpio_set_level(LSGPIO_REFLECTANCEENABLE, 1);
+#endif
     _ls_tape_sensor_enabled = true;
 }
 
 void ls_tape_sensor_disable(void)
 {
+#ifdef LS_HAS_TAPE_SENSOR
     gpio_set_level(LSGPIO_REFLECTANCEENABLE, 0);
+#endif
     _ls_tape_sensor_enabled = false;
 }
 
 void ls_tape_sensor_selftest_task(void *pvParameter)
 {
+#ifdef LS_HAS_TAPE_SENSOR
     ls_tape_sensor_enable();
     uint32_t last_tape_reading = ls_tape_sensor_read();
     while (1)
@@ -87,4 +97,10 @@ void ls_tape_sensor_selftest_task(void *pvParameter)
         last_tape_reading = tape_reading;
         vTaskDelay(1);
     }
+#else
+    while (1)
+    {
+        vTaskDelay(999999);
+    }
+#endif
 }
