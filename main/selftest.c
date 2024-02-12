@@ -210,7 +210,7 @@ void selftest_event_handler(ls_event event)
     {
     case LSEVT_STATE_ENTRY:
         _selftest_wait_for_buzzer_warning_complete = true;
-        ls_servo_jumpto(LS_SERVO_US_MID);
+        ls_servo_jumpto(LS_SERVER_US_ASSEMBLY_REFERENCE);
         ls_leds_cycle(LEDCYCLE_RAINBOW);
 #ifdef LS_TAKING_A_PHOTO
         ls_leds_single(0, GRB_MAGENTA);

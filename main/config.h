@@ -97,9 +97,13 @@ gpio_num_t lsgpio_servopulse(void);
 // #define CONFIG_WS2812_T1L 16
 
 // default parameters for the servo
-#define LS_SERVO_US_MIN 750
-#define LS_SERVO_US_MAX 2250
+// 1000 = 0 degrees; 2000 = 90 degrees; 944 = -5 degrees
+#define LS_SERVO_US_MIN 944
+#define LS_SERVO_US_MAX 2000
 #define LS_SERVO_US_MID 1500
+#define LS_SERVER_US_ASSEMBLY_REFERENCE 1000
+// selftest holds the servo at LS_SERVER_US_ASSEMBLY_REFERENCE this long to allow adjustment
+#define LS_SERVO_SELFTEST_HOLD_MS 5000
 #define LS_SERVO_DELTA_PER_TICK_DEFAULT 2
 #define LS_SERVO_DELTA_PER_TICK_MAX 100
 #define LS_SERVO_DELTA_PER_TICK_MIN 1
@@ -109,8 +113,6 @@ gpio_num_t lsgpio_servopulse(void);
 #define LS_SERVO_MCPWM_IO_SIGNALS MCPWM0A
 #define LS_SERVO_MCPWM_TIMER MCPWM_TIMER_0
 #define LS_SERVO_MCPWM_GENERATOR MCPWM_OPR_A
-// selftest holds the servo at midpoint this long to allow adjustment
-#define LS_SERVO_SELFTEST_HOLD_MS 5000
 
 // default parameters for the stepper movement
 /// stepper motor is a standard 200-step-per-rotation motor
