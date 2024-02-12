@@ -210,12 +210,15 @@ void _ls_state_map_build_set_map(int *enable_count, int *disable_count, int *mis
     for (int map_index = 0; map_index < LS_STEPPER_STEPS_PER_ROTATION / LS_MAP_RESOLUTION; map_index++)
     {
         enum ls_state_map_reading reading = LS_STATE_MAP_READING_MISREAD;
+#ifdef LS_HAS_TAPE_SENSOR
         uint16_t raw_adc = _ls_map_raw_adc[map_index];
+#endif
         ls_stepper_position_t position = map_index * LS_MAP_RESOLUTION;
         switch (ls_tapemode())
         {
         case LS_TAPEMODE_DARK:
         case LS_TAPEMODE_DARK_SAFE:
+#ifdef LS_HAS_TAPE_SENSOR
             if (raw_adc <= low_threshold || raw_adc <= LS_REFLECTANCE_ADC_MAX_LIGHT)
             {
                 reading = LS_STATE_MAP_READING_ENABLE;
@@ -224,9 +227,13 @@ void _ls_state_map_build_set_map(int *enable_count, int *disable_count, int *mis
             {
                 reading = LS_STATE_MAP_READING_DISABLE;
             }
+#else
+                reading = LS_STATE_MAP_READING_ENABLE;
+#endif
             break;
         case LS_TAPEMODE_LIGHT:
         case LS_TAPEMODE_LIGHT_SAFE:
+#ifdef LS_HAS_TAPE_SENSOR
             if (raw_adc >= high_threshold || raw_adc >= LS_REFLECTANCE_ADC_MIN_DARK)
             {
                 reading = LS_STATE_MAP_READING_ENABLE;
@@ -235,6 +242,9 @@ void _ls_state_map_build_set_map(int *enable_count, int *disable_count, int *mis
             {
                 reading = LS_STATE_MAP_READING_DISABLE;
             }
+#else
+                reading = LS_STATE_MAP_READING_ENABLE;
+#endif
             break;
         default:
             // we are ignoring the map, so why are we building a map?
@@ -307,6 +317,7 @@ void _ls_state_map_build_read_and_set_map(int *enable_count, int *disable_count,
     {
     case LS_TAPEMODE_DARK:
     case LS_TAPEMODE_DARK_SAFE:
+#ifdef LS_HAS_TAPE_SENSOR
         if (raw_adc <= LS_REFLECTANCE_ADC_MAX_LIGHT)
         {
             reading = LS_STATE_MAP_READING_ENABLE;
@@ -315,9 +326,13 @@ void _ls_state_map_build_read_and_set_map(int *enable_count, int *disable_count,
         {
             reading = LS_STATE_MAP_READING_DISABLE;
         }
+#else
+                reading = LS_STATE_MAP_READING_ENABLE;
+#endif
         break;
     case LS_TAPEMODE_LIGHT:
     case LS_TAPEMODE_LIGHT_SAFE:
+#ifdef LS_HAS_TAPE_SENSOR
         if (raw_adc >= LS_REFLECTANCE_ADC_MIN_DARK)
         {
             reading = LS_STATE_MAP_READING_ENABLE;
@@ -326,14 +341,20 @@ void _ls_state_map_build_read_and_set_map(int *enable_count, int *disable_count,
         {
             reading = LS_STATE_MAP_READING_DISABLE;
         }
+#else
+            reading = LS_STATE_MAP_READING_ENABLE;
+#endif
         break;
     default:
         // we are ignoring the map, so why are we building a map?
         reading = LS_STATE_MAP_READING_ENABLE;
     }
+#ifdef LS_HAS_TAPE_SENSOR
     pitch = _map(_constrain(raw_adc, LS_REFLECTANCE_ADC_MAX_LIGHT, LS_REFLECTANCE_ADC_MIN_DARK),
                  LS_REFLECTANCE_ADC_MIN_DARK, LS_REFLECTANCE_ADC_MAX_LIGHT, LS_MAP_LOWPITCH, LS_MAP_HIGHPITCH);
-
+#else
+    pitch = 1000;
+#endif
     ls_leds_rgb(_map(pitch, LS_MAP_LOWPITCH, LS_MAP_HIGHPITCH, 0, 192), _map(pitch, LS_MAP_LOWPITCH, LS_MAP_HIGHPITCH, 0, 128), _map(pitch, LS_MAP_LOWPITCH, LS_MAP_HIGHPITCH, 255, 0));
     ls_buzzer_tone(pitch);
     switch (reading)
