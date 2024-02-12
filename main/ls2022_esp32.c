@@ -38,8 +38,10 @@
 #include "states.h"
 #include "controls.h"
 #include "tapemode.h"
-// #include "tape.h"
-// #include "map.h"
+#ifdef LS_TAPESENSOR
+#include "tape.h"
+#include "map.h"
+#endif
 #include "coverage.h"
 #include "lightsense.h"
 #include "servo.h"
