@@ -40,14 +40,14 @@
 22 => I2C SCL
 23 => Stepper Enable
 25 => Servo Enable
-26 => n.c. 
+26 => n.c. -- maybe use for Serial TX to TMC 2209 in dual laser?
 27 => Reflectance Enable / Servo 2 Pulse
 32 => Laser Power Enable
 33 => Servo Pulse (1)
-34 => Reflectance Sense
-35 => Tape Setting
-36 => Light Sense
-39 => n.c. -- is physically next to 34... maybe use for Serial TX to TMC 2209 in dual laser?
+34 => [IN] Reflectance Sense
+35 => [IN] Tape Setting
+36 => [IN] Light Sense
+39 => [IN] n.c. -- maybe use for Serial RX to TMC 2209 in dual laser?
 
 */
 
@@ -145,19 +145,19 @@
 #define LS_STEPPER_FULLSTEPS_PER_ROTATION 200
 #define LS_STEPPER_MICROSTEPS_PER_STEP 16
 #define LS_STEPPER_STEPS_PER_ROTATION (LS_STEPPER_FULLSTEPS_PER_ROTATION * LS_STEPPER_MICROSTEPS_PER_STEP)
-#define LS_STEPPER_MOVEMENT_STEPS_MIN 160
-#define LS_STEPPER_MOVEMENT_STEPS_MAX (LS_STEPPER_STEPS_PER_ROTATION / 2)
+#define LS_STEPPER_MOVEMENT_STEPS_MIN (LS_STEPPER_STEPS_PER_ROTATION * 3)
+#define LS_STEPPER_MOVEMENT_STEPS_MAX (LS_STEPPER_STEPS_PER_ROTATION * 20)
 #define LS_STEPPER_MOVEMENT_REVERSE_PER255 96
 // this value must be low enough that changes in direction are reasonably non-jerky
-#define LS_STEPPER_STEPS_PER_SECOND_MIN 240
+#define LS_STEPPER_STEPS_PER_SECOND_MIN 2400
 // motor/laser seems to have no trouble at 4800 which is probably too fast
 // is having trouble registering magnet reliably that fast, though.
-#define LS_STEPPER_STEPS_PER_SECOND_MAX 3600
+#define LS_STEPPER_STEPS_PER_SECOND_MAX 24000
 #define LS_STEPPER_STEPS_PER_SECOND_MAPPING 1800
 #define LS_STEPPER_STEPS_PER_SECOND_WARNING 7200
-#define LS_STEPPER_STEPS_PER_SECOND_DEFAULT 2400
+#define LS_STEPPER_STEPS_PER_SECOND_DEFAULT 2700
 // LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_SECOND will be added or subtracted to the steps per second when accelerating or decelerating
-#define LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_SECOND 8000
+#define LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_SECOND 4000
 #define LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_TICK (LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_SECOND / pdMS_TO_TICKS(1000))
 
 /*
