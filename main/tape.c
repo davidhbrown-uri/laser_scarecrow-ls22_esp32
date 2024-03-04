@@ -41,7 +41,6 @@ uint32_t ls_tape_sensor_read(void)
     }
     xSemaphoreTake(adc1_mux, portMAX_DELAY);
     adc1_config_width(ADC_WIDTH_BIT_12);
-    //had been using: ADC_ATTEN_DB_11 __attribute__((deprecated)) = ADC_ATTEN_DB_12,  ///<This is deprecated, it behaves the same as `ADC_ATTEN_DB_12`
     adc1_config_channel_atten(LSADC1_REFLECTANCESENSE, ADC_ATTEN_DB_12);
     uint32_t adc_reading = 0;
     for (int i = 0; i < 4; i++)
