@@ -48,13 +48,13 @@ ls_State ls_state_settings_upper(ls_event event)
     case LSEVT_STATE_ENTRY:
         ls_stepper_set_maximum_steps_per_second(ls_settings_get_stepper_speed());
         ls_laser_set_mode((ls_map_get_status() == LS_MAP_STATUS_OK) ? LS_LASER_MAPPED : LS_LASER_ON);
-        ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION * 10);
+        ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION * 100);
         ls_servo_sweep();
         ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_ENTER);
         ls_leds_cycle(LEDCYCLE_CONTROLS_UPPER);
         break;
     case LSEVT_STEPPER_FINISHED_MOVE:
-        ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION * 10);
+        ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION * 100);
         break;
     case LSEVT_SERVO_SWEEP_TOP:
         ls_buzzer_effect(LS_BUZZER_PLAY_OCTAVE);

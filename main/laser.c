@@ -35,6 +35,9 @@ void ls_laser_set_mode(enum ls_laser_mode_t requested_mode)
     case LS_LASER_MAPPED:
         gpio_set_level(LSGPIO_LASERPOWERENABLE, 0);
         break;
+    case LS_LASER_SCAN:
+        gpio_set_level(LSGPIO_LASERPOWERENABLE, 0);
+        break;
     }
     _ls_laser_mode = requested_mode;
 }
@@ -47,6 +50,15 @@ void ls_laser_set_mode(enum ls_laser_mode_t requested_mode)
 uint32_t IRAM_ATTR ls_laser_mode_is_mappped(void)
 {
     return (LS_LASER_MAPPED == _ls_laser_mode) ? 1 : 0;
+}
+/**
+ * @brief IRAM access function for stepper timer ISR callback
+ *
+ * @return uint32_t
+ */
+uint32_t IRAM_ATTR ls_laser_mode_is_scan(void)
+{
+    return (LS_LASER_SCAN == _ls_laser_mode) ? 1 : 0;
 }
 
 BaseType_t IRAM_ATTR _ls_laser_pulse_counter = 0;

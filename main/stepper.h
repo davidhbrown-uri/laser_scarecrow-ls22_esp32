@@ -20,8 +20,6 @@
 #include "config.h"
 #include "debug.h"
 
-#define STEPPER_TIMER_DIVIDER (40)
-
 typedef int32_t ls_stepper_position_t;
 
 
@@ -32,7 +30,8 @@ enum ls_stepper_action {
     LS_STEPPER_ACTION_REVERSE_STEPS, // 2
     LS_STEPPER_ACTION_SLEEP, // 3
     LS_STEPPER_ACTION_STOP, // 4
-    LS_STEPPER_ACTION_RANDOM // 5
+    LS_STEPPER_ACTION_RANDOM_HOP, // 5 -- the traditional behavior through 2024 model
+    LS_STEPPER_ACTION_RANDOM_SPIN, // 6 -- to achieve IIIA/3R-equivalent power
 }ls_stepper_action;
 
 typedef struct ls_stepper_action_message {
@@ -78,11 +77,11 @@ BaseType_t ls_stepper_get_steps_taken(void);
 ls_stepper_position_t ls_stepper_get_position(void);
 void ls_stepper_set_home_position(void);
 void ls_stepper_set_home_offset(int offset);
-
 void ls_stepper_stop(void);
-void ls_stepper_forward(uint16_t steps);
-void ls_stepper_reverse(uint16_t steps);
+void ls_stepper_forward(int32_t steps);
+void ls_stepper_reverse(int32_t steps);
 void ls_stepper_random(void);
+void ls_stepper_spin(void);
 void ls_stepper_sleep(void);
 
 void ls_stepper_set_random_reverse_per255(uint8_t value);

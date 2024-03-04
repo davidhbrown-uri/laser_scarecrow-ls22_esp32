@@ -52,6 +52,9 @@
 // The timers are 64-bit, so counting this number of steps should not be an issue
 // Rather than aiming for 1ms pulses, toggling at the total timer count for
 // a square(ish) wave would make sense.
+// To spin fast, we actually want rotations between 100rpm and 400rpm... and 0 to change direction safely.
+// There should be no difficulty using this same timer setting. 
+// The timer trigger count value for 400RPM is still well over 7k (clock/20) ticks
 
 volatile BaseType_t IRAM_ATTR ls_stepper_steps_remaining;
 volatile BaseType_t IRAM_ATTR ls_stepper_steps_taken;
@@ -63,9 +66,10 @@ static int _ls_stepper_steps_per_second_max = LS_STEPPER_STEPS_PER_SECOND_DEFAUL
 
 static int _ls_stepper_speed_when_skipping = LS_STEPPER_STEPS_PER_SECOND_MAX;
 static int _ls_stepper_speed_not_skipping = LS_STEPPER_STEPS_PER_SECOND_DEFAULT;
-static int _ls_stepper_speed_current_rate = LS_STEPPER_STEPS_PER_SECOND_MIN;
+static int IRAM_ATTR _ls_stepper_speed_current_rate = LS_STEPPER_STEPS_PER_SECOND_MIN;
+static int _ls_stepper_speed_target_rate = 0; // for random_spin mode
 
-static uint8_t _ls_stepper_random_reverse_per255 = LS_STEPPER_MOVEMENT_REVERSE_PER255;
+static uint8_t _ls_stepper_random_reverse_per255 = LS_STEPPER_RANDOM_HOP_REVERSE_PER255;
 
 // how many steps it will take to decelerate from full speed
 static int _ls_stepper_steps_to_decelerate(int current_rate)
@@ -98,7 +102,7 @@ void ls_stepper_set_maximum_steps_per_second(int steps_per_second)
     }
     _ls_stepper_steps_per_second_max = steps_per_second;
 #ifdef LSDEBUG_STEPPER
-    // might be called before print mutex is set up
+    // might be called before print mutex is set up, so no debug_printf
     if (changed)
     {
         printf("Stepper speed set to %d max steps/s (%d requested); %d steps to decelerate.\n",
@@ -110,6 +114,10 @@ void ls_stepper_set_maximum_steps_per_second(int steps_per_second)
 static bool IRAM_ATTR ls_stepper_step_isr_callback(void *args)
 {
     BaseType_t high_task_awoken = pdFALSE;
+    if (ls_laser_mode_is_scan()){
+        gpio_set_level(LSGPIO_LASERPOWERENABLE, _ls_stepper_speed_current_rate > 3000); /*@todo make a setting for minimum rotation speed*/
+    }
+
     if (ls_stepper_steps_remaining > 0) // only do a step if any remain
     {
         _ls_stepperstep_phase = 1 - _ls_stepperstep_phase;
@@ -143,6 +151,7 @@ static bool IRAM_ATTR ls_stepper_step_isr_callback(void *args)
             }
         }
     }
+
     /* See timer_group_example for how to use this: */
     //    xQueueSendFromISR(s_timer_queue, &evt, &high_task_awoken);
 
@@ -304,7 +313,7 @@ void ls_stepper_task(void *pvParameter)
                 current_action = LS_STEPPER_ACTION_IDLE;
             }
             break;
-        case LS_STEPPER_ACTION_RANDOM:
+        case LS_STEPPER_ACTION_RANDOM_HOP:
             gpio_set_level(LSGPIO_STEPPERENABLE, STEPPERENABLE_ENABLE);
             if (ls_stepper_steps_remaining <= 0)
             {
@@ -320,6 +329,11 @@ void ls_stepper_task(void *pvParameter)
             } // finished move
             _ls_stepper_set_speed();
             break;
+        case LS_STEPPER_ACTION_RANDOM_SPIN:
+            gpio_set_level(LSGPIO_STEPPERENABLE, STEPPERENABLE_ENABLE);
+
+        break;
+
         case LS_STEPPER_ACTION_SLEEP:
 #ifdef LSDEBUG_STEPPER
             ls_debug_printf("Stepper sleeping\n");
@@ -346,7 +360,7 @@ void ls_stepper_stop(void)
     xQueueSend(ls_stepper_queue, (void *)&message, 0);
 }
 
-void ls_stepper_forward(uint16_t steps)
+void ls_stepper_forward(int32_t steps)
 {
     _ls_stepper_enable_skipping = false;
     if (steps > 0)
@@ -362,7 +376,7 @@ void ls_stepper_forward(uint16_t steps)
     }
 }
 
-void ls_stepper_reverse(uint16_t steps)
+void ls_stepper_reverse(int32_t steps)
 {
     _ls_stepper_enable_skipping = false;
     if (steps > 0)
@@ -386,7 +400,15 @@ void ls_stepper_random(void)
         _ls_stepper_speed_not_skipping = _ls_stepper_steps_per_second_max;
     }
     ls_stepper_action_message message;
-    message.action = LS_STEPPER_ACTION_RANDOM;
+    message.action = LS_STEPPER_ACTION_RANDOM_HOP;
+    message.steps = 0;
+    xQueueSend(ls_stepper_queue, (void *)&message, 0);
+}
+
+void ls_stepper_spin(void)
+{
+    ls_stepper_action_message message;
+    message.action = LS_STEPPER_ACTION_RANDOM_SPIN;
     message.steps = 0;
     xQueueSend(ls_stepper_queue, (void *)&message, 0);
 }
@@ -442,9 +464,9 @@ void ls_stepper_debug_task(void *pvParameter)
 {
     while (1)
     {
-        ls_debug_printf("STEPPER DEBUG: position=%d; remaining=%d; taken=%d; direction=%d, step_phase=%d\n",
-                        ls_stepper_position, ls_stepper_steps_remaining, ls_stepper_steps_taken,
-                        ls_stepper_direction, _ls_stepperstep_phase);
+        ls_debug_printf("STEPPER DEBUG: position=%d; rate=%d; remaining=%d; taken=%d; direction=%d, step_phase=%d\n",
+                        ls_stepper_position, _ls_stepper_speed_current_rate, ls_stepper_steps_remaining,
+                        ls_stepper_steps_taken, ls_stepper_direction, _ls_stepperstep_phase);
         vTaskDelay(pdMS_TO_TICKS(5000));
     }
 }
@@ -455,7 +477,7 @@ void ls_stepper_random_strategy_default(struct ls_stepper_move_t *move)
 {
     uint32_t random = esp_random();
     move->direction = ((uint8_t)random & 0xFF) > _ls_stepper_random_reverse_per255 ? false : true;
-    move->steps = LS_STEPPER_MOVEMENT_STEPS_MIN + ((random >> 16) * (ls_settings_get_stepper_random_max() - LS_STEPPER_MOVEMENT_STEPS_MIN) / 65536);
+    move->steps = LS_STEPPER_RANDOM_HOP_STEPS_MIN + ((random >> 16) * (ls_settings_get_stepper_random_max() - LS_STEPPER_RANDOM_HOP_STEPS_MIN) / 65536);
 #ifdef LSDEBUG_STEPPER_RANDOM
     ls_debug_printf("Default strategy: At end of random move; moving randomly %s%d\n", 
     move->direction?"+":"-", move->steps);

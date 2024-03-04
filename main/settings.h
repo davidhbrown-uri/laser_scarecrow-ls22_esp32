@@ -70,3 +70,6 @@ BaseType_t ls_settings_get_tilt_threshold_mg_ok(void);
 
 void ls_settings_set_sleep_light_enable(bool);
 bool ls_settings_is_sleep_light_enabled(void);
+
+void ls_settings_set_minimum_rpm(BaseType_t rpm);
+BaseType_t ls_settings_get_minimum_rpm(void);

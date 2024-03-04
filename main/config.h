@@ -19,9 +19,22 @@
 #include "debug.h"
 #include "driver/gpio.h"
 
-// at least for now, the tape sensor and second laser/servo cannot coexist
+// Configure flags for attached hardware and general behavior
 #define LS_HAS_DUAL_LASER
 #undef LS_HAS_TAPE_SENSOR
+#define LS_HAS_SERVO2
+
+
+// Configure flag sanity checks
+#ifdef LS_HAS_DUAL_LASER
+#ifdef LS_HAS_TAPE_SENSOR
+assert(0); // at least for now, the tape sensor and second laser/servo cannot coexist
+#endif
+#endif
+#ifdef LS_HAS_DUAL_LASER
+#define LS_HAS_SERVO2
+#endif
+
 
 
 /* ESP32 Devkit C GPIO
@@ -44,8 +57,8 @@
 27 => Reflectance Enable / Servo 2 Pulse
 32 => Laser Power Enable
 33 => Servo Pulse (1)
-34 => [IN] Reflectance Sense
-35 => [IN] Tape Setting
+34 => [IN] Reflectance Sense / Light Sense 2
+35 => [IN] Tape Mode Setting (jumpers)
 36 => [IN] Light Sense
 39 => [IN] n.c. -- maybe use for Serial RX to TMC 2209 in dual laser?
 
@@ -145,9 +158,9 @@
 #define LS_STEPPER_FULLSTEPS_PER_ROTATION 200
 #define LS_STEPPER_MICROSTEPS_PER_STEP 16
 #define LS_STEPPER_STEPS_PER_ROTATION (LS_STEPPER_FULLSTEPS_PER_ROTATION * LS_STEPPER_MICROSTEPS_PER_STEP)
-#define LS_STEPPER_MOVEMENT_STEPS_MIN (LS_STEPPER_STEPS_PER_ROTATION * 3)
-#define LS_STEPPER_MOVEMENT_STEPS_MAX (LS_STEPPER_STEPS_PER_ROTATION * 20)
-#define LS_STEPPER_MOVEMENT_REVERSE_PER255 96
+#define LS_STEPPER_RANDOM_HOP_STEPS_MIN (LS_STEPPER_STEPS_PER_ROTATION * 3)
+#define LS_STEPPER_RANDOM_HOP_STEPS_MAX (LS_STEPPER_STEPS_PER_ROTATION * 20)
+#define LS_STEPPER_RANDOM_HOP_REVERSE_PER255 96
 // this value must be low enough that changes in direction are reasonably non-jerky
 #define LS_STEPPER_STEPS_PER_SECOND_MIN 2400
 // motor/laser seems to have no trouble at 4800 which is probably too fast
@@ -160,6 +173,7 @@
 #define LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_SECOND 4000
 #define LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_TICK (LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_SECOND / pdMS_TO_TICKS(1000))
 
+#define LS_SETTINGS_MINIMUM_RPM_DEFAULT 100
 /*
 2023 dual switch setup with upper 22k, lower 10k resistors to 3V3 and 10k to ground
 Testing on 2023-04-05 using final boards, 15ft Cat5 and 2x RJ45 cable glands
