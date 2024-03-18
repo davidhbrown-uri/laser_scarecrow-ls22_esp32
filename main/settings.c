@@ -424,7 +424,7 @@ bool ls_settings_is_sleep_light_enabled(void) {
 
 BaseType_t ls_settings_map_control_to_servo_limit(BaseType_t adc) {
   switch (
-      _map(adc, LS_CONTROLS_READING_BOTTOM, LS_CONTROLS_READING_TOP, 0, 4)) {
+      _map(adc, LS_CONTROLS_READING_TOP, LS_CONTROLS_READING_BOTTOM, 0, 4)) {
   case 0:
     return LS_SERVO_US_20DEG;
   case 2:
