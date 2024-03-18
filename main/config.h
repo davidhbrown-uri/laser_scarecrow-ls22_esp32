@@ -1,6 +1,6 @@
 /*
     Control software for URI Laser Scarecrow, 2022 Model
-    Copyright (C) 2022-2023 David H. Brown
+    Copyright (C) 2022-2024 David H. Brown
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -76,7 +76,8 @@ gpio_num_t lsgpio_servopulse(void);
 // PWM output (LEDC)
 #define LSGPIO_SERVOPULSE 33
 #define LSGPIO_BUZZERENABLE 2
-// I2C (using controller 0; pins selected to match Arduino usage; maybe they have a reason?)
+// I2C (using controller 0; pins selected to match Arduino usage; maybe they
+// have a reason?)
 #define LSI2C_PORT I2C_NUM_0
 #define LSI2C_SDA 21
 #define LSI2C_SCL 22
@@ -85,10 +86,9 @@ gpio_num_t lsgpio_servopulse(void);
 #define LSI2C_MUX_TICKS 50
 
 // https://github.com/JSchaenzle/ESP32-NeoPixel-WS2812-RMT/blob/master/Kconfig
-// --- use menuconfig to set, but be sure the Kconfig file correctly labels the parameters!
-// #define CONFIG_WS2812_NUM_LEDS 3
-// #define CONFIG_WS2812_LED_RMT_TX_GPIO 5
-// #define CONFIG_WS2812_LED_RMT_TX_CHANNEL 0
+// --- use menuconfig to set, but be sure the Kconfig file correctly labels the
+// parameters! #define CONFIG_WS2812_NUM_LEDS 3 #define
+// CONFIG_WS2812_LED_RMT_TX_GPIO 5 #define CONFIG_WS2812_LED_RMT_TX_CHANNEL 0
 // // XL-5050RGBC-WS2812B
 // // T0H 0.25μs => 10; T0LK 1μs => 40; T1H 0.85μs => 34; T1L 0.4μs => 16
 // #define CONFIG_WS2812_T0H 10
@@ -100,12 +100,17 @@ gpio_num_t lsgpio_servopulse(void);
 // 1000 = 0 degrees; 2000 = 90 degrees; 944 = -5 degrees
 #define LS_SERVO_US_MIN 944
 #define LS_SERVO_US_MAX 2000
-#define LS_SERVO_US_MID 1500
-#define LS_SERVER_US_ASSEMBLY_REFERENCE 1000
-// selftest holds the servo at LS_SERVER_US_ASSEMBLY_REFERENCE this long to allow adjustment
+// unused: #define LS_SERVO_US_MID 1500
+#define LS_SERVO_US_ASSEMBLY_REFERENCE 1000
+#define LS_SERVO_US_90DEG 2000
+#define LS_SERVO_US_45DEG 1500
+#define LS_SERVO_US_20DEG 1222
+#define LS_SERVO_DEFAULT_LIMIT LS_SERVO_US_45DEG
+// selftest holds the servo at LS_SERVER_US_ASSEMBLY_REFERENCE this long to
+// allow adjustment
 #define LS_SERVO_SELFTEST_HOLD_MS 5000
 #define LS_SERVO_DELTA_PER_TICK_DEFAULT 2
-#define LS_SERVO_DELTA_PER_TICK_MAX 100
+#define LS_SERVO_DELTA_PER_TICK_MAX 15
 #define LS_SERVO_DELTA_PER_TICK_MIN 1
 #define LS_SERVO_RANDOM_PAUSE_MS 300
 #define LS_SERVO_SWEEP_PAUSE_MS 4000
@@ -118,11 +123,13 @@ gpio_num_t lsgpio_servopulse(void);
 /// stepper motor is a standard 200-step-per-rotation motor
 #define LS_STEPPER_FULLSTEPS_PER_ROTATION 200
 #define LS_STEPPER_MICROSTEPS_PER_STEP 16
-#define LS_STEPPER_STEPS_PER_ROTATION (LS_STEPPER_FULLSTEPS_PER_ROTATION * LS_STEPPER_MICROSTEPS_PER_STEP)
+#define LS_STEPPER_STEPS_PER_ROTATION                                          \
+  (LS_STEPPER_FULLSTEPS_PER_ROTATION * LS_STEPPER_MICROSTEPS_PER_STEP)
 #define LS_STEPPER_MOVEMENT_STEPS_MIN 160
 #define LS_STEPPER_MOVEMENT_STEPS_MAX (LS_STEPPER_STEPS_PER_ROTATION / 2)
 #define LS_STEPPER_MOVEMENT_REVERSE_PER255 96
-// this value must be low enough that changes in direction are reasonably non-jerky
+// this value must be low enough that changes in direction are reasonably
+// non-jerky
 #define LS_STEPPER_STEPS_PER_SECOND_MIN 240
 // motor/laser seems to have no trouble at 4800 which is probably too fast
 // is having trouble registering magnet reliably that fast, though.
@@ -130,24 +137,27 @@ gpio_num_t lsgpio_servopulse(void);
 #define LS_STEPPER_STEPS_PER_SECOND_MAPPING 1800
 #define LS_STEPPER_STEPS_PER_SECOND_WARNING 7200
 #define LS_STEPPER_STEPS_PER_SECOND_DEFAULT 2400
-// LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_SECOND will be added or subtracted to the steps per second when accelerating or decelerating
+// LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_SECOND will be added or subtracted to the
+// steps per second when accelerating or decelerating
 #define LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_SECOND 8000
-#define LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_TICK (LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_SECOND / pdMS_TO_TICKS(1000))
+#define LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_TICK                               \
+  (LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_SECOND / pdMS_TO_TICKS(1000))
 
 /*
-2023 dual switch setup with upper 22k, lower 10k resistors to 3V3 and 10k to ground
-Testing on 2023-04-05 using final boards, 15ft Cat5 and 2x RJ45 cable glands
-Observed min/max over about 15-20 seconds (11dB attenuator)
-Off: 160-172mV  (USB: 220-228mV)
-Upper (22k): 993-1017mV (USB: 773-777mV)
-Lower (10k): 1554-1562mV (USB: 1123-1124mV)
-Both: (~6.9k): 1835-1843mV   (USB: 1279-1281mV)
+2023 dual switch setup with upper 22k, lower 10k resistors to 3V3 and 10k to
+ground Testing on 2023-04-05 using final boards, 15ft Cat5 and 2x RJ45 cable
+glands Observed min/max over about 15-20 seconds (11dB attenuator) Off:
+160-172mV  (USB: 220-228mV) Upper (22k): 993-1017mV (USB: 773-777mV) Lower
+(10k): 1554-1562mV (USB: 1123-1124mV) Both: (~6.9k): 1835-1843mV   (USB:
+1279-1281mV)
 */
 // values read by ADC from external controls
-/* The calibrated mV ADC value read from the switches input should be compared to these thresholds to determine the controls status:
-0 < ADC < LS_CONTROLS_SWITCH_THRESHOLD_UPPER => LS_CONTROLS_STATUS_OFF;
-LS_CONTROLS_SWITCH_THRESHOLD_UPPER < ADC < LS_CONTROLS_SWITCH_THRESHOLD_LOWER => LS_CONTROLS_STATUS_UPPER;
-LS_CONTROLS_SWITCH_THRESHOLD_LOWER < ADC < LS_CONTROLS_SWITCH_THRESHOLD_BOTH => LS_CONTROLS_STATUS_UPPER;
+/* The calibrated mV ADC value read from the switches input should be compared
+to these thresholds to determine the controls status: 0 < ADC <
+LS_CONTROLS_SWITCH_THRESHOLD_UPPER => LS_CONTROLS_STATUS_OFF;
+LS_CONTROLS_SWITCH_THRESHOLD_UPPER < ADC < LS_CONTROLS_SWITCH_THRESHOLD_LOWER =>
+LS_CONTROLS_STATUS_UPPER; LS_CONTROLS_SWITCH_THRESHOLD_LOWER < ADC <
+LS_CONTROLS_SWITCH_THRESHOLD_BOTH => LS_CONTROLS_STATUS_UPPER;
 LS_CONTROLS_SWITCH_THRESHOLD_BOTH < ADC < 4096 => LS_CONTROLS_STATUS_BOTH;
 */
 #define LS_CONTROLS_SWITCH_THRESHOLD_UPPER 500
@@ -163,16 +173,17 @@ LS_CONTROLS_SWITCH_THRESHOLD_BOTH < ADC < 4096 => LS_CONTROLS_STATUS_BOTH;
 #define LS_CONTROLS_READING_TOP 3000
 // any ADC mV reading <= LS_CONTROLS_READING_BOTTOM is considered min
 #define LS_CONTROLS_READING_BOTTOM 200
-// any ADC mV reading must change by this much from its previous value to be registered.
+// any ADC mV reading must change by this much from its previous value to be
+// registered.
 #define LS_CONTROLS_READING_MOVE_THRESHOLD 40
 #define LS_CONTROLS_READINGS_TO_AVERAGE 5
 // when controls are connected, readings are sent every tick, so 50 reads=~5sec
 #define LS_CONTROLS_FASTREADS_AFTER_MOVE 50
 
-
-// raw values read by ADC for 2023 units, 100% sampling of tape reflectance sensor, Nov '22
-// do not expect to use with black buckets, so just two values needed
-// (more reflectance means more voltage to ground instead of ADC pin, so light is low and dark is high)
+// raw values read by ADC for 2023 units, 100% sampling of tape reflectance
+// sensor, Nov '22 do not expect to use with black buckets, so just two values
+// needed (more reflectance means more voltage to ground instead of ADC pin, so
+// light is low and dark is high)
 #define LS_REFLECTANCE_ADC_MAX_LIGHT 1300
 #define LS_REFLECTANCE_ADC_MIN_DARK 2000
 
@@ -197,9 +208,10 @@ LS_CONTROLS_SWITCH_THRESHOLD_BOTH < ADC < 4096 => LS_CONTROLS_STATUS_BOTH;
 #define LS_HOME_INITIAL_STEPPER_STEPS_PER_SECOND 2400
 #define LS_HOME_BACKUP_ADDITIONAL_STEPS (LS_STEPPER_STEPS_PER_ROTATION / 10)
 #define LS_HOME_FORWARD_STEPS (LS_STEPPER_STEPS_PER_ROTATION / 4)
-#define LS_HOME_OFFSET_THRESHOLD_TO_REHOME (LS_STEPPER_STEPS_PER_ROTATION/20)
+#define LS_HOME_OFFSET_THRESHOLD_TO_REHOME (LS_STEPPER_STEPS_PER_ROTATION / 20)
 
-// how often should we check rehome if using the map? 15000=15s debug/test, 1800000=30min production
+// how often should we check rehome if using the map? 15000=15s debug/test,
+// 1800000=30min production
 #ifdef LSDEBUG_HOMING
 #define LS_STATE_REHOME_TIMER_PERIOD_MS 15000
 #else
@@ -208,8 +220,10 @@ LS_CONTROLS_SWITCH_THRESHOLD_BOTH < ADC < 4096 => LS_CONTROLS_STATUS_BOTH;
 
 // Thresholds based on sample data recorded in lightsense.h
 // must be comma-separated list
-#define LS_LIGHTSENSE_THRESHOLDS_ON_MV 80, 100, 130, 190, 265, 430, 600, 1070, 1850
-#define LS_LIGHTSENSE_THRESHOLDS_OFF_MV 75, 95, 120, 180, 255, 395, 540, 980, 1690
+#define LS_LIGHTSENSE_THRESHOLDS_ON_MV                                         \
+  80, 100, 130, 190, 265, 430, 600, 1070, 1850
+#define LS_LIGHTSENSE_THRESHOLDS_OFF_MV                                        \
+  75, 95, 120, 180, 255, 395, 540, 980, 1690
 #define LS_LIGHTSENSE_THRESHOLDS_COUNT 9
 #define LS_LIGHTSENSE_THRESHOLD_DEFAULT 4
 #define LS_LIGHTSENSE_READING_INTERVAL_MS 4000
@@ -227,11 +241,13 @@ LS_CONTROLS_SWITCH_THRESHOLD_BOTH < ADC < 4096 => LS_CONTROLS_STATUS_BOTH;
 
 // 18 steps in each cycle; 200ms/step; 1800 should allow three cycles
 #define LS_FAILURE_LEDS_OFF_AFTER 11000
-// after waiting for the LEDs also wait this long to play the tune and lights again
+// after waiting for the LEDs also wait this long to play the tune and lights
+// again
 #define LS_FAILURE_REPEAT_INTERVAL 24000
 
-// The LS_EVENT_NOOP_TIMEOUT_MS also controls the "snoring" rate of the sleep mode
-// If no event is queued within this time, a LSEVT_NOOP will be sent to the current state
+// The LS_EVENT_NOOP_TIMEOUT_MS also controls the "snoring" rate of the sleep
+// mode If no event is queued within this time, a LSEVT_NOOP will be sent to the
+// current state
 #define LS_EVENT_NOOP_TIMEOUT_MS 110000
 
 #define LS_SETTINGS_SLEEP_LIGHT_ENABLE_DEFAULT false

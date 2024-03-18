@@ -1,6 +1,6 @@
 /*
     Control software for URI Laser Scarecrow, 2022 Model
-    Copyright (C) 2022-2023 David H. Brown
+    Copyright (C) 2022-2024 David H. Brown
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -20,12 +20,12 @@
 
 /**
  * @brief Load firmware defaults at power-up; will be overridden saved settings
- * 
+ *
  */
 void ls_settings_set_defaults(void);
 /**
  * @brief Overwrite any saved settings with firmware defaults
- * 
+ *
  */
 void ls_settings_reset_defaults(void);
 void ls_settings_read(void);
@@ -68,5 +68,9 @@ BaseType_t ls_settings_get_tilt_threshold_mg_detected(void);
 void ls_settings_set_tilt_threshold_mg_ok(BaseType_t milli_gs);
 BaseType_t ls_settings_get_tilt_threshold_mg_ok(void);
 
-void ls_settings_set_sleep_light_enable(bool);
-bool ls_settings_is_sleep_light_enabled(void);
+void ls_settings_set_sleep_light_enable(bool); // no control available in 2024
+bool ls_settings_is_sleep_light_enabled(void); // no control available in 2024
+
+BaseType_t ls_settings_map_control_to_servo_limit(BaseType_t);
+void ls_settings_set_servo_limit(BaseType_t);
+BaseType_t ls_settings_get_servo_limit(void);
