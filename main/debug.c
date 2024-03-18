@@ -1,6 +1,6 @@
 /*
     Control software for URI Laser Scarecrow, 2022 Model
-    Copyright (C) 2022-2023 David H. Brown
+    Copyright (C) 2022-2024 David H. Brown
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -16,14 +16,13 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
+#include "debug.h"
+#include "config.h"
 #include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
 #include "freertos/queue.h"
 #include "freertos/semphr.h"
-#include "debug.h"
+#include "freertos/task.h"
 #include "stepper.h"
-#include "config.h"
-
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
