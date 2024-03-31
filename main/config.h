@@ -96,16 +96,23 @@ gpio_num_t lsgpio_servopulse(void);
 // #define CONFIG_WS2812_T1H 34
 // #define CONFIG_WS2812_T1L 16
 
-// default parameters for the servo
-// 1000 = 0 degrees; 2000 = 90 degrees; 944 = -5 degrees
-#define LS_SERVO_US_MIN 944
-#define LS_SERVO_US_MAX 2000
-// unused: #define LS_SERVO_US_MID 1500
-#define LS_SERVO_US_ASSEMBLY_REFERENCE 1000
-#define LS_SERVO_US_90DEG 2000
-#define LS_SERVO_US_45DEG 1500
+// physical limits for the servo:
+#define LS_SERVO_US_MIN 750
+#define LS_SERVO_US_MAX 2250
+// positions available to use in state-settings:
+#define LS_SERVO_US_NEG10DEG 888
+#define LS_SERVO_US_NEG5DEG 944
+#define LS_SERVO_US_0DEG 1000
 #define LS_SERVO_US_20DEG 1222
-#define LS_SERVO_DEFAULT_LIMIT LS_SERVO_US_45DEG
+#define LS_SERVO_US_30DEG 1333
+#define LS_SERVO_US_45DEG 1500
+#define LS_SERVO_US_60DEG 1666
+#define LS_SERVO_US_90DEG 2000
+// defaults
+#define LS_SERVO_US_MAX_LIMIT LS_SERVO_US_60DEG
+#define LS_SERVO_US_MIN_LIMIT LS_SERVO_US_NEG10DEG
+// initial position during self-test
+#define LS_SERVO_US_ASSEMBLY_REFERENCE LS_SERVO_US_0DEG
 // selftest holds the servo at LS_SERVER_US_ASSEMBLY_REFERENCE this long to
 // allow adjustment
 #define LS_SERVO_SELFTEST_HOLD_MS 5000

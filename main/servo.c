@@ -38,7 +38,7 @@ uint16_t ls_servo_get_top_pulse_ms(void) {
 
 uint16_t ls_servo_get_bottom_pulse_ms(void) {
   return (uint16_t)ls_settings_get_servo_top() +
-         (((uint16_t)ls_settings_get_servo_limit() -
+         (((uint16_t)ls_settings_get_servo_maxlimit() -
            (uint16_t)ls_settings_get_servo_top()) *
           (uint16_t)ls_settings_get_servo_bottom() / 100);
 }

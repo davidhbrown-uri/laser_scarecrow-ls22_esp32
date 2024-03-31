@@ -71,6 +71,10 @@ BaseType_t ls_settings_get_tilt_threshold_mg_ok(void);
 void ls_settings_set_sleep_light_enable(bool); // no control available in 2024
 bool ls_settings_is_sleep_light_enabled(void); // no control available in 2024
 
-BaseType_t ls_settings_map_control_to_servo_limit(BaseType_t);
-void ls_settings_set_servo_limit(BaseType_t);
-BaseType_t ls_settings_get_servo_limit(void);
+BaseType_t ls_settings_map_control_to_servo_maxlimit(BaseType_t);
+void ls_settings_set_servo_maxlimit(BaseType_t);
+BaseType_t ls_settings_get_servo_maxlimit(void);
+
+BaseType_t ls_settings_map_control_to_servo_minlimit(BaseType_t);
+void ls_settings_set_servo_minlimit(BaseType_t);
+BaseType_t ls_settings_get_servo_minlimit(void);

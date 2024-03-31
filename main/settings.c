@@ -31,7 +31,7 @@ static BaseType_t _ls_settings_servo_pulse_delta,
 static BaseType_t _ls_settings_tilt_threshold_detected,
     _ls_settings_tilt_threshold_ok;
 static bool _ls_settings_sleep_light_enable;
-static BaseType_t _ls_settings_servo_limit;
+static BaseType_t _ls_settings_servo_maxlimit, _ls_settings_servo_minlimit;
 
 static nvs_handle_t _ls_settings_nvs_handle;
 // caution: NVS keys and namespaces are restricted to 15 characters
@@ -43,13 +43,15 @@ static nvs_handle_t _ls_settings_nvs_handle;
 #define LS_SETTINGS_NVS_KEY_LIGHTSENSE_ON "light_on"
 #define LS_SETTINGS_NVS_KEY_LIGHTSENSE_OFF "light_off"
 #define LS_SETTINGS_NVS_KEY_SLEEP_LIGHT_ENABLE "sleep_light"
-#define LS_SETTINGS_NVS_KEY_SERVO_LIMIT "servo_limit"
+#define LS_SETTINGS_NVS_KEY_SERVO_MAXLIMIT "servo_maxlimit"
+#define LS_SETTINGS_NVS_KEY_SERVO_MINLIMIT "servo_minlimit"
 
 void ls_settings_set_defaults(void) {
   ls_settings_set_stepper_speed(LS_STEPPER_STEPS_PER_SECOND_DEFAULT);
   ls_settings_set_servo_top(LS_SERVO_US_MIN); // all the way at the top
   ls_settings_set_servo_bottom(100);          // all the way to the bottom
-  ls_settings_set_servo_limit(LS_SERVO_DEFAULT_LIMIT);
+  ls_settings_set_servo_maxlimit(LS_SERVO_US_MAX_LIMIT);
+  ls_settings_set_servo_minlimit(LS_SERVO_US_MIN_LIMIT);
 
   ls_settings_set_stepper_random_max(LS_STEPPER_MOVEMENT_STEPS_MAX);
   ls_settings_set_light_threshold_on((int)((int[]){
@@ -163,16 +165,23 @@ void ls_settings_read(void) {
     ls_settings_set_sleep_light_enable((bool)nvs_value);
   }
   if (ESP_OK ==
-      _ls_settings_read_from_nvs(LS_SETTINGS_NVS_KEY_SERVO_LIMIT, &nvs_value)) {
-    ls_settings_set_servo_limit(nvs_value);
+      _ls_settings_read_from_nvs(LS_SETTINGS_NVS_KEY_SERVO_MAXLIMIT, &nvs_value)) {
+    ls_settings_set_servo_maxlimit(nvs_value);
+  }
+  if (ESP_OK ==
+      _ls_settings_read_from_nvs(LS_SETTINGS_NVS_KEY_SERVO_MINLIMIT, &nvs_value)) {
+    ls_settings_set_servo_minlimit(nvs_value);
   }
   _ls_settings_close_nvs();
 }
 
 // ensure that settings are self-consistent
 void _ls_settings_validate(void) {
-  if (ls_settings_get_servo_top() > ls_settings_get_servo_limit()) {
-    ls_settings_set_servo_top(ls_settings_get_servo_limit());
+  if (ls_settings_get_servo_top() < ls_settings_get_servo_minlimit()) {
+    ls_settings_set_servo_top(ls_settings_get_servo_minlimit());
+  }
+  if (ls_settings_get_servo_top() > ls_settings_get_servo_maxlimit()) {
+    ls_settings_set_servo_top(ls_settings_get_servo_maxlimit());
   }
 }
 
@@ -281,19 +290,33 @@ void ls_settings_save(void) {
 #endif
   }
   if (ESP_OK == nvs_set_i32(_ls_settings_nvs_handle,
-                            LS_SETTINGS_NVS_KEY_SERVO_LIMIT,
-                            ls_settings_get_servo_limit())) {
+                            LS_SETTINGS_NVS_KEY_SERVO_MAXLIMIT,
+                            ls_settings_get_servo_maxlimit())) {
     ;
 #ifdef LSDEBUG_SETTINGS
-    ls_debug_printf("Settings saved servo_limit=%d\n",
-                    ls_settings_get_servo_limit());
+    ls_debug_printf("Settings saved servo_maxlimit=%d\n",
+                    ls_settings_get_servo_maxlimit());
 #endif
   } else {
     ;
 #ifdef LSDEBUG_SETTINGS
-    ls_debug_printf("Settings could not save servo limit\n");
+    ls_debug_printf("Settings could not save servo maxlimit\n");
 #endif
   }
+  if (ESP_OK == nvs_set_i32(_ls_settings_nvs_handle,
+                            LS_SETTINGS_NVS_KEY_SERVO_MINLIMIT,
+                            ls_settings_get_servo_minlimit())) {
+    ;
+#ifdef LSDEBUG_SETTINGS
+    ls_debug_printf("Settings saved servo_minlimit=%d\n",
+                    ls_settings_get_servo_minlimit());
+#endif
+  } else {
+    ;
+#ifdef LSDEBUG_SETTINGS
+    ls_debug_printf("Settings could not save servo minlimit\n");
+#endif
+  }  
   _ls_settings_close_nvs();
 }
 
@@ -320,11 +343,11 @@ BaseType_t ls_settings_map_control_to_servo_top(BaseType_t adc) {
   return _map(
       _constrain(adc, LS_CONTROLS_READING_BOTTOM, LS_CONTROLS_READING_TOP),
       LS_CONTROLS_READING_TOP, LS_CONTROLS_READING_BOTTOM, // yes, inverted!
-      LS_SERVO_US_MIN, ls_settings_get_servo_limit());
+      ls_settings_get_servo_minlimit(), ls_settings_get_servo_maxlimit());
 }
 void ls_settings_set_servo_top(BaseType_t microseconds) {
   _ls_settings_servo_top =
-      _constrain(microseconds, LS_SERVO_US_MIN, ls_settings_get_servo_limit());
+      _constrain(microseconds, ls_settings_get_servo_minlimit(), ls_settings_get_servo_maxlimit());
 //    _ls_settings_servo_bottom = _constrain(_ls_settings_servo_bottom,
 //    _ls_settings_servo_top, LS_SERVO_US_MAX);
 #ifdef LSDEBUG_SETTINGS
@@ -422,22 +445,42 @@ bool ls_settings_is_sleep_light_enabled(void) {
   return _ls_settings_sleep_light_enable;
 }
 
-BaseType_t ls_settings_map_control_to_servo_limit(BaseType_t adc) {
+BaseType_t ls_settings_map_control_to_servo_maxlimit(BaseType_t adc) {
   switch (
       _map(adc, LS_CONTROLS_READING_TOP, LS_CONTROLS_READING_BOTTOM, 0, 4)) {
   case 0:
-    return LS_SERVO_US_20DEG;
+    return LS_SERVO_US_30DEG;
   case 2:
-    return LS_SERVO_US_45DEG;
+    return LS_SERVO_US_60DEG;
   case 4:
-    return LS_SERVO_US_90DEG;
+    return LS_SERVO_US_MAX;
   default: // no change
-    return ls_settings_get_servo_limit();
+    return ls_settings_get_servo_maxlimit();
   }
 }
-void ls_settings_set_servo_limit(BaseType_t microseconds) {
-  _ls_settings_servo_limit = microseconds;
+BaseType_t ls_settings_map_control_to_servo_minlimit(BaseType_t adc) {
+  switch (
+      _map(adc, LS_CONTROLS_READING_TOP, LS_CONTROLS_READING_BOTTOM, 0, 4)) {
+  case 0:
+    return LS_SERVO_US_NEG10DEG;
+  case 2:
+    return LS_SERVO_US_NEG5DEG;
+  case 4:
+    return LS_SERVO_US_MIN;
+  default: // no change
+    return ls_settings_get_servo_minlimit();
+  }
 }
-BaseType_t ls_settings_get_servo_limit(void) {
-  return _ls_settings_servo_limit;
+void ls_settings_set_servo_maxlimit(BaseType_t microseconds) {
+  _ls_settings_servo_maxlimit = microseconds;
+}
+BaseType_t ls_settings_get_servo_maxlimit(void) {
+  return _ls_settings_servo_maxlimit;
+}
+
+void ls_settings_set_servo_minlimit(BaseType_t microseconds) {
+  _ls_settings_servo_minlimit = microseconds;
+}
+BaseType_t ls_settings_get_servo_minlimit(void) {
+  return _ls_settings_servo_minlimit;
 }

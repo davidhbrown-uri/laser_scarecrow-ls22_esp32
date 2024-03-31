@@ -251,7 +251,7 @@ ls_State ls_state_settings_both(ls_event event) {
     ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_ENTER);
     ls_leds_cycle(LEDCYCLE_CONTROLS_BOTH);
     vTaskDelay(pdMS_TO_TICKS(3000));
-    ls_servo_moveto(ls_settings_get_servo_limit());
+    ls_servo_moveto(ls_settings_get_servo_maxlimit());
     if (_ls_state_settings_both_current_light_threshold_index(&index)) {
       _ls_state_settings_both_status_leds(index);
       for (int i = 0; i < LS_STATE_SETTINGS_LIGHTSENSE_TRILL_LIMIT; i++) {
@@ -297,9 +297,11 @@ ls_State ls_state_settings_both(ls_event event) {
     break;
   case LSEVT_CONTROLS_SLIDER2:; // sleep light enable
     control_value = *((BaseType_t *)event.value);
-    ls_settings_set_servo_limit(
-        ls_settings_map_control_to_servo_limit(control_value));
-    ls_servo_moveto(ls_settings_get_servo_limit());
+    ls_settings_set_servo_minlimit(
+        ls_settings_map_control_to_servo_minlimit(control_value));
+    ls_settings_set_servo_maxlimit(
+        ls_settings_map_control_to_servo_maxlimit(control_value));
+    ls_servo_moveto(ls_settings_get_servo_maxlimit());
     break;
   case LSEVT_CONTROLS_OFF:
     successor.func = ls_state_wakeup; // because we turned laser off, must do
