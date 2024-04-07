@@ -72,6 +72,8 @@ ls_State ls_state_settings_upper(ls_event event) {
     control_value = *((BaseType_t *)event.value);
     ls_settings_set_servo_pulse_delta(
         ls_settings_map_control_to_servo_pulse_delta(control_value));
+    ls_settings_set_servo_random_pause_ms(
+      ls_settings_map_control_to_servo_random_pause_ms(control_value));
 #ifdef LSDEBUG_SETTINGS
     ls_debug_printf(
         "Setting servo pulse delta to %d microseconds per tick.\n",

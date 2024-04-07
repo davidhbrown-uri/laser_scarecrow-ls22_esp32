@@ -52,9 +52,10 @@ static void _ls_servo_jump_to_pw(uint32_t pulse_width) {
 // Turns on the servo
 static void _ls_servo_on() {
   if (!_ls_servo_is_on) {
-    _ls_servo_is_on = true;
-    gpio_set_level(LSGPIO_SERVOPOWERENABLE, 1);
     mcpwm_start(LS_SERVO_MCPWM_UNIT, LS_SERVO_MCPWM_TIMER);
+    // vTaskDelay(1); // not needed
+    gpio_set_level(LSGPIO_SERVOPOWERENABLE, 1);
+    _ls_servo_is_on = true;
   }
 }
 
@@ -244,7 +245,9 @@ void ls_servo_task(void *pvParameter) {
             "Servo reached target, choosing new random target...\n");
 #endif
         // pause when target reached
+        // _ls_servo_off(); // no; keep power on as it tends to "jump" at power-on
         vTaskDelay(pdMS_TO_TICKS(ls_settings_get_servo_random_pause_ms()));
+        // _ls_servo_on();
         uint16_t min = ls_servo_get_top_pulse_ms();
         uint16_t max = ls_servo_get_bottom_pulse_ms();
         target_pulse_width = esp_random() % (max - min + 1) + min;

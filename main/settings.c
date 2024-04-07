@@ -411,6 +411,11 @@ BaseType_t ls_settings_get_servo_pulse_delta(void) {
   return _ls_settings_servo_pulse_delta;
 }
 
+BaseType_t ls_settings_map_control_to_servo_random_pause_ms(BaseType_t adc) {
+  // inverted
+  return _map(adc, LS_CONTROLS_READING_TOP, LS_CONTROLS_READING_BOTTOM, LS_SERVO_RANDOM_PAUSE_MS_MIN,
+              LS_SERVO_RANDOM_PAUSE_MS_MAX);
+}
 void ls_settings_set_servo_random_pause_ms(BaseType_t duration_ms) {
   _ls_settings_servo_random_pause_ms = _constrain(duration_ms, 0, 10000);
 }
