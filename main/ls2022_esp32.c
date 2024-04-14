@@ -15,7 +15,7 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-#define VERSION_MESSAGE "URI Laser Scarecrow 2023 version 2.0.0 (Apr 24, 2023)\n"
+#define VERSION_MESSAGE "URI Laser Scarecrow 2023 version 2.0.1 (Apr 14, 2024)\n"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
