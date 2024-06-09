@@ -46,6 +46,12 @@ static void _ls_servo_jump_to_pw(uint32_t pulse_width)
 {
     mcpwm_set_duty_in_us(LS_SERVO_MCPWM_UNIT, LS_SERVO_MCPWM_TIMER, LS_SERVO_MCPWM_GENERATOR, pulse_width);
 }
+#ifdef LS_HAS_SERVO2
+static void _ls_servo2_jump_to_pw(uint32_t pulse_width)
+{
+    mcpwm_set_duty_in_us(LS_SERVO_MCPWM_UNIT, LS_SERVO2_MCPWM_TIMER, LS_SERVO_MCPWM_GENERATOR, pulse_width);
+}
+#endif
 
 // Turns on the servo
 static void _ls_servo_on()
@@ -55,6 +61,9 @@ static void _ls_servo_on()
         _ls_servo_is_on = true;
         gpio_set_level(LSGPIO_SERVOPOWERENABLE, 1);
         mcpwm_start(LS_SERVO_MCPWM_UNIT, LS_SERVO_MCPWM_TIMER);
+#ifdef LS_HAS_SERVO2
+        mcpwm_start(LS_SERVO_MCPWM_UNIT, LS_SERVO2_MCPWM_TIMER);
+#endif
     }
 }
 
@@ -66,6 +75,9 @@ static void _ls_servo_off()
         _ls_servo_is_on = false;
         gpio_set_level(LSGPIO_SERVOPOWERENABLE, 0);
         mcpwm_stop(LS_SERVO_MCPWM_UNIT, LS_SERVO_MCPWM_TIMER);
+#ifdef LS_HAS_SERVO2
+        mcpwm_stop(LS_SERVO_MCPWM_UNIT, LS_SERVO2_MCPWM_TIMER);
+#endif
     }
 }
 
@@ -80,6 +92,9 @@ void ls_servo_init()
 
     // Set PWM0A to LSGPIO_SERVOPULSE (from the example code)
     mcpwm_gpio_init(LS_SERVO_MCPWM_UNIT, LS_SERVO_MCPWM_IO_SIGNALS, LSGPIO_SERVOPULSE);
+#ifdef LS_HAS_SERVO2
+    mcpwm_gpio_init(LS_SERVO_MCPWM_UNIT, LS_SERVO2_MCPWM_IO_SIGNALS, LSGPIO_SERVOPULSE2);
+#endif
     mcpwm_config_t pwm_config = {
         .frequency = 50, // Frequency = 50Hz, i.e. for every servo motor time period should be 20ms
         .cmpr_a = 0,     // Duty cycle of PWMxA = 0
@@ -152,7 +167,10 @@ void ls_servo_task(void *pvParameter)
 
     uint16_t current_pulse_width = LS_SERVO_US_MID;
     uint16_t target_pulse_width = LS_SERVO_US_MID;
-
+#ifdef LS_HAS_SERVO2
+    uint16_t current_pulse_width2 = LS_SERVO_US_MID;
+    uint16_t target_pulse_width2 = LS_SERVO_US_MID;
+#endif
     enum _ls_servo_motion_modes mode = LS_SERVO_MODE_FIXED;
 
     // Variable to hold the received event
@@ -162,6 +180,9 @@ void ls_servo_task(void *pvParameter)
     {
         // Adjust the delay based on whether or not the servo should be moving
         bool servo_should_move = _ls_servo_is_on && (current_pulse_width != target_pulse_width || mode != LS_SERVO_MODE_FIXED);
+#ifdef LS_HAS_SERVO2
+        servo_should_move =  servo_should_move || current_pulse_width2 != target_pulse_width2;
+#endif
         TickType_t delay = servo_should_move ? 1 : portMAX_DELAY;
 
         if (xQueueReceive(ls_servo_queue, &received, delay) == pdTRUE)
@@ -192,6 +213,11 @@ void ls_servo_task(void *pvParameter)
                 target_pulse_width = received.data;
                 _ls_servo_jump_to_pw(target_pulse_width);
                 current_pulse_width = target_pulse_width;
+#ifdef LS_HAS_SERVO2
+                target_pulse_width2 = received.data;
+                _ls_servo2_jump_to_pw(target_pulse_width);
+                current_pulse_width2 = target_pulse_width2;
+#endif
                 break;
             case LS_SERVO_MOVE_TO:
 #ifdef LSDEBUG_SERVO
@@ -201,6 +227,9 @@ void ls_servo_task(void *pvParameter)
                 _ls_servo_on();
                 mode = LS_SERVO_MODE_FIXED;
                 target_pulse_width = received.data;
+#ifdef LS_HAS_SERVO2
+                target_pulse_width2 = received.data;
+#endif
                 break;
             case LS_SERVO_MOVE_RANDOMLY:
 #ifdef LSDEBUG_SERVO
@@ -210,6 +239,9 @@ void ls_servo_task(void *pvParameter)
                 _ls_servo_on();
                 mode = LS_SERVO_MODE_RANDOM;
                 target_pulse_width = current_pulse_width;
+#ifdef LS_HAS_SERVO2
+                target_pulse_width2 = current_pulse_width2;
+#endif
                 break;
             case LS_SERVO_SWEEP:
 #ifdef LSDEBUG_SERVO
@@ -220,6 +252,9 @@ void ls_servo_task(void *pvParameter)
                 if (mode != LS_SERVO_MODE_SWEEP)
                 {
                     target_pulse_width = current_pulse_width;
+#ifdef LS_HAS_SERVO2
+                    target_pulse_width2 = current_pulse_width2;
+#endif
                     mode = LS_SERVO_MODE_SWEEP;
                 }
                 break;
@@ -235,7 +270,11 @@ void ls_servo_task(void *pvParameter)
         {
             // Check if we're already at the target pulse width,
             // and (possibly) change it depending on the mode we're in
-            if (mode == LS_SERVO_MODE_RANDOM && current_pulse_width == target_pulse_width)
+            bool _target_reached = mode == LS_SERVO_MODE_RANDOM && current_pulse_width == target_pulse_width;
+#ifdef LS_HAS_SERVO2
+            _target_reached = _target_reached && current_pulse_width2 == target_pulse_width2;
+#endif
+            if (_target_reached)
             {
 #ifdef LSDEBUG_SERVO
                 ls_debug_printf("Servo reached target, choosing new random target...\n");
@@ -245,9 +284,14 @@ void ls_servo_task(void *pvParameter)
                 uint16_t min = ls_servo_get_top_pulse_ms();
                 uint16_t max = ls_servo_get_bottom_pulse_ms();
                 target_pulse_width = esp_random() % (max - min + 1) + min;
-
+#ifdef LS_HAS_SERVO2
+                target_pulse_width2 = esp_random() % (max - min + 1) + min;
+#endif
 #ifdef LSDEBUG_SERVO
                 ls_debug_printf("New target: %d\n", target_pulse_width);
+#ifdef LS_HAS_SERVO2
+                ls_debug_printf("New target2: %d\n", target_pulse_width2);
+#endif
 #endif
             }
             else if (mode == LS_SERVO_MODE_SWEEP && current_pulse_width == target_pulse_width)
@@ -278,6 +322,9 @@ void ls_servo_task(void *pvParameter)
                 // Most of the time, it will be at either end - but possibly not if we just entered sweep mode from another
                 // In that case, move towards whichever end is currently further away
                 target_pulse_width = current_pulse_width < mid ? bottom : top;
+#ifdef LS_HAS_SERVO2
+                target_pulse_width2 = target_pulse_width;
+#endif
                 // pause when target reached
 #ifdef LSDEBUG_SERVO
                 ls_debug_printf("New servo target: %d after %dms pause\n", target_pulse_width, ls_settings_get_servo_sweep_pause_ms());
@@ -293,6 +340,16 @@ void ls_servo_task(void *pvParameter)
 
             // Set the servo pulse width
             _ls_servo_jump_to_pw(current_pulse_width);
+#ifdef LS_HAS_SERVO2
+            // Calculate the updated current pulse width
+            current_pulse_width2 = (uint16_t)_constrain(
+                (BaseType_t)target_pulse_width2,
+                (BaseType_t)current_pulse_width2 - ls_settings_get_servo_pulse_delta(),
+                (BaseType_t)current_pulse_width2 + ls_settings_get_servo_pulse_delta());
+
+            // Set the servo pulse width
+            _ls_servo2_jump_to_pw(current_pulse_width2);
+#endif
 #ifdef LSDEBUG_SERVO
             ls_debug_printf("Servo move to %d\n", current_pulse_width);
 #endif

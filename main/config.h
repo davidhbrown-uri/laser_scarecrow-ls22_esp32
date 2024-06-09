@@ -148,9 +148,12 @@ assert(0); // at least for now, the tape sensor and second laser/servo cannot co
 #define LS_SERVO_DELTA_PER_TICK_MIN 1
 #define LS_SERVO_RANDOM_PAUSE_MS 300
 #define LS_SERVO_SWEEP_PAUSE_MS 4000
+// see https://docs.espressif.com/projects/esp-idf/en/v4.4.7/esp32/api-reference/peripherals/mcpwm.html
 #define LS_SERVO_MCPWM_UNIT MCPWM_UNIT_0
 #define LS_SERVO_MCPWM_IO_SIGNALS MCPWM0A
+#define LS_SERVO2_MCPWM_IO_SIGNALS MCPWM1A
 #define LS_SERVO_MCPWM_TIMER MCPWM_TIMER_0
+#define LS_SERVO2_MCPWM_TIMER MCPWM_TIMER_1
 #define LS_SERVO_MCPWM_GENERATOR MCPWM_OPR_A
 
 // default parameters for the stepper movement
