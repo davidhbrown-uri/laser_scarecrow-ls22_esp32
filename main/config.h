@@ -110,7 +110,7 @@ assert(0); // at least for now, the tape sensor and second laser/servo cannot co
 
 // PWM output (LEDC)
 #define LSGPIO_SERVOPULSE 33
-#ifdef LS_HAS_DUAL_LASER
+#ifdef LS_HAS_SERVO2
 // GPIO27 is tape sensor enable in 2023-2024 models
 #define LSGPIO_SERVOPULSE2 27
 #endif
@@ -151,10 +151,14 @@ assert(0); // at least for now, the tape sensor and second laser/servo cannot co
 // see https://docs.espressif.com/projects/esp-idf/en/v4.4.7/esp32/api-reference/peripherals/mcpwm.html
 #define LS_SERVO_MCPWM_UNIT MCPWM_UNIT_0
 #define LS_SERVO_MCPWM_IO_SIGNALS MCPWM0A
-#define LS_SERVO2_MCPWM_IO_SIGNALS MCPWM1A
 #define LS_SERVO_MCPWM_TIMER MCPWM_TIMER_0
-#define LS_SERVO2_MCPWM_TIMER MCPWM_TIMER_1
 #define LS_SERVO_MCPWM_GENERATOR MCPWM_OPR_A
+#ifdef LS_HAS_SERVO2
+#define LS_SERVO2_MCPWM_UNIT MCPWM_UNIT_0
+#define LS_SERVO2_MCPWM_IO_SIGNALS MCPWM1A
+#define LS_SERVO2_MCPWM_TIMER MCPWM_TIMER_1
+#define LS_SERVO2_MCPWM_GENERATOR MCPWM_OPR_A
+#endif
 
 // default parameters for the stepper movement
 /// stepper motor is a standard 200-step-per-rotation motor
@@ -168,6 +172,8 @@ assert(0); // at least for now, the tape sensor and second laser/servo cannot co
 #define LS_STEPPER_STEPS_PER_SECOND_MIN 2400
 // motor/laser seems to have no trouble at 4800 which is probably too fast
 // is having trouble registering magnet reliably that fast, though.
+// https://www.omc-stepperonline.com/support/what-is-the-maximum-speed-highest-frequency-of-the-stepper-motor
+// gives max 1000 RPM; recommended working speed 100-500 RPM. 500RPM = 8.3333 rotations per second; *200*16 => 26666 micro-steps per second
 #define LS_STEPPER_STEPS_PER_SECOND_MAX 24000
 #define LS_STEPPER_STEPS_PER_SECOND_MAPPING 1800
 #define LS_STEPPER_STEPS_PER_SECOND_WARNING 7200

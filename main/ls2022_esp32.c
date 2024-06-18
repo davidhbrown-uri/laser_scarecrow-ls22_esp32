@@ -122,7 +122,7 @@ void app_main(void)
     if (ls_i2c_accelerometer_device() == LS_I2C_ACCELEROMETER_NONE)
     {
         printf("No accelerometer detected!\n");
-        ls_state_current.func = ls_state_error_noaccel;
+//        ls_state_current.func = ls_state_error_noaccel;
     }
 
     // higher priority tasks get higher priority values

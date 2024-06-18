@@ -49,7 +49,7 @@ static void _ls_servo_jump_to_pw(uint32_t pulse_width)
 #ifdef LS_HAS_SERVO2
 static void _ls_servo2_jump_to_pw(uint32_t pulse_width)
 {
-    mcpwm_set_duty_in_us(LS_SERVO_MCPWM_UNIT, LS_SERVO2_MCPWM_TIMER, LS_SERVO_MCPWM_GENERATOR, pulse_width);
+    mcpwm_set_duty_in_us(LS_SERVO2_MCPWM_UNIT, LS_SERVO2_MCPWM_TIMER, LS_SERVO2_MCPWM_GENERATOR, pulse_width);
 }
 #endif
 
@@ -92,15 +92,24 @@ void ls_servo_init()
 
     // Set PWM0A to LSGPIO_SERVOPULSE (from the example code)
     mcpwm_gpio_init(LS_SERVO_MCPWM_UNIT, LS_SERVO_MCPWM_IO_SIGNALS, LSGPIO_SERVOPULSE);
-#ifdef LS_HAS_SERVO2
-    mcpwm_gpio_init(LS_SERVO_MCPWM_UNIT, LS_SERVO2_MCPWM_IO_SIGNALS, LSGPIO_SERVOPULSE2);
-#endif
     mcpwm_config_t pwm_config = {
         .frequency = 50, // Frequency = 50Hz, i.e. for every servo motor time period should be 20ms
         .cmpr_a = 0,     // Duty cycle of PWMxA = 0
+        .cmpr_b = 0,
         .counter_mode = MCPWM_UP_COUNTER,
         .duty_mode = MCPWM_DUTY_MODE_0};
     mcpwm_init(LS_SERVO_MCPWM_UNIT, LS_SERVO_MCPWM_TIMER, &pwm_config); // Configure PWM0A & PWM0B with above settings
+#ifdef LS_HAS_SERVO2
+    mcpwm_gpio_init(LS_SERVO2_MCPWM_UNIT, LS_SERVO2_MCPWM_IO_SIGNALS, LSGPIO_SERVOPULSE2);
+        mcpwm_config_t pwm_config2 = {
+        .frequency = 50, // Frequency = 50Hz, i.e. for every servo motor time period should be 20ms
+        .cmpr_a = 0,     // Duty cycle of PWMxA = 0
+        .cmpr_b = 0,
+        .counter_mode = MCPWM_UP_COUNTER,
+        .duty_mode = MCPWM_DUTY_MODE_0};
+    mcpwm_init(LS_SERVO2_MCPWM_UNIT, LS_SERVO2_MCPWM_TIMER, &pwm_config2); // Configure PWM0A & PWM0B with above settings
+
+#endif
 }
 
 // Creates and sends a message to the servo task to turn on the servo
@@ -162,6 +171,7 @@ void ls_servo_task(void *pvParameter)
 #ifdef LSDEBUG_SERVO
     ls_debug_printf("Initializing servo task\n");
 #endif
+    const uint16_t pulse_delta = ls_settings_get_servo_pulse_delta();
 
     // No need to turn the servo on/off here, it is already off from ls_gpio_initialize()
 
@@ -323,7 +333,7 @@ void ls_servo_task(void *pvParameter)
                 // In that case, move towards whichever end is currently further away
                 target_pulse_width = current_pulse_width < mid ? bottom : top;
 #ifdef LS_HAS_SERVO2
-                target_pulse_width2 = target_pulse_width;
+                target_pulse_width2 = top - (target_pulse_width - bottom);
 #endif
                 // pause when target reached
 #ifdef LSDEBUG_SERVO
@@ -335,8 +345,8 @@ void ls_servo_task(void *pvParameter)
             // Calculate the updated current pulse width
             current_pulse_width = (uint16_t)_constrain(
                 (BaseType_t)target_pulse_width,
-                (BaseType_t)current_pulse_width - ls_settings_get_servo_pulse_delta(),
-                (BaseType_t)current_pulse_width + ls_settings_get_servo_pulse_delta());
+                (BaseType_t)current_pulse_width - pulse_delta,
+                (BaseType_t)current_pulse_width + pulse_delta);
 
             // Set the servo pulse width
             _ls_servo_jump_to_pw(current_pulse_width);
@@ -344,14 +354,18 @@ void ls_servo_task(void *pvParameter)
             // Calculate the updated current pulse width
             current_pulse_width2 = (uint16_t)_constrain(
                 (BaseType_t)target_pulse_width2,
-                (BaseType_t)current_pulse_width2 - ls_settings_get_servo_pulse_delta(),
-                (BaseType_t)current_pulse_width2 + ls_settings_get_servo_pulse_delta());
+                (BaseType_t)current_pulse_width2 - pulse_delta,
+                (BaseType_t)current_pulse_width2 + pulse_delta);
 
             // Set the servo pulse width
             _ls_servo2_jump_to_pw(current_pulse_width2);
 #endif
 #ifdef LSDEBUG_SERVO
+#ifdef LS_HAS_SERVO2
+            ls_debug_printf("Servo move to %d / %d\n", current_pulse_width, current_pulse_width2);
+#else
             ls_debug_printf("Servo move to %d\n", current_pulse_width);
+#endif
 #endif
         }
     }
