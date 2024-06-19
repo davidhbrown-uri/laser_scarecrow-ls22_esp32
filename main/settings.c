@@ -53,7 +53,7 @@ void ls_settings_set_defaults(void) {
   ls_settings_set_servo_maxlimit(LS_SERVO_US_MAX_LIMIT);
   ls_settings_set_servo_minlimit(LS_SERVO_US_MIN_LIMIT);
 
-  ls_settings_set_stepper_random_max(LS_STEPPER_MOVEMENT_STEPS_MAX);
+  ls_settings_set_stepper_random_max(LS_STEPPER_RANDOM_HOP_STEPS_MAX);
   ls_settings_set_light_threshold_on((int)((int[]){
       LS_LIGHTSENSE_THRESHOLDS_ON_MV})[LS_LIGHTSENSE_THRESHOLD_DEFAULT]);
   ls_settings_set_light_threshold_off((int)((int[]){
@@ -374,7 +374,7 @@ BaseType_t ls_settings_get_servo_bottom(void) {
 
 void ls_settings_set_stepper_random_max(BaseType_t steps) {
   _ls_settings_stepper_random_max = _constrain(
-      steps, LS_STEPPER_MOVEMENT_STEPS_MIN, LS_STEPPER_MOVEMENT_STEPS_MAX);
+      steps, LS_STEPPER_RANDOM_HOP_STEPS_MIN, LS_STEPPER_RANDOM_HOP_STEPS_MAX);
 }
 BaseType_t ls_settings_get_stepper_random_max(void) {
   return _ls_settings_stepper_random_max;

@@ -173,11 +173,11 @@ void ls_servo_task(void *pvParameter) {
   // No need to turn the servo on/off here, it is already off from
   // ls_gpio_initialize()
 
-    uint16_t current_pulse_width = LS_SERVO_US_MID;
-    uint16_t target_pulse_width = LS_SERVO_US_MID;
+    uint16_t current_pulse_width = LS_SERVO_US_45DEG;
+    uint16_t target_pulse_width = LS_SERVO_US_45DEG;
 #ifdef LS_HAS_SERVO2
-    uint16_t current_pulse_width2 = LS_SERVO_US_MID;
-    uint16_t target_pulse_width2 = LS_SERVO_US_MID;
+    uint16_t current_pulse_width2 = LS_SERVO_US_45DEG;
+    uint16_t target_pulse_width2 = LS_SERVO_US_45DEG;
 #endif
     enum _ls_servo_motion_modes mode = LS_SERVO_MODE_FIXED;
 
