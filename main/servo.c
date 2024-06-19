@@ -1,6 +1,6 @@
 /*
     Control software for URI Laser Scarecrow, 2022 Model
-    Copyright (C) 2022-2023 Isaac Chen and David H. Brown
+    Copyright (C) 2022-2024 Isaac Chen and David H. Brown
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -16,29 +16,31 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 #include "servo.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/queue.h"
-#include "freertos/semphr.h"
-#include "driver/mcpwm.h"
-#include "esp_random.h"
 #include "bootloader_random.h"
 #include "config.h"
 #include "debug.h"
+#include "driver/mcpwm.h"
+#include "esp_random.h"
+#include "events.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/queue.h"
+#include "freertos/semphr.h"
+#include "freertos/task.h"
 #include "settings.h"
 #include "util.h"
-#include "events.h"
 
-static bool _ls_servo_is_on = false; // The servo will start off from ls_gpio_initialize()
+static bool _ls_servo_is_on =
+    false; // The servo will start off from ls_gpio_initialize()
 
-uint16_t ls_servo_get_top_pulse_ms(void)
-{
-    return (uint16_t)ls_settings_get_servo_top();
+uint16_t ls_servo_get_top_pulse_ms(void) {
+  return (uint16_t)ls_settings_get_servo_top();
 }
 
-uint16_t ls_servo_get_bottom_pulse_ms(void)
-{
-    return (uint16_t)ls_settings_get_servo_top() + ((LS_SERVO_US_MAX - (uint16_t)ls_settings_get_servo_top()) * (uint16_t) ls_settings_get_servo_bottom() / 100);
+uint16_t ls_servo_get_bottom_pulse_ms(void) {
+  return (uint16_t)ls_settings_get_servo_top() +
+         (((uint16_t)ls_settings_get_servo_maxlimit() -
+           (uint16_t)ls_settings_get_servo_top()) *
+          (uint16_t)ls_settings_get_servo_bottom() / 100);
 }
 
 // Immediately jumps to the specified pulse_width
@@ -82,13 +84,12 @@ static void _ls_servo_off()
 }
 
 // Initializes the servo and servo task queue
-void ls_servo_init()
-{
-    // Initialize the task queue
-    ls_servo_queue = xQueueCreate(32, sizeof(struct ls_servo_event));
+void ls_servo_init() {
+  // Initialize the task queue
+  ls_servo_queue = xQueueCreate(32, sizeof(struct ls_servo_event));
 
-    // Enable bootloader random (for esp_random())
-    bootloader_random_enable();
+  // Enable bootloader random (for esp_random())
+  bootloader_random_enable();
 
     // Set PWM0A to LSGPIO_SERVOPULSE (from the example code)
     mcpwm_gpio_init(LS_SERVO_MCPWM_UNIT, LS_SERVO_MCPWM_IO_SIGNALS, LSGPIO_SERVOPULSE);
@@ -113,67 +114,64 @@ void ls_servo_init()
 }
 
 // Creates and sends a message to the servo task to turn on the servo
-void ls_servo_on()
-{
-    struct ls_servo_event event;
-    event.event_type = LS_SERVO_ON;
-    event.data = 0;
-    xQueueSend(ls_servo_queue, (void *)&event, 0);
+void ls_servo_on() {
+  struct ls_servo_event event;
+  event.event_type = LS_SERVO_ON;
+  event.data = 0;
+  xQueueSend(ls_servo_queue, (void *)&event, 0);
 }
 
 // Creates and sends a message to the servo task to turn off the servo
-void ls_servo_off()
-{
-    struct ls_servo_event event;
-    event.event_type = LS_SERVO_OFF;
-    event.data = 0;
-    xQueueSend(ls_servo_queue, (void *)&event, 0);
+void ls_servo_off() {
+  struct ls_servo_event event;
+  event.event_type = LS_SERVO_OFF;
+  event.data = 0;
+  xQueueSend(ls_servo_queue, (void *)&event, 0);
 }
 
 // Creates and sends a message to the servo task to put the servo in sweep mode
-void ls_servo_sweep()
-{
-    struct ls_servo_event event;
-    event.event_type = LS_SERVO_SWEEP;
-    event.data = 0;
-    xQueueSend(ls_servo_queue, (void *)&event, 0);
+void ls_servo_sweep() {
+  struct ls_servo_event event;
+  event.event_type = LS_SERVO_SWEEP;
+  event.data = 0;
+  xQueueSend(ls_servo_queue, (void *)&event, 0);
 }
 
-// Creates and sends a message to the servo task to put the servo in random motion mode
-void ls_servo_random()
-{
-    struct ls_servo_event event;
-    event.event_type = LS_SERVO_MOVE_RANDOMLY;
-    event.data = 0;
-    xQueueSend(ls_servo_queue, (void *)&event, 0);
+// Creates and sends a message to the servo task to put the servo in random
+// motion mode
+void ls_servo_random() {
+  struct ls_servo_event event;
+  event.event_type = LS_SERVO_MOVE_RANDOMLY;
+  event.data = 0;
+  xQueueSend(ls_servo_queue, (void *)&event, 0);
 }
 
-// Creates and sends a message to the servo task to move the servo smoothly to a specified position
-void ls_servo_moveto(uint32_t pulsewidth_us)
-{
-    struct ls_servo_event event;
-    event.event_type = LS_SERVO_MOVE_TO;
-    event.data = pulsewidth_us;
-    xQueueSend(ls_servo_queue, (void *)&event, 0);
+// Creates and sends a message to the servo task to move the servo smoothly to a
+// specified position
+void ls_servo_moveto(uint32_t pulsewidth_us) {
+  struct ls_servo_event event;
+  event.event_type = LS_SERVO_MOVE_TO;
+  event.data = pulsewidth_us;
+  xQueueSend(ls_servo_queue, (void *)&event, 0);
 }
 
-// Creates and sends a message to the servo task to immediately jump the servo to a specified position
-void ls_servo_jumpto(uint32_t pulsewidth_us)
-{
-    struct ls_servo_event event;
-    event.event_type = LS_SERVO_JUMP_TO;
-    event.data = pulsewidth_us;
-    xQueueSend(ls_servo_queue, (void *)&event, 0);
+// Creates and sends a message to the servo task to immediately jump the servo
+// to a specified position
+void ls_servo_jumpto(uint32_t pulsewidth_us) {
+  struct ls_servo_event event;
+  event.event_type = LS_SERVO_JUMP_TO;
+  event.data = pulsewidth_us;
+  xQueueSend(ls_servo_queue, (void *)&event, 0);
 }
 
-void ls_servo_task(void *pvParameter)
-{
+void ls_servo_task(void *pvParameter) {
 #ifdef LSDEBUG_SERVO
-    ls_debug_printf("Initializing servo task\n");
+  ls_debug_printf("Initializing servo task\n");
 #endif
     const uint16_t pulse_delta = ls_settings_get_servo_pulse_delta();
 
-    // No need to turn the servo on/off here, it is already off from ls_gpio_initialize()
+  // No need to turn the servo on/off here, it is already off from
+  // ls_gpio_initialize()
 
     uint16_t current_pulse_width = LS_SERVO_US_MID;
     uint16_t target_pulse_width = LS_SERVO_US_MID;
@@ -183,8 +181,8 @@ void ls_servo_task(void *pvParameter)
 #endif
     enum _ls_servo_motion_modes mode = LS_SERVO_MODE_FIXED;
 
-    // Variable to hold the received event
-    struct ls_servo_event received;
+  // Variable to hold the received event
+  struct ls_servo_event received;
 
     while (1)
     {
@@ -195,27 +193,28 @@ void ls_servo_task(void *pvParameter)
 #endif
         TickType_t delay = servo_should_move ? 1 : portMAX_DELAY;
 
-        if (xQueueReceive(ls_servo_queue, &received, delay) == pdTRUE)
-        {
-            switch (received.event_type)
-            {
-            case LS_SERVO_ON:
+    if (xQueueReceive(ls_servo_queue, &received, delay) == pdTRUE) {
+      switch (received.event_type) {
+      case LS_SERVO_ON:
 #ifdef LSDEBUG_SERVO
-                ls_debug_printf("Servo task received on event, powering up!\n");
+        ls_debug_printf("Servo task received on event, powering up!\n");
 #endif
-                _ls_servo_on();
+        _ls_servo_on();
 
-                break;
+        break;
 
-            case LS_SERVO_OFF:
+      case LS_SERVO_OFF:
 #ifdef LSDEBUG_SERVO
-                ls_debug_printf("Servo task received off event, feeling... sleepy.....\n");
+        ls_debug_printf(
+            "Servo task received off event, feeling... sleepy.....\n");
 #endif
-                _ls_servo_off();
-                break;
-            case LS_SERVO_JUMP_TO:
+        _ls_servo_off();
+        break;
+      case LS_SERVO_JUMP_TO:
 #ifdef LSDEBUG_SERVO
-                ls_debug_printf("Servo task received jump_to event with pulse width %d\n", received.data);
+        ls_debug_printf(
+            "Servo task received jump_to event with pulse width %d\n",
+            received.data);
 #endif
                 // If the servo is currently off, turn it on
                 _ls_servo_on();
@@ -231,7 +230,9 @@ void ls_servo_task(void *pvParameter)
                 break;
             case LS_SERVO_MOVE_TO:
 #ifdef LSDEBUG_SERVO
-                ls_debug_printf("Servo task received move_to event with pulse width %d\n", received.data);
+        ls_debug_printf(
+            "Servo task received move_to event with pulse width %d\n",
+            received.data);
 #endif
                 // If the servo is currently off, turn it on
                 _ls_servo_on();
@@ -243,7 +244,8 @@ void ls_servo_task(void *pvParameter)
                 break;
             case LS_SERVO_MOVE_RANDOMLY:
 #ifdef LSDEBUG_SERVO
-                ls_debug_printf("Servo task received move_randomly event, entering random motion mode\n");
+        ls_debug_printf("Servo task received move_randomly event, entering "
+                        "random motion mode\n");
 #endif
                 // If the servo is currently off, turn it on
                 _ls_servo_on();
@@ -255,7 +257,8 @@ void ls_servo_task(void *pvParameter)
                 break;
             case LS_SERVO_SWEEP:
 #ifdef LSDEBUG_SERVO
-                ls_debug_printf("Servo task received sweep event, entering sweep mode\n");
+        ls_debug_printf(
+            "Servo task received sweep event, entering sweep mode\n");
 #endif
                 // If the servo is currently off, turn it on
                 _ls_servo_on();
@@ -366,6 +369,8 @@ void ls_servo_task(void *pvParameter)
 #else
             ls_debug_printf("Servo move to %d\n", current_pulse_width);
 #endif
+    }
+  }
 #endif
         }
     }
