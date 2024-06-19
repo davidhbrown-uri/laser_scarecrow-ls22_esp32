@@ -169,7 +169,8 @@ assert(0); // at least for now, the tape sensor and second laser/servo cannot co
 #define LS_STEPPER_RANDOM_HOP_STEPS_MAX (LS_STEPPER_STEPS_PER_ROTATION * 20)
 #define LS_STEPPER_RANDOM_HOP_REVERSE_PER255 96
 // this value must be low enough that changes in direction are reasonably non-jerky
-#define LS_STEPPER_STEPS_PER_SECOND_MIN 2400
+// (0 produces div/0 panic, so that's too low!)
+#define LS_STEPPER_STEPS_PER_SECOND_MIN 2000
 // motor/laser seems to have no trouble at 4800 which is probably too fast
 // is having trouble registering magnet reliably that fast, though.
 // https://www.omc-stepperonline.com/support/what-is-the-maximum-speed-highest-frequency-of-the-stepper-motor
