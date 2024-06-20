@@ -314,11 +314,7 @@ ls_State ls_state_active(ls_event event)
         }
         else
         {
-#ifdef LS_HAS_DUAL_LASER
-    ls_laser_set_mode_scan();
-#else
             ls_laser_set_mode_on();
-#endif
         }
         break;
     case LSEVT_MAGNET_ENTER:

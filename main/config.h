@@ -177,22 +177,22 @@ assert(0); // at least for now, the tape sensor and second laser/servo cannot co
 #define LS_STEPPER_FULLSTEPS_PER_ROTATION 200
 #define LS_STEPPER_MICROSTEPS_PER_STEP 16
 #define LS_STEPPER_STEPS_PER_ROTATION (LS_STEPPER_FULLSTEPS_PER_ROTATION * LS_STEPPER_MICROSTEPS_PER_STEP)
-#define LS_STEPPER_RANDOM_HOP_STEPS_MIN (LS_STEPPER_STEPS_PER_ROTATION * 3)
-#define LS_STEPPER_RANDOM_HOP_STEPS_MAX (LS_STEPPER_STEPS_PER_ROTATION * 20)
+#define LS_STEPPER_RANDOM_HOP_STEPS_MIN (LS_STEPPER_STEPS_PER_ROTATION / 20)
+#define LS_STEPPER_RANDOM_HOP_STEPS_MAX (LS_STEPPER_STEPS_PER_ROTATION / 2)
 #define LS_STEPPER_RANDOM_HOP_REVERSE_PER255 96
 // this value must be low enough that changes in direction are reasonably non-jerky
 // (0 produces div/0 panic, so that's too low!)
-#define LS_STEPPER_STEPS_PER_SECOND_MIN 2000
+#define LS_STEPPER_STEPS_PER_SECOND_MIN 240
 // motor/laser seems to have no trouble at 4800 which is probably too fast
 // is having trouble registering magnet reliably that fast, though.
 // https://www.omc-stepperonline.com/support/what-is-the-maximum-speed-highest-frequency-of-the-stepper-motor
 // gives max 1000 RPM; recommended working speed 100-500 RPM. 500RPM = 8.3333 rotations per second; *200*16 => 26666 micro-steps per second
-#define LS_STEPPER_STEPS_PER_SECOND_MAX 24000
+#define LS_STEPPER_STEPS_PER_SECOND_MAX 3600
 #define LS_STEPPER_STEPS_PER_SECOND_MAPPING 1800
 #define LS_STEPPER_STEPS_PER_SECOND_WARNING 7200
 #define LS_STEPPER_STEPS_PER_SECOND_DEFAULT 2700
 // LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_SECOND will be added or subtracted to the steps per second when accelerating or decelerating
-#define LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_SECOND 4000
+#define LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_SECOND 8000
 #define LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_TICK (LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_SECOND / pdMS_TO_TICKS(1000))
 
 #define LS_SETTINGS_MINIMUM_RPM_DEFAULT 100

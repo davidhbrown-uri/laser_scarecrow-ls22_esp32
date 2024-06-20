@@ -90,6 +90,8 @@ void ls_servo_init() {
 
   // Enable bootloader random (for esp_random())
   bootloader_random_enable();
+          _ls_servo_is_on = false;
+        gpio_set_level(LSGPIO_SERVOPOWERENABLE, 0);
 
     // Set PWM0A to LSGPIO_SERVOPULSE (from the example code)
     mcpwm_gpio_init(LS_SERVO_MCPWM_UNIT, LS_SERVO_MCPWM_IO_SIGNALS, LSGPIO_SERVOPULSE);
@@ -168,7 +170,6 @@ void ls_servo_task(void *pvParameter) {
 #ifdef LSDEBUG_SERVO
   ls_debug_printf("Initializing servo task\n");
 #endif
-    const uint16_t pulse_delta = ls_settings_get_servo_pulse_delta();
 
   // No need to turn the servo on/off here, it is already off from
   // ls_gpio_initialize()
@@ -192,6 +193,7 @@ void ls_servo_task(void *pvParameter) {
         servo_should_move =  servo_should_move || current_pulse_width2 != target_pulse_width2;
 #endif
         TickType_t delay = servo_should_move ? 1 : portMAX_DELAY;
+   uint16_t pulse_delta = ls_settings_get_servo_pulse_delta();
 
     if (xQueueReceive(ls_servo_queue, &received, delay) == pdTRUE) {
       switch (received.event_type) {
@@ -363,7 +365,7 @@ void ls_servo_task(void *pvParameter) {
             // Set the servo pulse width
             _ls_servo2_jump_to_pw(current_pulse_width2);
 #endif
-#ifdef LSDEBUG_SERVO
+#ifdef LSDEBUG_SERVO_VERBOSE
 #ifdef LS_HAS_SERVO2
             ls_debug_printf("Servo move to %d / %d\n", current_pulse_width, current_pulse_width2);
 #else

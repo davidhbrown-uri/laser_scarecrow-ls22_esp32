@@ -114,9 +114,6 @@ void ls_stepper_set_maximum_steps_per_second(int steps_per_second)
 static bool IRAM_ATTR ls_stepper_step_isr_callback(void *args)
 {
     BaseType_t high_task_awoken = pdFALSE;
-    if (ls_laser_mode_is_scan()){
-        gpio_set_level(LSGPIO_LASERPOWERENABLE, _ls_stepper_speed_current_rate > 3000); /*@todo make a setting for minimum rotation speed*/
-    }
 
     if (ls_stepper_steps_remaining > 0) // only do a step if any remain
     {
