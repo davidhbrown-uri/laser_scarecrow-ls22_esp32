@@ -16,7 +16,7 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 #define VERSION_MESSAGE                                                        \
-  "URI Laser Scarecrow 2024 version 2.3.x (Blueberry)\n"
+  "URI Laser Scarecrow 2024 version 2.3.x (Dual)\n"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

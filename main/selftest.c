@@ -97,21 +97,29 @@ void _selftest_stepper_behavior(void) {
 }
 
 static void _selftest_update_leds(void) {
-  if (_selftest_switches_off && _selftest_switches_upper &&
+  bool controls_passed = _selftest_switches_off && _selftest_switches_upper &&
       _selftest_switches_lower && _selftest_switches_both &&
       _selftest_slider1_min && _selftest_slider1_max && _selftest_slider2_min &&
-      _selftest_slider2_max) {
-    if (_selftest_light_low && _selftest_light_high && _selftest_magnet_enter &&
-        _selftest_magnet_leave && _selftest_tape_light && _selftest_tape_dark &&
+      _selftest_slider2_max;
+
+  bool sensors_passed = _selftest_light_low && _selftest_light_high && _selftest_magnet_enter &&
+        _selftest_magnet_leave &&
         _selftest_tilt_detect && _selftest_tilt_ok &&
         _selftest_tapemode_darksafe && _selftest_tapemode_dark &&
         _selftest_tapemode_ignore && _selftest_tapemode_light &&
-        _selftest_tapemode_lightsafe) {
+        _selftest_tapemode_lightsafe;
+
+#ifdef LS_HAS_TAPE_SENSOR
+  sensors_passed = sensors_passed && _selftest_tape_light && _selftest_tape_dark;
+#endif
+
+    if (sensors_passed) {
       ls_leds_rgb(0, 48, 0); // darker green
-    } else {
+    } else if (controls_passed)
+    {
       ls_leds_rgb(64, 16, 0); // darker yellow
     }
-  }
+    
 }
 
 static void _selftest_update_oled(void) {
@@ -140,12 +148,14 @@ static void _selftest_update_oled(void) {
     ls_oled_println("Magnet: %c %c", _selftest_magnet_enter ? ' ' : '+',
                     _selftest_magnet_leave ? ' ' : '-');
   }
+#ifdef LS_HAS_TAPE_SENSOR
   if (_selftest_tape_light && _selftest_tape_dark) {
     ls_oled_println("> Tape OK");
   } else {
     ls_oled_println("Tape: %s %s", _selftest_tape_light ? "  " : "Lt",
                     _selftest_tape_dark ? "  " : "Dk");
   }
+#endif
   if (_selftest_tapemode_darksafe && _selftest_tapemode_dark &&
       _selftest_tapemode_ignore && _selftest_tapemode_light &&
       _selftest_tapemode_lightsafe) {
