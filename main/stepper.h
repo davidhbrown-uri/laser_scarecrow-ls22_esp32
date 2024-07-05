@@ -25,18 +25,19 @@ typedef int32_t ls_stepper_position_t;
 
 
 enum ls_stepper_action {
-    LS_STEPPER_ACTION_IDLE, // 0
-    LS_STEPPER_ACTION_FORWARD_STEPS, // 1
-    LS_STEPPER_ACTION_REVERSE_STEPS, // 2
+    LS_STEPPER_ACTION_IDLE, // 0: message.value = task loops remaining
+    LS_STEPPER_ACTION_HOP_FORWARD_STEPS, // 1: message.value = steps
+    LS_STEPPER_ACTION_HOP_REVERSE_STEPS, // 2: message.value = steps
     LS_STEPPER_ACTION_SLEEP, // 3
     LS_STEPPER_ACTION_STOP, // 4
-    LS_STEPPER_ACTION_RANDOM_HOP, // 5 -- the traditional behavior through 2024 model
-    LS_STEPPER_ACTION_RANDOM_SPIN, // 6 -- to achieve IIIA/3R-equivalent power
+    LS_STEPPER_ACTION_RANDOM_HOP, // 5: begin random hopping behavior
+    LS_STEPPER_ACTION_RANDOM_SPIN, // 6: begin random spinning behavior
+    LS_STEPPER_ACTION_TARGET_RPM, // 7: message.value = the desired rotation speed
 }ls_stepper_action;
 
 typedef struct ls_stepper_action_message {
     enum ls_stepper_action action;
-    int32_t steps;
+    int32_t value;
 }ls_stepper_action_message;
 
 typedef struct ls_stepper_move_t {
@@ -44,6 +45,14 @@ typedef struct ls_stepper_move_t {
     int32_t steps;
 }ls_stepper_move_t;
 
+enum ls_stepper_state {
+    LS_STEPPER_STATE_UNPOWERED, // 0 (sleep; arm can rotate freely)
+    LS_STEPPER_STATE_STOPPED, // 1 (powered; holding position)
+    LS_STEPPER_STATE_RANDOM_HOP, // 2 (standard behavior through 2024)
+    LS_STEPPER_STATE_RANDOM_SPIN, // 3 (for IIIA-equivalent scanning behavior)
+    LS_STEPPER_STATE_HOPPING, // 5
+    LS_STEPPER_STATE_SPINNING, //6
+}ls_stepper_state;
 
 
 
@@ -56,7 +65,9 @@ struct ls_stepper_move_t ls_stepper_move;
 
 QueueHandle_t ls_stepper_queue;
 // A4988 datasheet gives decay mode and other information while DIR=H, so make FORWARD==1
-enum ls_stepper_direction_t {LS_STEPPER_DIRECTION_REVERSE, LS_STEPPER_DIRECTION_FORWARD} ls_stepper_direction_t;
+// enum ls_stepper_direction_t {LS_STEPPER_DIRECTION_REVERSE, LS_STEPPER_DIRECTION_FORWARD} ls_stepper_direction_t;
+// TMC2209 uses DIR=0 to increment through stepping table (13.2), so it's FORWARD==0
+enum ls_stepper_direction_t {LS_STEPPER_DIRECTION_FORWARD, LS_STEPPER_DIRECTION_REVERSE} ls_stepper_direction_t;
 
 // don't need 32 bits, but IRAM read/write must be 32-bit
 static IRAM_ATTR volatile ls_stepper_position_t ls_stepper_position;
@@ -65,7 +76,7 @@ void ls_stepper_init(void);
 
 void ls_stepper_task(void *pvParameter);
 
-void ls_stepper_set_random_strategy(StepperMoveStrategy strategy);
+void ls_stepper_set_random_hop_strategy(StepperMoveStrategy strategy);
 
 bool ls_stepper_is_stopped(void);
 #define ls_stepper_is_moving() (!ls_stepper_is_stopped())
@@ -77,11 +88,13 @@ BaseType_t ls_stepper_get_steps_taken(void);
 ls_stepper_position_t ls_stepper_get_position(void);
 void ls_stepper_set_home_position(void);
 void ls_stepper_set_home_offset(int offset);
-void ls_stepper_stop(void);
-void ls_stepper_forward(int32_t steps);
-void ls_stepper_reverse(int32_t steps);
-void ls_stepper_random(void);
-void ls_stepper_spin(void);
+void ls_stepper_stop_hopping(void);
+void ls_stepper_forward_hop(int32_t steps);
+void ls_stepper_reverse_hop(int32_t steps);
+void ls_stepper_random_hop(void);
+void ls_stepper_random_spin(void);
+void ls_stepper_spin_at_rpm(int32_t rpm);
+void ls_stepper_stop_spin(void);
 void ls_stepper_sleep(void);
 
 void ls_stepper_set_random_reverse_per255(uint8_t value);

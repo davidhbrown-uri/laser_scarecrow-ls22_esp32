@@ -93,7 +93,7 @@ static void _ls_substate_home_backup(ls_event event)
                         steps, ls_stepper_get_position(), magnet_position);
 #endif
         ls_stepper_set_maximum_steps_per_second(LS_HOME_INITIAL_STEPPER_STEPS_PER_SECOND);
-        ls_stepper_reverse(steps + LS_HOME_BACKUP_ADDITIONAL_STEPS);
+        ls_stepper_reverse_hop(steps + LS_HOME_BACKUP_ADDITIONAL_STEPS);
     }
     break;
 
@@ -112,13 +112,13 @@ static void _ls_substate_home_slow_to_magnet(ls_event event)
     case LSEVT_SUBSTATE_ENTRY:
         _ls_home_found_magnet = false; // have not yet found magnet
         ls_stepper_set_maximum_steps_per_second(LS_HOME_STEPPER_STEPS_PER_SECOND);
-        ls_stepper_forward(LS_HOME_FORWARD_STEPS);
+        ls_stepper_forward_hop(LS_HOME_FORWARD_STEPS);
         break;
     case LSEVT_MAGNET_ENTER:
 #ifdef LSDEBUG_HOMING
         ls_debug_printf("Slow step found magnet at offset %d.\n", (int)event.value);
 #endif
-        ls_stepper_stop();
+        ls_stepper_stop_hopping();
         /* if offset exceeds threshold, we will need to reset home position (might already be doig that; it's okay to set true twice!)*/
         if ((int)event.value > LS_HOME_OFFSET_THRESHOLD_TO_REHOME || -((int)event.value) > LS_HOME_OFFSET_THRESHOLD_TO_REHOME)
         {
@@ -185,7 +185,7 @@ static void _ls_substate_home_rotate_to_magnet(ls_event event)
     {
     case LSEVT_SUBSTATE_ENTRY:
         ls_stepper_set_maximum_steps_per_second(LS_HOME_INITIAL_STEPPER_STEPS_PER_SECOND);
-        ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION * LS_HOME_INITIAL_ROTATIONS);
+        ls_stepper_forward_hop(LS_STEPPER_STEPS_PER_ROTATION * LS_HOME_INITIAL_ROTATIONS);
         _ls_home_found_magnet = false; // have not yet found magnet
 #ifdef LSDEBUG_HOMING
         ls_debug_printf("Homing is looking for magnet...\n");
@@ -193,7 +193,7 @@ static void _ls_substate_home_rotate_to_magnet(ls_event event)
         break;
     case LSEVT_MAGNET_ENTER:
         _ls_home_found_magnet = true; // found magnet
-        ls_stepper_stop();
+        ls_stepper_stop_hopping();
         _ls_substate_magnet_entry_offset = (ls_stepper_position_t)event.value;
 #ifdef LSDEBUG_HOMING
         ls_debug_printf("Found magnet in initial rotation(s).\n");

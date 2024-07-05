@@ -48,13 +48,13 @@ ls_State ls_state_settings_upper(ls_event event) {
     ls_laser_set_mode((ls_map_get_status() == LS_MAP_STATUS_OK)
                           ? LS_LASER_MAPPED
                           : LS_LASER_ON);
-    ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION * 5 / 4);
+    ls_stepper_forward_hop(LS_STEPPER_STEPS_PER_ROTATION * 5 / 4);
     ls_servo_sweep();
     ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_ENTER);
     ls_leds_cycle(LEDCYCLE_CONTROLS_UPPER);
     break;
   case LSEVT_STEPPER_FINISHED_MOVE:
-    ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION * 5 / 4);
+    ls_stepper_forward_hop(LS_STEPPER_STEPS_PER_ROTATION * 5 / 4);
     break;
   case LSEVT_SERVO_SWEEP_TOP:
     ls_buzzer_effect(LS_BUZZER_PLAY_OCTAVE);
@@ -79,7 +79,7 @@ ls_State ls_state_settings_upper(ls_event event) {
 #endif
     break;
   case LSEVT_CONTROLS_OFF:
-    ls_stepper_stop();
+    ls_stepper_stop_hopping();
     successor.func = ls_state_active;
     break;
   case LSEVT_CONTROLS_LOWER:
@@ -128,14 +128,14 @@ ls_State ls_state_settings_lower(ls_event event) {
     ls_laser_set_mode((ls_map_get_status() == LS_MAP_STATUS_OK)
                           ? LS_LASER_MAPPED
                           : LS_LASER_ON);
-    ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION * 5 / 4);
+    ls_stepper_forward_hop(LS_STEPPER_STEPS_PER_ROTATION * 5 / 4);
     ls_servo_sweep();
     ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_ENTER);
     ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_ENTER);
     ls_leds_cycle(LEDCYCLE_CONTROLS_LOWER);
     break;
   case LSEVT_STEPPER_FINISHED_MOVE:
-    ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION * 5 / 4);
+    ls_stepper_forward_hop(LS_STEPPER_STEPS_PER_ROTATION * 5 / 4);
     if (_ls_state_settings_servo_hold_count > 0) {
       _ls_state_settings_servo_hold_count--;
     } else if (_ls_state_settings_servo_hold_count == 0) {
@@ -164,7 +164,7 @@ ls_State ls_state_settings_lower(ls_event event) {
     _ls_state_settings_servo_hold_count = 3;
     break;
   case LSEVT_CONTROLS_OFF:
-    ls_stepper_stop();
+    ls_stepper_stop_hopping();
     successor.func = ls_state_active;
     break;
   case LSEVT_CONTROLS_UPPER:
@@ -244,7 +244,7 @@ ls_State ls_state_settings_both(ls_event event) {
   switch (event.type) {
   case LSEVT_STATE_ENTRY:
     ls_laser_set_mode_off();
-    ls_stepper_stop();
+    ls_stepper_stop_hopping();
     ls_servo_on();
     ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_ENTER);
     ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_ENTER);

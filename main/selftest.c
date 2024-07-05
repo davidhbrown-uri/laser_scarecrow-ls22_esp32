@@ -66,26 +66,26 @@ void _selftest_stepper_behavior(void) {
   case 0:
   case 1:
     ls_stepper_set_maximum_steps_per_second(LS_STEPPER_STEPS_PER_SECOND_MIN);
-    ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION / 8);
+    ls_stepper_forward_hop(LS_STEPPER_STEPS_PER_ROTATION / 8);
     break;
   case 2:
-    ls_stepper_reverse(LS_STEPPER_STEPS_PER_ROTATION / 8);
+    ls_stepper_reverse_hop(LS_STEPPER_STEPS_PER_ROTATION / 8);
     break;
   case 3:
   case 4:
     ls_stepper_set_maximum_steps_per_second(LS_STEPPER_STEPS_PER_SECOND_MAX);
-    ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION / 2);
+    ls_stepper_forward_hop(LS_STEPPER_STEPS_PER_ROTATION / 2);
     break;
   case 5:
-    ls_stepper_reverse(LS_STEPPER_STEPS_PER_ROTATION / 2);
+    ls_stepper_reverse_hop(LS_STEPPER_STEPS_PER_ROTATION / 2);
     break;
   case 6:
     ls_stepper_set_maximum_steps_per_second(LS_HOME_STEPPER_STEPS_PER_SECOND);
-    ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION * 2);
+    ls_stepper_forward_hop(LS_STEPPER_STEPS_PER_ROTATION * 2);
     break;
   case 7:
     ls_stepper_set_maximum_steps_per_second(LS_STEPPER_STEPS_PER_SECOND_MAX);
-    ls_stepper_random();
+    ls_stepper_random_hop();
     break;
   case 20:
     // restart sequence

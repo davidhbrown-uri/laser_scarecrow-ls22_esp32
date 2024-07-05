@@ -236,7 +236,7 @@ ls_State ls_state_prelaserwarn(ls_event event)
         vTaskDelay(pdMS_TO_TICKS(1000)); // 1sec quiet/still before warning
         ls_buzzer_effect(LS_BUZZER_PRE_LASER_WARNING);
         ls_stepper_set_maximum_steps_per_second(LS_STEPPER_STEPS_PER_SECOND_WARNING);
-        ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION * 3 / 4);
+        ls_stepper_forward_hop(LS_STEPPER_STEPS_PER_ROTATION * 3 / 4);
         break;
     case LSEVT_BUZZER_WARNING_COMPLETE:
         _ls_state_prelaserwarn_buzzer_complete = true;
@@ -245,11 +245,11 @@ ls_State ls_state_prelaserwarn(ls_event event)
         _ls_state_prelaserwarn_rotation_count++;
         if (3 > _ls_state_prelaserwarn_rotation_count)
         {
-            ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION * 3 / 4);
+            ls_stepper_forward_hop(LS_STEPPER_STEPS_PER_ROTATION * 3 / 4);
         }
         if (3 == _ls_state_prelaserwarn_rotation_count)
         {
-            ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION * 2);
+            ls_stepper_forward_hop(LS_STEPPER_STEPS_PER_ROTATION * 2);
         }
         if (3 < _ls_state_prelaserwarn_rotation_count)
         {
@@ -300,7 +300,7 @@ ls_State ls_state_active(ls_event event)
         ls_debug_printf("Beginning active state\n");
 #endif
         ls_stepper_set_maximum_steps_per_second(ls_settings_get_stepper_speed());
-        ls_stepper_random();
+        ls_stepper_random_hop();
         ls_servo_random();
         ls_leds_off();
         ls_oled_blank_screen();
@@ -390,7 +390,7 @@ ls_State ls_state_active(ls_event event)
             vTaskDelete(ls_coverage_task_handle);
             ls_coverage_task_handle = NULL; // probably not necessary now, but just in case
         }
-        ls_stepper_stop();
+        ls_stepper_stop_hopping();
         ls_servo_off();
         ls_laser_set_mode_off();
     }
@@ -479,7 +479,7 @@ ls_State ls_state_sleep(ls_event event)
     case LSEVT_STATE_ENTRY:
         ls_laser_set_mode_off();
         ls_servo_off();
-        ls_stepper_forward(1); // make sure we move past magnet
+        ls_stepper_forward_hop(1); // make sure we move past magnet
         ls_leds_off();
         ls_oled_blank_screen();
         break;
@@ -488,7 +488,7 @@ ls_State ls_state_sleep(ls_event event)
         // yes, wind might blow the arm back to the magnet, but at least we tried!
         if (ls_magnet_is_detected())
         {
-            ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION / 4);
+            ls_stepper_forward_hop(LS_STEPPER_STEPS_PER_ROTATION / 4);
         }
         else
         {
@@ -611,7 +611,7 @@ ls_State ls_state_map_build(ls_event event)
         }
         ls_event_empty_queue(); // in case of a trailing LSEVT_STEPPER_FINISHED_MOVE
         ls_stepper_set_maximum_steps_per_second(LS_STEPPER_STEPS_PER_SECOND_MAPPING);
-        ls_stepper_forward(LS_MAP_RESOLUTION);
+        ls_stepper_forward_hop(LS_MAP_RESOLUTION);
         break;
     case LSEVT_STEPPER_FINISHED_MOVE:
 #ifdef LSDEBUG_STATES
@@ -623,7 +623,7 @@ ls_State ls_state_map_build(ls_event event)
 #ifdef LSDEBUG_STATES
             ls_debug_printf("continuing to next position...\n");
 #endif
-            ls_stepper_forward(LS_MAP_RESOLUTION);
+            ls_stepper_forward_hop(LS_MAP_RESOLUTION);
             _ls_state_map_build_steps_remaining--;
         }
         else
@@ -708,7 +708,7 @@ ls_State ls_state_map_build(ls_event event)
 #else
                 ls_map_find_spans();
 #endif
-                ls_stepper_set_random_strategy(ls_stepper_random_strategy_map_spans);
+                ls_stepper_set_random_hop_strategy(ls_stepper_random_strategy_map_spans);
                 ls_map_set_status(LS_MAP_STATUS_OK);
             }
             ls_tape_sensor_disable();

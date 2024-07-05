@@ -187,15 +187,27 @@ assert(0); // at least for now, the tape sensor and second laser/servo cannot co
 // is having trouble registering magnet reliably that fast, though.
 // https://www.omc-stepperonline.com/support/what-is-the-maximum-speed-highest-frequency-of-the-stepper-motor
 // gives max 1000 RPM; recommended working speed 100-500 RPM. 500RPM = 8.3333 rotations per second; *200*16 => 26666 micro-steps per second
+
+// These "steps per second" values were originally implemented as 
+// *alarms* per second where the timer ISR did half a pulse per alarm.
+// So, the effective rotation speed was only half what these values implied.
+
 #define LS_STEPPER_STEPS_PER_SECOND_MAX 3600
 #define LS_STEPPER_STEPS_PER_SECOND_MAPPING 1800
 #define LS_STEPPER_STEPS_PER_SECOND_WARNING 7200
 #define LS_STEPPER_STEPS_PER_SECOND_DEFAULT 2700
 // LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_SECOND will be added or subtracted to the steps per second when accelerating or decelerating
 #define LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_SECOND 8000
+#define LS_STEPPER_SPINNING_ALARMS_DELTA_PER_TICK 400
 #define LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_TICK (LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_SECOND / pdMS_TO_TICKS(1000))
 
-#define LS_SETTINGS_MINIMUM_RPM_DEFAULT 100
+#define LS_STEPPER_RANDOM_SPIN_REVERSE_PER255 5
+#define LS_STEPPER_RANDOM_SPIN_MINIMUM_SECONDS 3
+#define LS_STEPPER_RANDOM_SPIN_MAXIMUM_SECONDS 10
+
+#define LS_SETTINGS_MINIMUM_RPM_SCANNING 100
+#define LS_SETTINGS_MAXIMUM_RPM_SCANNING 300
+#define LS_SETTINGS_MINIMUM_RPM_MOVEMENT 1
 /*
 2023 dual switch setup with upper 22k, lower 10k resistors to 3V3 and 10k to
 ground Testing on 2023-04-05 using final boards, 15ft Cat5 and 2x RJ45 cable
