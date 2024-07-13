@@ -303,9 +303,9 @@ void ls_servo_task(void *pvParameter) {
                 target_pulse_width2 = esp_random() % (max - min + 1) + min;
 #endif
 #ifdef LSDEBUG_SERVO
-                ls_debug_printf("New target: %d\n", target_pulse_width);
+                ls_debug_printf("New target: %d\n", (int) target_pulse_width);
 #ifdef LS_HAS_SERVO2
-                ls_debug_printf("New target2: %d\n", target_pulse_width2);
+                ls_debug_printf("New target2: %d\n", (int) target_pulse_width2);
 #endif
 #endif
             }

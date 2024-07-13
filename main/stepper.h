@@ -22,6 +22,14 @@
 
 typedef int32_t ls_stepper_position_t;
 
+enum ls_stepper_rotation_mode {
+    LS_STEPPER_ROTATION_MODE_UNPOWERED, // 0 (sleep; arm can rotate freely)
+    LS_STEPPER_ROTATION_MODE_STOPPED, // 1 (powered; holding position)
+    LS_STEPPER_ROTATION_MODE_RANDOM_HOP, // 2 (standard behavior through 2024)
+    LS_STEPPER_ROTATION_MODE_RANDOM_SPIN, // 3 (for IIIA-equivalent scanning behavior)
+    LS_STEPPER_ROTATION_MODE_HOPPING, // 4
+    LS_STEPPER_ROTATION_MODE_SPINNING, //5
+}ls_stepper_rotation_mode;
 
 
 enum ls_stepper_action {
@@ -35,6 +43,8 @@ enum ls_stepper_action {
     LS_STEPPER_ACTION_TARGET_RPM, // 7: message.value = the desired rotation speed
 }ls_stepper_action;
 
+
+
 typedef struct ls_stepper_action_message {
     enum ls_stepper_action action;
     int32_t value;
@@ -45,14 +55,6 @@ typedef struct ls_stepper_move_t {
     int32_t steps;
 }ls_stepper_move_t;
 
-enum ls_stepper_state {
-    LS_STEPPER_STATE_UNPOWERED, // 0 (sleep; arm can rotate freely)
-    LS_STEPPER_STATE_STOPPED, // 1 (powered; holding position)
-    LS_STEPPER_STATE_RANDOM_HOP, // 2 (standard behavior through 2024)
-    LS_STEPPER_STATE_RANDOM_SPIN, // 3 (for IIIA-equivalent scanning behavior)
-    LS_STEPPER_STATE_HOPPING, // 5
-    LS_STEPPER_STATE_SPINNING, //6
-}ls_stepper_state;
 
 
 

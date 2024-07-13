@@ -300,7 +300,7 @@ ls_State ls_state_active(ls_event event)
         ls_debug_printf("Beginning active state\n");
 #endif
         ls_stepper_set_maximum_steps_per_second(ls_settings_get_stepper_speed());
-        ls_stepper_random_hop();
+        ls_stepper_random_spin();
         ls_servo_random();
         ls_leds_off();
         ls_oled_blank_screen();
