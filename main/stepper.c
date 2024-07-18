@@ -272,7 +272,7 @@ static void _ls_stepper_set_spin_speed(void)
     // too fast:
     if (ls_stepper_current_timer_alarm_count < ls_stepper_target_timer_alarm_count)
     {
-        if (ls_stepper_current_timer_alarm_count + (uint64_t) LS_STEPPER_SPINNING_ALARMS_DELTA_PER_TICK > ls_stepper_target_timer_alarm_count)
+        if (ls_stepper_current_timer_alarm_count + (uint64_t) LS_STEPPER_SPINNING_ALARMS_CLOSE_ENOUGH > ls_stepper_target_timer_alarm_count)
         {
          ls_stepper_current_timer_alarm_count = ls_stepper_target_timer_alarm_count;
 #ifdef LSDEBUG_STEPPER
@@ -280,7 +280,7 @@ static void _ls_stepper_set_spin_speed(void)
 #endif
         }
         else {
-            ls_stepper_current_timer_alarm_count += (uint64_t) (ls_stepper_current_timer_alarm_count/20); //LS_STEPPER_SPINNING_ALARMS_DELTA_PER_TICK;
+            ls_stepper_current_timer_alarm_count += (uint64_t) ((ls_stepper_current_timer_alarm_count/LS_STEPPER_SPINNING_ALARMS_CHANGE_DIVISOR) + LS_STEPPER_SPINNING_ALARMS_CHANGE_MINIMUM); 
 #ifdef LSDEBUG_STEPPER
             // ls_debug_printf("-"); // greater alarm count is slower
 #endif
@@ -289,7 +289,7 @@ static void _ls_stepper_set_spin_speed(void)
     // too slow:
     if (ls_stepper_current_timer_alarm_count > ls_stepper_target_timer_alarm_count) 
     {
-        if (ls_stepper_target_timer_alarm_count + (uint64_t) LS_STEPPER_SPINNING_ALARMS_DELTA_PER_TICK > ls_stepper_current_timer_alarm_count)
+        if (ls_stepper_target_timer_alarm_count + (uint64_t) LS_STEPPER_SPINNING_ALARMS_CLOSE_ENOUGH > ls_stepper_current_timer_alarm_count)
         {
          ls_stepper_current_timer_alarm_count = ls_stepper_target_timer_alarm_count;
 #ifdef LSDEBUG_STEPPER
@@ -297,7 +297,7 @@ static void _ls_stepper_set_spin_speed(void)
 #endif
         }
         else {
-            ls_stepper_current_timer_alarm_count -= (uint64_t) (ls_stepper_current_timer_alarm_count/50); //LS_STEPPER_SPINNING_ALARMS_DELTA_PER_TICK;
+            ls_stepper_current_timer_alarm_count -= (uint64_t) ((ls_stepper_current_timer_alarm_count/LS_STEPPER_SPINNING_ALARMS_CHANGE_DIVISOR) + LS_STEPPER_SPINNING_ALARMS_CHANGE_MINIMUM);
 #ifdef LSDEBUG_STEPPER
             // ls_debug_printf("+"); // lower alarm count is faster
 #endif
@@ -410,14 +410,24 @@ enum ls_stepper_rotation_mode _do_state_spinning(enum ls_stepper_rotation_mode c
     switch (current_message->action)
     {
     case LS_STEPPER_ACTION_STOP:
-        ls_stepper_target_timer_alarm_count = ls_stepper_timer_alarm_count_stoppable;
-        if (ls_stepper_current_timer_alarm_count >= ls_stepper_timer_alarm_count_stoppable) {
-//            successor_state =  LS_STEPPER_ROTATION_MODE_STOPPED;
-#ifdef LSDEBUG_STEPPER
-            ls_debug_printf("_do_state_spinning: Slowed to stoppable speed; => LS_STEPPER_ROTATION_MODE_STOPPED\n");
-#endif
+        if (ls_stepper_current_timer_alarm_count < ls_stepper_timer_alarm_count_stoppable)
+        {
+            ls_stepper_target_timer_alarm_count = ls_stepper_timer_alarm_count_stoppable;
         }
-        _ls_stepper_set_spin_speed();
+        // do anything we need to do exactly once (send):
+        if (ls_stepper_current_timer_alarm_count == ls_stepper_timer_alarm_count_stoppable) {
+
+#ifdef LSDEBUG_STEPPER
+            ls_debug_printf("_do_state_spinning: Slowed to stoppable speed\n");
+#endif
+            /// then go to a slightly slower speed
+            ls_stepper_target_timer_alarm_count += 2 * LS_STEPPER_SPINNING_ALARMS_CLOSE_ENOUGH;
+            ls_stepper_current_timer_alarm_count = ls_stepper_target_timer_alarm_count;
+        }
+        if (ls_stepper_current_timer_alarm_count > ls_stepper_timer_alarm_count_stoppable) {
+            ; // already did what we need to do
+        }
+            _ls_stepper_set_spin_speed();
         break;
     case LS_STEPPER_ACTION_TARGET_RPM: // will have been held until stopped if direction changing
         new_direction = current_message->value >= 0 ? LS_STEPPER_DIRECTION_FORWARD : LS_STEPPER_DIRECTION_REVERSE;
@@ -487,7 +497,7 @@ void _ls_enqueue_random_spin_idle_ticks(void) {
 #endif
 }
 
-enum ls_stepper_rotation_mode _current_stepper_rotation_mode, _rotation_mode_after_stopped;
+enum ls_stepper_rotation_mode _current_stepper_rotation_mode;
 enum ls_stepper_action _current_stepper_action;
 
 void ls_stepper_task(void *pvParameter)
@@ -496,9 +506,9 @@ void ls_stepper_task(void *pvParameter)
     ls_stepper_action_message message;
     _current_stepper_action = message.action = LS_STEPPER_ACTION_SLEEP;
     _current_stepper_rotation_mode = LS_STEPPER_ROTATION_MODE_UNPOWERED;
-    _rotation_mode_after_stopped = LS_STEPPER_ROTATION_MODE_STOPPED;
     enum ls_stepper_rotation_mode successor_stepper_rotation_mode = _current_stepper_rotation_mode;
 
+// temporary to check arithmetic 
 // #ifdef LSDEBUG_STEPPER
 //     printf("_alarms_1_rpm=%lld\n", _alarms_1_rpm);
 //     for(int i=50; i <= 500; i+=50){
@@ -548,7 +558,6 @@ void ls_stepper_task(void *pvParameter)
                    printf("Stepper stopping before change in mode or direction (stepper state = %d; stepper action=%d (next=%d);  direction=%d)\n", 
                        _current_stepper_rotation_mode, _current_stepper_action, message.action, ls_stepper_direction);
                     xSemaphoreGive(print_mux);
-
     #endif
                     _current_stepper_action = message.action = LS_STEPPER_ACTION_STOP;
                 } // if next message requires stopping before taking its action
