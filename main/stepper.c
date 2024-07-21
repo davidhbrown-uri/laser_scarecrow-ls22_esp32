@@ -119,6 +119,14 @@ static int _ls_stepper_steps_to_decelerate(int current_rate)
            10;                                                                                // 'c' constant term for steps left over after steps delta has been removed each time (3600 is not divisible by 800)
 }
 
+void _ls_stepper_enqueue_finished_move()
+{
+    ls_event event;
+    event.type = LSEVT_STEPPER_FINISHED_MOVE;
+    event.value = 0;
+    xQueueSendToFrontFromISR(ls_event_queue, (void *)&event, NULL);
+}
+
 ls_stepper_position_t ls_stepper_position_constrained(ls_stepper_position_t position)
 {
     while(position < 0) {
@@ -184,10 +192,7 @@ static bool IRAM_ATTR ls_stepper_step_isr_callback(void *args)
                 ls_stepper_steps_taken++;
                 if (ls_stepper_steps_remaining == 0)
                 {
-                    ls_event event;
-                    event.type = LSEVT_STEPPER_FINISHED_MOVE;
-                    event.value = 0;
-                    xQueueSendToFrontFromISR(ls_event_queue, (void *)&event, NULL);
+                    _ls_stepper_enqueue_finished_move();
                 }
             }
         } // else ending pulse
@@ -416,7 +421,7 @@ enum ls_stepper_rotation_mode _do_state_spinning(enum ls_stepper_rotation_mode c
         }
         // do anything we need to do exactly once (send):
         if (ls_stepper_current_timer_alarm_count == ls_stepper_timer_alarm_count_stoppable) {
-
+            _ls_stepper_enqueue_finished_move();
 #ifdef LSDEBUG_STEPPER
             ls_debug_printf("_do_state_spinning: Slowed to stoppable speed\n");
 #endif
@@ -554,10 +559,12 @@ void ls_stepper_task(void *pvParameter)
                     change_stepper_mode)
                 {
     #ifdef LSDEBUG_STEPPER
+    if(_current_stepper_action != LS_STEPPER_ACTION_STOP) {
                     xSemaphoreTake(print_mux, portMAX_DELAY);
                    printf("Stepper stopping before change in mode or direction (stepper state = %d; stepper action=%d (next=%d);  direction=%d)\n", 
                        _current_stepper_rotation_mode, _current_stepper_action, message.action, ls_stepper_direction);
                     xSemaphoreGive(print_mux);
+    }
     #endif
                     _current_stepper_action = message.action = LS_STEPPER_ACTION_STOP;
                 } // if next message requires stopping before taking its action
@@ -675,6 +682,7 @@ void ls_stepper_task(void *pvParameter)
                     break;
                     case LS_STEPPER_ACTION_IDLE:
                     if (0>=message.value) { // we've been idle enough ticks
+                        _ls_stepper_enqueue_finished_move();
                         _ls_enqueue_random_spin_target_rpm();
                     } else {
                         message.value--;

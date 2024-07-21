@@ -283,6 +283,9 @@ ls_State ls_state_prelaserwarn(ls_event event)
         _ls_state_prelaserwarn_successor = NULL;
         vTaskDelay(pdMS_TO_TICKS(1000)); // 1sec quiet/still after warning
     }
+#ifdef LSDEBUG_STATES
+ls_debug_printf("_ls_state_prelaserwarn_buzzer_complete=%d; _ls_state_prelaserwarn_movement_complete=%d\n", _ls_state_prelaserwarn_buzzer_complete, _ls_state_prelaserwarn_movement_complete);
+#endif
     return successor;
 }
 
