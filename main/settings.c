@@ -453,7 +453,7 @@ BaseType_t ls_settings_map_control_to_servo_maxlimit(BaseType_t adc) {
   case 2:
     return LS_SERVO_US_60DEG;
   case 4:
-    return LS_SERVO_US_MAX;
+    return LS_SERVO_US_90DEG;
   default: // no change
     return ls_settings_get_servo_maxlimit();
   }
@@ -462,11 +462,11 @@ BaseType_t ls_settings_map_control_to_servo_minlimit(BaseType_t adc) {
   switch (
       _map(adc, LS_CONTROLS_READING_TOP, LS_CONTROLS_READING_BOTTOM, 0, 4)) {
   case 0:
-    return LS_SERVO_US_NEG10DEG;
-  case 2:
     return LS_SERVO_US_NEG5DEG;
+  case 2:
+    return LS_SERVO_US_0DEG;
   case 4:
-    return LS_SERVO_US_MIN;
+    return LS_SERVO_US_NEG5DEG;
   default: // no change
     return ls_settings_get_servo_minlimit();
   }

@@ -53,6 +53,9 @@ void ls_servo_random(void);
 
 void ls_servo_moveto(uint32_t pulsewidth_us);
 
+/**
+ * @deprecated use ls_servo_moveto whenever possible to avoid overloading 5V supply
+ */
 void ls_servo_jumpto(uint32_t pulsewidth_us);
 
 void ls_servo_task(void* pvParameter);

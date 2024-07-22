@@ -30,6 +30,12 @@ void ls_laser_set_mode(enum ls_laser_mode_t requested_mode)
         gpio_set_level(LSGPIO_LASERPOWERENABLE, 0);
         break;
     case LS_LASER_ON:
+    //wait for servos that might be starting at the same time to not overload supply
+    #ifdef LS_HAS_SERVO2
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    #else 
+        vTaskDelay(pdMS_TO_TICKS(500));
+    #endif
         gpio_set_level(LSGPIO_LASERPOWERENABLE, 1);
         break;
     case LS_LASER_MAPPED:

@@ -137,9 +137,12 @@ assert(0); // at least for now, the tape sensor and second laser/servo cannot co
 
 // physical limits for the servo:
 #define LS_SERVO_US_MIN 750
-#define LS_SERVO_US_MAX 2250
+// 2250 not safe for dual
+// #define LS_SERVO_US_MAX 2250
+#define LS_SERVO_US_MAX 2000
 // positions available to use in state-settings:
-#define LS_SERVO_US_NEG10DEG 888
+// -10deg not reasonable
+// #define LS_SERVO_US_NEG10DEG 888
 #define LS_SERVO_US_NEG5DEG 944
 #define LS_SERVO_US_0DEG 1000
 #define LS_SERVO_US_20DEG 1222
@@ -149,7 +152,7 @@ assert(0); // at least for now, the tape sensor and second laser/servo cannot co
 #define LS_SERVO_US_90DEG 2000
 // defaults
 #define LS_SERVO_US_MAX_LIMIT LS_SERVO_US_60DEG
-#define LS_SERVO_US_MIN_LIMIT LS_SERVO_US_NEG10DEG
+#define LS_SERVO_US_MIN_LIMIT LS_SERVO_US_0DEG
 // initial position during self-test
 #define LS_SERVO_US_ASSEMBLY_REFERENCE LS_SERVO_US_0DEG
 // selftest holds the servo at LS_SERVER_US_ASSEMBLY_REFERENCE this long to

@@ -153,14 +153,14 @@ ls_State ls_state_settings_lower(ls_event event) {
     control_value = *((BaseType_t *)event.value);
     ls_settings_set_servo_top(
         ls_settings_map_control_to_servo_top(control_value));
-    ls_servo_jumpto(ls_servo_get_top_pulse_ms());
+    ls_servo_moveto(ls_servo_get_top_pulse_ms());
     _ls_state_settings_servo_hold_count = 3;
     break;
   case LSEVT_CONTROLS_SLIDER2:
     control_value = *((BaseType_t *)event.value);
     ls_settings_set_servo_bottom(
         ls_settings_map_control_to_servo_bottom(control_value));
-    ls_servo_jumpto(ls_servo_get_bottom_pulse_ms());
+    ls_servo_moveto(ls_servo_get_bottom_pulse_ms());
     _ls_state_settings_servo_hold_count = 3;
     break;
   case LSEVT_CONTROLS_OFF:
