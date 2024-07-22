@@ -60,12 +60,14 @@ static void _ls_servo_on()
 {
     if (!_ls_servo_is_on)
     {
-        _ls_servo_is_on = true;
         gpio_set_level(LSGPIO_SERVOPOWERENABLE, 1);
         mcpwm_start(LS_SERVO_MCPWM_UNIT, LS_SERVO_MCPWM_TIMER);
 #ifdef LS_HAS_SERVO2
+        // wait just a bit to help avoid overloading the 5V supply
+        vTaskDelay(pdMS_TO_TICKS(500));
         mcpwm_start(LS_SERVO_MCPWM_UNIT, LS_SERVO2_MCPWM_TIMER);
 #endif
+        _ls_servo_is_on = true;
     }
 }
 
@@ -74,12 +76,12 @@ static void _ls_servo_off()
 {
     if (_ls_servo_is_on)
     {
-        _ls_servo_is_on = false;
         gpio_set_level(LSGPIO_SERVOPOWERENABLE, 0);
         mcpwm_stop(LS_SERVO_MCPWM_UNIT, LS_SERVO_MCPWM_TIMER);
 #ifdef LS_HAS_SERVO2
         mcpwm_stop(LS_SERVO_MCPWM_UNIT, LS_SERVO2_MCPWM_TIMER);
 #endif
+        _ls_servo_is_on = false;
     }
 }
 
