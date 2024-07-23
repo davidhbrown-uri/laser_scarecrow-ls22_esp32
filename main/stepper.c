@@ -331,6 +331,9 @@ void _ls_stepper_repeat_action(ls_stepper_action_message *current_message)
         message.value--;
     }
     xQueueSend(ls_stepper_queue, (void *)&message, 0);
+#ifdef LSDEBUG_STEPPER
+            ls_debug_printf("Stepper repeat action=%d value=%d\n", message.action, message.value);
+#endif
 }
 
 enum ls_stepper_rotation_mode _do_state_hopping(enum ls_stepper_rotation_mode current_state, ls_stepper_action_message *current_message)
@@ -601,9 +604,10 @@ void ls_stepper_task(void *pvParameter)
                     case LS_STEPPER_ACTION_RANDOM_SPIN:
                     case LS_STEPPER_ACTION_TARGET_RPM:
 #ifdef LSDEBUG_STEPPER
-                ls_debug_printf("Stepper waking\n");
+                ls_debug_printf("Stepper waking; requeueing message action=%d value=%d\n", message.action, message.value);
 #endif
-                    successor_stepper_rotation_mode = LS_STEPPER_ROTATION_MODE_STOPPED;
+                        _ls_stepper_repeat_action(&message);
+                        successor_stepper_rotation_mode = LS_STEPPER_ROTATION_MODE_STOPPED;
                     break;
                     case LS_STEPPER_ACTION_STOP: // already done before we could shut down
 
@@ -617,21 +621,27 @@ void ls_stepper_task(void *pvParameter)
                     case LS_STEPPER_ACTION_IDLE:
                     break;
                     case LS_STEPPER_ACTION_HOP_FORWARD_STEPS:
+                        _ls_stepper_repeat_action(&message);
                     successor_stepper_rotation_mode = LS_STEPPER_ROTATION_MODE_HOPPING;
                     break;
                     case LS_STEPPER_ACTION_HOP_REVERSE_STEPS:
+                        _ls_stepper_repeat_action(&message);
                     successor_stepper_rotation_mode = LS_STEPPER_ROTATION_MODE_HOPPING;
                     break;
                     case LS_STEPPER_ACTION_RANDOM_HOP:
+                        _ls_stepper_repeat_action(&message);
                     successor_stepper_rotation_mode = LS_STEPPER_ROTATION_MODE_RANDOM_HOP;
                     break;
                     case LS_STEPPER_ACTION_RANDOM_SPIN:
+                        _ls_stepper_repeat_action(&message);
                     successor_stepper_rotation_mode = LS_STEPPER_ROTATION_MODE_RANDOM_SPIN;
                     break;
                     case LS_STEPPER_ACTION_TARGET_RPM:
+                        _ls_stepper_repeat_action(&message);
                     successor_stepper_rotation_mode = LS_STEPPER_ROTATION_MODE_SPINNING;
                     break;
                     case LS_STEPPER_ACTION_SLEEP:
+                        _ls_stepper_repeat_action(&message);
                     successor_stepper_rotation_mode = LS_STEPPER_ROTATION_MODE_UNPOWERED;
                     break;
                     case LS_STEPPER_ACTION_STOP:
@@ -837,7 +847,9 @@ void IRAM_ATTR ls_stepper_set_home_offset(int offset)
 
 bool ls_stepper_is_stopped(void)
 {
-    return 0 == ls_stepper_steps_remaining;
+    return 0 == ls_stepper_mode_hop0_spin1 ? 
+        0 == ls_stepper_steps_remaining :
+        ls_stepper_current_timer_alarm_count >= ls_stepper_timer_alarm_count_stoppable;
 }
 
 BaseType_t ls_stepper_get_steps_taken(void)

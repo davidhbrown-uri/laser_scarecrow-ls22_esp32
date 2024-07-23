@@ -1,5 +1,5 @@
 /*
-    Control software for URI Laser Scarecrow, 2022 Model
+    Control software for URI Laser Scarecrow, 2024 Fast Spinning Prototypes
     Copyright (C) 2022-2024 David H. Brown
 
     This program is free software: you can redistribute it and/or modify
@@ -16,7 +16,7 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 #define VERSION_MESSAGE                                                        \
-  "URI Laser Scarecrow 2024 version 2.3.x (Dual)\n"
+  "URI Laser Scarecrow 2024 version 2.4.x (Fast Spinning)\n"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
