@@ -393,7 +393,7 @@ ls_State ls_state_active(ls_event event)
             vTaskDelete(ls_coverage_task_handle);
             ls_coverage_task_handle = NULL; // probably not necessary now, but just in case
         }
-        ls_stepper_stop_hopping();
+        ls_stepper_stop();
         ls_servo_off();
         ls_laser_set_mode_off();
     }
@@ -482,16 +482,29 @@ ls_State ls_state_sleep(ls_event event)
     case LSEVT_STATE_ENTRY:
         ls_laser_set_mode_off();
         ls_servo_off();
-        ls_stepper_forward_hop(1); // make sure we move past magnet
+        ls_stepper_stop(); // before sleeping
         ls_leds_off();
         ls_oled_blank_screen();
-        break;
-    case LSEVT_STEPPER_FINISHED_MOVE:
+        while(ls_stepper_is_moving())
+        {
+            vTaskDelay(pdMS_TO_TICKS(500));
+        }
         // the magnet sensor includes an LED which could pointlessly drain power during sleep
         // yes, wind might blow the arm back to the magnet, but at least we tried!
         if (ls_magnet_is_detected())
         {
             ls_stepper_forward_hop(LS_STEPPER_STEPS_PER_ROTATION / 4);
+        } 
+        else {
+            ls_stepper_sleep();
+            ls_event_enqueue_noop();
+        }
+        break;
+    case LSEVT_STEPPER_FINISHED_MOVE:
+        // check whether the initial move of a quarter turn worked; if not, give it another smaller nudge
+        if (ls_magnet_is_detected())
+        {
+            ls_stepper_forward_hop(LS_STEPPER_STEPS_PER_ROTATION / 7);
         }
         else
         {

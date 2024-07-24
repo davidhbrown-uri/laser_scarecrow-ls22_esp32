@@ -212,8 +212,10 @@ assert(0); // at least for now, the tape sensor and second laser/servo cannot co
 #define LS_STEPPER_RANDOM_SPIN_MINIMUM_SECONDS 3
 #define LS_STEPPER_RANDOM_SPIN_MAXIMUM_SECONDS 10
 
+// to drop exposure to IIIA instead of IIIB:
+#define LS_LASER_ENABLE_MINIMUM_RPM 180
 #define LS_SETTINGS_MINIMUM_RPM_SCANNING 190
-#define LS_SETTINGS_MAXIMUM_RPM_SCANNING 250
+#define LS_SETTINGS_MAXIMUM_RPM_SCANNING 300
 #define LS_SETTINGS_MINIMUM_RPM_MOVEMENT 5
 /*
 2023 dual switch setup with upper 22k, lower 10k resistors to 3V3 and 10k to

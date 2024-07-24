@@ -98,6 +98,7 @@ void ls_stepper_random_spin(void);
 void ls_stepper_spin_at_rpm(int32_t rpm);
 void ls_stepper_stop_spin(void);
 void ls_stepper_sleep(void);
+void ls_stepper_stop(void);
 
 void ls_stepper_set_random_reverse_per255(uint8_t value);
 

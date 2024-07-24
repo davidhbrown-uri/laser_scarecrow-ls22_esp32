@@ -41,9 +41,6 @@ void ls_laser_set_mode(enum ls_laser_mode_t requested_mode)
     case LS_LASER_MAPPED:
         gpio_set_level(LSGPIO_LASERPOWERENABLE, 0);
         break;
-    case LS_LASER_SCAN:
-        gpio_set_level(LSGPIO_LASERPOWERENABLE, 0);
-        break;
     }
     _ls_laser_mode = requested_mode;
 }
@@ -62,9 +59,9 @@ uint32_t IRAM_ATTR ls_laser_mode_is_mappped(void)
  *
  * @return uint32_t
  */
-uint32_t IRAM_ATTR ls_laser_mode_is_scan(void)
+uint32_t IRAM_ATTR ls_laser_mode_is_on(void)
 {
-    return (LS_LASER_SCAN == _ls_laser_mode) ? 1 : 0;
+    return (LS_LASER_ON == _ls_laser_mode) ? 1 : 0;
 }
 
 BaseType_t IRAM_ATTR _ls_laser_pulse_counter = 0;
