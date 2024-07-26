@@ -299,36 +299,25 @@ static void _ls_stepper_set_spin_speed(void)
     // too fast:
     if (ls_stepper_current_timer_alarm_count < ls_stepper_target_timer_alarm_count)
     {
-        if (ls_stepper_current_timer_alarm_count + LS_STEPPER_SPINNING_ALARMS_CLOSE_ENOUGH >= ls_stepper_target_timer_alarm_count)
-        {
-         ls_stepper_current_timer_alarm_count = ls_stepper_target_timer_alarm_count;
-#ifdef LSDEBUG_STEPPER
-            // ls_debug_printf("=\n");
-#endif
-        }
-        else {
+
             ls_stepper_current_timer_alarm_count += ((ls_stepper_current_timer_alarm_count/LS_STEPPER_SPINNING_ALARMS_CHANGE_DIVISOR) + LS_STEPPER_SPINNING_ALARMS_CHANGE_MINIMUM); 
+            if (ls_stepper_current_timer_alarm_count > ls_stepper_target_timer_alarm_count) {
+                ls_stepper_current_timer_alarm_count = ls_stepper_target_timer_alarm_count;
+            }
 #ifdef LSDEBUG_STEPPER
             // ls_debug_printf("-"); // greater alarm count is slower
 #endif
-        }
     }
     // too slow:
     if (ls_stepper_current_timer_alarm_count > ls_stepper_target_timer_alarm_count) 
     {
-        if (ls_stepper_target_timer_alarm_count + LS_STEPPER_SPINNING_ALARMS_CLOSE_ENOUGH >=  ls_stepper_current_timer_alarm_count)
-        {
-         ls_stepper_current_timer_alarm_count = ls_stepper_target_timer_alarm_count;
-#ifdef LSDEBUG_STEPPER
-            // ls_debug_printf("=\n");
-#endif
-        }
-        else {
             ls_stepper_current_timer_alarm_count -= ((ls_stepper_current_timer_alarm_count/LS_STEPPER_SPINNING_ALARMS_CHANGE_DIVISOR) + LS_STEPPER_SPINNING_ALARMS_CHANGE_MINIMUM);
+            if (ls_stepper_current_timer_alarm_count < ls_stepper_target_timer_alarm_count) {
+                ls_stepper_current_timer_alarm_count = ls_stepper_target_timer_alarm_count;
+            }
 #ifdef LSDEBUG_STEPPER
             // ls_debug_printf("+"); // lower alarm count is faster
 #endif
-        }
     }
 #ifdef LSDEBUG_STEPPER
             // ls_debug_printf("[^%d]", (int) ls_stepper_current_timer_alarm_count); // too much
@@ -480,7 +469,7 @@ enum ls_stepper_rotation_mode _do_state_spinning(enum ls_stepper_rotation_mode c
             ls_debug_printf("STEPPER: _do_state_spinning: Slowed to stoppable speed\n");
 #endif
             /// then go to a slightly slower speed
-            ls_stepper_target_timer_alarm_count += 2 * LS_STEPPER_SPINNING_ALARMS_CLOSE_ENOUGH;
+            ls_stepper_target_timer_alarm_count += 2 * LS_STEPPER_SPINNING_ALARMS_CHANGE_MINIMUM;
             ls_stepper_current_timer_alarm_count = ls_stepper_target_timer_alarm_count;
             successor_rotation_mode = LS_STEPPER_ROTATION_MODE_STOPPED;
         }

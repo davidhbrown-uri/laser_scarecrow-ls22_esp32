@@ -202,7 +202,6 @@ assert(0); // at least for now, the tape sensor and second laser/servo cannot co
 // LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_SECOND will be added or subtracted to the steps per second when accelerating or decelerating
 #define LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_SECOND 8000
 // a constant doesn't work as well with the wider range
-#define LS_STEPPER_SPINNING_ALARMS_CLOSE_ENOUGH (5ULL)
 #define LS_STEPPER_SPINNING_ALARMS_CHANGE_DIVISOR (30ULL)
 #define LS_STEPPER_SPINNING_ALARMS_CHANGE_MINIMUM (1ULL)
 
