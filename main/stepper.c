@@ -36,7 +36,7 @@
 #include "settings.h"
 #include "math.h"
 
-#define LS_STEPPER_TIMER_DIVIDER (20)
+#define LS_STEPPER_TIMER_DIVIDER (10)
 
 // see https://docs.espressif.com/projects/esp-idf/en/v4.4/esp32/api-reference/peripherals/timer.html
 // defaut ESP32 clock source is 80MHz (1MHz rate = 1μs period)
@@ -65,8 +65,9 @@
 // or a frequency of 500MHz, so we couldn't make it too short given the 80MHz starting clock.
 // However, there is also a frequency limit of half the clock (internal is 12MHz) at the maximum microstepping. 
 // 6MHz pulses => 12MHz alarms... yeah, no way we need to worry about that.
+// July 26 '24: Trying 10 instead of 20 to get better control of acceleration and deceleration
 
-const uint64_t _alarms_1_rpm = APB_CLK_FREQ / LS_STEPPER_TIMER_DIVIDER / LS_STEPPER_STEPS_PER_ROTATION / (uint64_t) 2 * (uint64_t) 60;
+const uint64_t _alarms_1_rpm = APB_CLK_FREQ / LS_STEPPER_TIMER_DIVIDER / LS_STEPPER_STEPS_PER_ROTATION / 2ULL * 60ULL;
 
 /**
  * Calculate the resulting RPM for a given timer alarm value
@@ -81,7 +82,7 @@ BaseType_t _rpm_from_timer_alarm_value(uint64_t timer_alarm_value) {
  */
 uint64_t _timer_alarm_count_from_rpm(BaseType_t rpm) {
     if (rpm == 0) {
-        return _alarms_1_rpm * (uint64_t) 2;
+        return _alarms_1_rpm * 2ULL;
     }
 
     return _alarms_1_rpm / (uint64_t) abs(rpm);
@@ -97,7 +98,8 @@ uint64_t IRAM_ATTR ls_stepper_maximum_laser_enable_alarm_count = _alarms_1_rpm /
 uint64_t ls_stepper_timer_alarm_count_stoppable;
 
 volatile static BaseType_t IRAM_ATTR _ls_stepperstep_phase = 0;
-
+enum ls_stepper_rotation_mode _current_stepper_rotation_mode;
+enum ls_stepper_action _current_stepper_action;
 enum ls_stepper_direction_t IRAM_ATTR ls_stepper_direction = LS_STEPPER_DIRECTION_FORWARD;
 #ifdef LS_HAS_TAPE_SENSOR
 static bool _ls_stepper_enable_skipping = false;
@@ -126,6 +128,14 @@ void _ls_stepper_enqueue_finished_move()
     event.type = LSEVT_STEPPER_FINISHED_MOVE;
     event.value = 0;
     xQueueSendToFrontFromISR(ls_event_queue, (void *)&event, NULL);
+}
+
+void _ls_stepper_enqueue_reached_speed()
+{
+    ls_event event;
+    event.type = LSEVT_STEPPER_REACHED_SPEED;
+    event.value = 0;
+    xQueueSend(ls_event_queue, (void *)&event, 0);
 }
 
 ls_stepper_position_t ls_stepper_position_constrained(ls_stepper_position_t position)
@@ -289,7 +299,7 @@ static void _ls_stepper_set_spin_speed(void)
     // too fast:
     if (ls_stepper_current_timer_alarm_count < ls_stepper_target_timer_alarm_count)
     {
-        if (ls_stepper_current_timer_alarm_count + (uint64_t) LS_STEPPER_SPINNING_ALARMS_CLOSE_ENOUGH > ls_stepper_target_timer_alarm_count)
+        if (ls_stepper_current_timer_alarm_count + LS_STEPPER_SPINNING_ALARMS_CLOSE_ENOUGH >= ls_stepper_target_timer_alarm_count)
         {
          ls_stepper_current_timer_alarm_count = ls_stepper_target_timer_alarm_count;
 #ifdef LSDEBUG_STEPPER
@@ -297,7 +307,7 @@ static void _ls_stepper_set_spin_speed(void)
 #endif
         }
         else {
-            ls_stepper_current_timer_alarm_count += (uint64_t) ((ls_stepper_current_timer_alarm_count/LS_STEPPER_SPINNING_ALARMS_CHANGE_DIVISOR) + LS_STEPPER_SPINNING_ALARMS_CHANGE_MINIMUM); 
+            ls_stepper_current_timer_alarm_count += ((ls_stepper_current_timer_alarm_count/LS_STEPPER_SPINNING_ALARMS_CHANGE_DIVISOR) + LS_STEPPER_SPINNING_ALARMS_CHANGE_MINIMUM); 
 #ifdef LSDEBUG_STEPPER
             // ls_debug_printf("-"); // greater alarm count is slower
 #endif
@@ -306,7 +316,7 @@ static void _ls_stepper_set_spin_speed(void)
     // too slow:
     if (ls_stepper_current_timer_alarm_count > ls_stepper_target_timer_alarm_count) 
     {
-        if (ls_stepper_target_timer_alarm_count + (uint64_t) LS_STEPPER_SPINNING_ALARMS_CLOSE_ENOUGH > ls_stepper_current_timer_alarm_count)
+        if (ls_stepper_target_timer_alarm_count + LS_STEPPER_SPINNING_ALARMS_CLOSE_ENOUGH >=  ls_stepper_current_timer_alarm_count)
         {
          ls_stepper_current_timer_alarm_count = ls_stepper_target_timer_alarm_count;
 #ifdef LSDEBUG_STEPPER
@@ -314,14 +324,14 @@ static void _ls_stepper_set_spin_speed(void)
 #endif
         }
         else {
-            ls_stepper_current_timer_alarm_count -= (uint64_t) ((ls_stepper_current_timer_alarm_count/LS_STEPPER_SPINNING_ALARMS_CHANGE_DIVISOR) + LS_STEPPER_SPINNING_ALARMS_CHANGE_MINIMUM);
+            ls_stepper_current_timer_alarm_count -= ((ls_stepper_current_timer_alarm_count/LS_STEPPER_SPINNING_ALARMS_CHANGE_DIVISOR) + LS_STEPPER_SPINNING_ALARMS_CHANGE_MINIMUM);
 #ifdef LSDEBUG_STEPPER
             // ls_debug_printf("+"); // lower alarm count is faster
 #endif
         }
     }
 #ifdef LSDEBUG_STEPPER
-            // ls_debug_printf("[^%d]", (int) ls_stepper_current_timer_alarm_count); 
+            // ls_debug_printf("[^%d]", (int) ls_stepper_current_timer_alarm_count); // too much
 #endif
     ESP_ERROR_CHECK(timer_set_alarm_value(TIMER_GROUP_0, TIMER_0, ls_stepper_current_timer_alarm_count));
 }
@@ -331,7 +341,18 @@ void _ls_stepper_enqueue_idle_action(int32_t value)
     ls_stepper_action_message message;
     message.action = LS_STEPPER_ACTION_IDLE;
     message.value = value;
+    xQueueSendToFront(ls_stepper_queue, (void *)&message, 0);
+}
+
+void _ls_stepper_stop_next_action(void)
+{
+    ls_stepper_action_message message;
+    message.action = LS_STEPPER_ACTION_STOP;
+    message.value = 0;
     xQueueSend(ls_stepper_queue, (void *)&message, 0);
+#ifdef LSDEBUG_STEPPER
+ls_debug_printf("STEPPER: _ls_stepper_stop_next_action() called\n");
+#endif
 }
 
 void _ls_stepper_repeat_action(ls_stepper_action_message *current_message)
@@ -344,7 +365,9 @@ void _ls_stepper_repeat_action(ls_stepper_action_message *current_message)
     }
     xQueueSend(ls_stepper_queue, (void *)&message, 0);
 #ifdef LSDEBUG_STEPPER
-// ls_debug_printf("STEPPER: _ls_stepper_repeat_action(action=%d, value=%d)\n", message.action, message.value);
+if (LS_STEPPER_ACTION_IDLE != message.action || message.value ==0) {
+    ls_debug_printf("STEPPER: _ls_stepper_repeat_action(action=%d, value=%d)\n", message.action, message.value);
+}
 #endif
 }
 
@@ -355,7 +378,7 @@ enum ls_stepper_rotation_mode _do_state_hopping(enum ls_stepper_rotation_mode cu
     enum ls_stepper_rotation_mode successor_rotation_mode = current_rotation_mode;
     switch (current_action)
     {
-    case LS_STEPPER_ACTION_HOP_FORWARD_STEPS:
+    case LS_STEPPER_ACTION_HOP_FORWARD_STEPS: // LS_STEPPER_ROTATION_MODE_HOPPING|LS_STEPPER_ROTATION_MODE_RANDOM_HOP
         gpio_set_level(LSGPIO_STEPPERENABLE, STEPPERENABLE_ENABLE);
         if (ls_stepper_steps_remaining <= 0)
         {
@@ -378,7 +401,7 @@ enum ls_stepper_rotation_mode _do_state_hopping(enum ls_stepper_rotation_mode cu
         }
         _ls_stepper_set_hop_speed();
         break;
-    case LS_STEPPER_ACTION_HOP_REVERSE_STEPS:
+    case LS_STEPPER_ACTION_HOP_REVERSE_STEPS: // LS_STEPPER_ROTATION_MODE_HOPPING|LS_STEPPER_ROTATION_MODE_RANDOM_HOP
         gpio_set_level(LSGPIO_STEPPERENABLE, STEPPERENABLE_ENABLE);
         if (ls_stepper_steps_remaining <= 0)
         {
@@ -401,7 +424,7 @@ enum ls_stepper_rotation_mode _do_state_hopping(enum ls_stepper_rotation_mode cu
         }
         _ls_stepper_set_hop_speed();
         break;
-    case LS_STEPPER_ACTION_STOP:
+    case LS_STEPPER_ACTION_STOP: // LS_STEPPER_ROTATION_MODE_HOPPING|LS_STEPPER_ROTATION_MODE_RANDOM_HOP
 #ifdef LSDEBUG_STEPPER
         ls_debug_printf("STEPPER: stopping\n");
 #endif
@@ -411,13 +434,18 @@ enum ls_stepper_rotation_mode _do_state_hopping(enum ls_stepper_rotation_mode cu
         if (ls_stepper_steps_remaining <= 0)
         {
             successor_rotation_mode = LS_STEPPER_ROTATION_MODE_STOPPED;
-            // _ls_stepper_enqueue_idle_action(0);
         }
         break;
-    case LS_STEPPER_ACTION_IDLE:
-    default:
-        _ls_stepper_set_hop_speed();
+    case LS_STEPPER_ACTION_IDLE: // LS_STEPPER_ROTATION_MODE_HOPPING|LS_STEPPER_ROTATION_MODE_RANDOM_HOP
+    case LS_STEPPER_ACTION_RANDOM_HOP: // LS_STEPPER_ROTATION_MODE_HOPPING|LS_STEPPER_ROTATION_MODE_RANDOM_HOP
+        _ls_stepper_set_hop_speed(); // LS_STEPPER_ROTATION_MODE_HOPPING|LS_STEPPER_ROTATION_MODE_RANDOM_HOP
         break;
+    case LS_STEPPER_ACTION_RANDOM_SPIN: // LS_STEPPER_ROTATION_MODE_HOPPING|LS_STEPPER_ROTATION_MODE_RANDOM_HOP
+    case LS_STEPPER_ACTION_TARGET_RPM: // LS_STEPPER_ROTATION_MODE_HOPPING|LS_STEPPER_ROTATION_MODE_RANDOM_HOP
+    case LS_STEPPER_ACTION_SLEEP: // LS_STEPPER_ROTATION_MODE_HOPPING|LS_STEPPER_ROTATION_MODE_RANDOM_HOP
+        _ls_stepper_stop_next_action();
+        _ls_stepper_repeat_action(current_message);
+    break;
     }
     return successor_rotation_mode;
 }
@@ -425,10 +453,21 @@ enum ls_stepper_rotation_mode _do_state_hopping(enum ls_stepper_rotation_mode cu
 enum ls_stepper_rotation_mode _do_state_spinning(enum ls_stepper_rotation_mode current_rotation_mode, ls_stepper_action_message *current_message)
 {
     enum ls_stepper_rotation_mode successor_rotation_mode = current_rotation_mode;
+
     BaseType_t new_direction;
     uint64_t new_count;
     switch (current_message->action)
     {
+    case LS_STEPPER_ACTION_IDLE:
+        _ls_stepper_set_spin_speed();
+        break;
+    case LS_STEPPER_ACTION_HOP_FORWARD_STEPS:
+    case LS_STEPPER_ACTION_HOP_REVERSE_STEPS:
+    case LS_STEPPER_ACTION_RANDOM_HOP:
+    case LS_STEPPER_ACTION_SLEEP:
+        _ls_stepper_stop_next_action();
+        _ls_stepper_repeat_action(current_message);
+    break;
     case LS_STEPPER_ACTION_STOP:
         if (ls_stepper_current_timer_alarm_count < ls_stepper_timer_alarm_count_stoppable)
         {
@@ -451,6 +490,14 @@ enum ls_stepper_rotation_mode _do_state_spinning(enum ls_stepper_rotation_mode c
         }
         _ls_stepper_set_spin_speed();
         break;
+    case LS_STEPPER_ACTION_RANDOM_SPIN:
+        if(_current_stepper_rotation_mode != LS_STEPPER_ROTATION_MODE_RANDOM_SPIN) {
+            // _ls_stepper_enqueue_idle_action(1);
+            successor_rotation_mode=LS_STEPPER_ROTATION_MODE_RANDOM_SPIN;
+        } else {
+            _ls_stepper_set_spin_speed();            
+        }
+        break;
     case LS_STEPPER_ACTION_TARGET_RPM: // will have been held until stopped if direction changing
         new_direction = current_message->value >= 0 ? LS_STEPPER_DIRECTION_FORWARD : LS_STEPPER_DIRECTION_REVERSE;
         new_count = _timer_alarm_count_from_rpm(current_message->value);
@@ -462,11 +509,12 @@ enum ls_stepper_rotation_mode _do_state_spinning(enum ls_stepper_rotation_mode c
             gpio_set_level(LSGPIO_STEPPERDIRECTION, ls_stepper_direction);
         }
         _ls_stepper_set_spin_speed();
+        if(ls_stepper_current_timer_alarm_count == ls_stepper_target_timer_alarm_count)
+        {
+            _ls_stepper_enqueue_reached_speed();
+        }
         break;
-    case LS_STEPPER_ACTION_IDLE:
-    default:
-        _ls_stepper_set_spin_speed();
-        break;
+
     }
     return successor_rotation_mode;
 }
@@ -518,9 +566,6 @@ void _ls_enqueue_random_spin_idle_ticks(void) {
     ls_debug_printf("STEPPER_RANDOM: Random spin reached target RPM; will hold for at least %d ticks.\n", message.value);
 #endif
 }
-
-enum ls_stepper_rotation_mode _current_stepper_rotation_mode;
-enum ls_stepper_action _current_stepper_action;
 
 void ls_stepper_task(void *pvParameter)
 {
@@ -580,7 +625,7 @@ void ls_stepper_task(void *pvParameter)
     #ifdef LSDEBUG_STEPPER
     if(_current_stepper_action != LS_STEPPER_ACTION_STOP) {
                     xSemaphoreTake(print_mux, portMAX_DELAY);
-                   printf("STEPPER: stopping before change in mode or direction (stepper mode = %d; stepper action=%d (next=%d);  direction=%d)\n", 
+                   ls_debug_printf("STEPPER: stopping before change in mode or direction (stepper mode = %d; stepper action=%d (next=%d);  direction=%d)\n", 
                        _current_stepper_rotation_mode, _current_stepper_action, message.action, ls_stepper_direction);
                     xSemaphoreGive(print_mux);
     }
@@ -594,7 +639,7 @@ void ls_stepper_task(void *pvParameter)
                     _current_stepper_action = message.action;
 #ifdef LSDEBUG_STEPPER
                     xSemaphoreTake(print_mux, portMAX_DELAY);
-                    printf("STEPPER: dequeued action %d (value = %d); current mode is %d\n",
+                    ls_debug_printf("STEPPER: dequeued action %d (value = %d); current mode is %d\n",
                            message.action, message.value, _current_stepper_rotation_mode);
                     xSemaphoreGive(print_mux);
 #endif
@@ -614,11 +659,11 @@ void ls_stepper_task(void *pvParameter)
 #endif
                         _current_stepper_action = LS_STEPPER_ACTION_IDLE;
                         break;
-                    case LS_STEPPER_ACTION_HOP_FORWARD_STEPS:
-                    case LS_STEPPER_ACTION_HOP_REVERSE_STEPS:
-                    case LS_STEPPER_ACTION_RANDOM_HOP:
-                    case LS_STEPPER_ACTION_RANDOM_SPIN:
-                    case LS_STEPPER_ACTION_TARGET_RPM:
+                    case LS_STEPPER_ACTION_HOP_FORWARD_STEPS: // LS_STEPPER_ROTATION_MODE_UNPOWERED
+                    case LS_STEPPER_ACTION_HOP_REVERSE_STEPS: // LS_STEPPER_ROTATION_MODE_UNPOWERED
+                    case LS_STEPPER_ACTION_RANDOM_HOP: // LS_STEPPER_ROTATION_MODE_UNPOWERED
+                    case LS_STEPPER_ACTION_RANDOM_SPIN: // LS_STEPPER_ROTATION_MODE_UNPOWERED
+                    case LS_STEPPER_ACTION_TARGET_RPM: // LS_STEPPER_ROTATION_MODE_UNPOWERED
 #ifdef LSDEBUG_STEPPER
                 ls_debug_printf("STEPPER: waking; requeueing message action=%d value=%d\n", message.action, message.value);
 #endif
@@ -634,51 +679,51 @@ void ls_stepper_task(void *pvParameter)
             case LS_STEPPER_ROTATION_MODE_STOPPED:
                 gpio_set_level(LSGPIO_STEPPERENABLE, STEPPERENABLE_ENABLE);
                 switch(message.action) {
-                    case LS_STEPPER_ACTION_IDLE:
+                    case LS_STEPPER_ACTION_IDLE: // LS_STEPPER_ROTATION_MODE_STOPPED
                     break;
-                    case LS_STEPPER_ACTION_HOP_FORWARD_STEPS:
+                    case LS_STEPPER_ACTION_HOP_FORWARD_STEPS: // LS_STEPPER_ROTATION_MODE_STOPPED
 #ifdef LSDEBUG_STEPPER
-                ls_debug_printf("STEPPER: starting; requeueing message action=%d value=%d\n", message.action, message.value);
+                ls_debug_printf("STEPPER: starting; NOT requeueing message action=%d value=%d\n", message.action, message.value);
 #endif
-                        _ls_stepper_repeat_action(&message);
+                        // _ls_stepper_repeat_action(&message);
                     successor_stepper_rotation_mode = LS_STEPPER_ROTATION_MODE_HOPPING;
                     break;
-                    case LS_STEPPER_ACTION_HOP_REVERSE_STEPS:
+                    case LS_STEPPER_ACTION_HOP_REVERSE_STEPS: // LS_STEPPER_ROTATION_MODE_STOPPED
 #ifdef LSDEBUG_STEPPER
-                ls_debug_printf("STEPPER: starting; requeueing message action=%d value=%d\n", message.action, message.value);
+                ls_debug_printf("STEPPER: starting; NOT requeueing message action=%d value=%d\n", message.action, message.value);
 #endif
-                        _ls_stepper_repeat_action(&message);
+                        // _ls_stepper_repeat_action(&message);
                     successor_stepper_rotation_mode = LS_STEPPER_ROTATION_MODE_HOPPING;
                     break;
-                    case LS_STEPPER_ACTION_RANDOM_HOP:
+                    case LS_STEPPER_ACTION_RANDOM_HOP: // LS_STEPPER_ROTATION_MODE_STOPPED
 #ifdef LSDEBUG_STEPPER
-                ls_debug_printf("STEPPER: starting; requeueing message action=%d value=%d\n", message.action, message.value);
+                ls_debug_printf("STEPPER: starting; NOT requeueing message action=%d value=%d\n", message.action, message.value);
 #endif
-                        _ls_stepper_repeat_action(&message);
+                        // _ls_stepper_repeat_action(&message);
                     successor_stepper_rotation_mode = LS_STEPPER_ROTATION_MODE_RANDOM_HOP;
                     break;
-                    case LS_STEPPER_ACTION_RANDOM_SPIN:
+                    case LS_STEPPER_ACTION_RANDOM_SPIN: // LS_STEPPER_ROTATION_MODE_STOPPED
 #ifdef LSDEBUG_STEPPER
-                ls_debug_printf("STEPPER: starting; requeueing message action=%d value=%d\n", message.action, message.value);
+                ls_debug_printf("STEPPER: starting; NOT requeueing message action=%d value=%d\n", message.action, message.value);
 #endif
-                        _ls_stepper_repeat_action(&message);
+                        // _ls_stepper_repeat_action(&message);
                     successor_stepper_rotation_mode = LS_STEPPER_ROTATION_MODE_RANDOM_SPIN;
                     break;
-                    case LS_STEPPER_ACTION_TARGET_RPM:
+                    case LS_STEPPER_ACTION_TARGET_RPM: // LS_STEPPER_ROTATION_MODE_STOPPED
 #ifdef LSDEBUG_STEPPER
-                ls_debug_printf("STEPPER: starting; requeueing message action=%d value=%d\n", message.action, message.value);
+                ls_debug_printf("STEPPER: starting; NOT requeueing message action=%d value=%d\n", message.action, message.value);
 #endif
-                        _ls_stepper_repeat_action(&message);
+                        // _ls_stepper_repeat_action(&message);
                     successor_stepper_rotation_mode = LS_STEPPER_ROTATION_MODE_SPINNING;
                     break;
-                    case LS_STEPPER_ACTION_SLEEP:
+                    case LS_STEPPER_ACTION_SLEEP: // LS_STEPPER_ROTATION_MODE_STOPPED
 #ifdef LSDEBUG_STEPPER
-                ls_debug_printf("STEPPER: starting; requeueing message action=%d value=%d\n", message.action, message.value);
+                ls_debug_printf("STEPPER: starting; NOT requeueing message action=%d value=%d\n", message.action, message.value);
 #endif
-                        _ls_stepper_repeat_action(&message);
+                        // _ls_stepper_repeat_action(&message);
                     successor_stepper_rotation_mode = LS_STEPPER_ROTATION_MODE_UNPOWERED;
                     break;
-                    case LS_STEPPER_ACTION_STOP:
+                    case LS_STEPPER_ACTION_STOP: // LS_STEPPER_ROTATION_MODE_STOPPED
 #ifdef LSDEBUG_STEPPER
                 ls_debug_printf("STEPPER: has stopped.\n");
 #endif
@@ -708,10 +753,10 @@ void ls_stepper_task(void *pvParameter)
             case LS_STEPPER_ROTATION_MODE_RANDOM_SPIN:
                 ls_stepper_mode_hop0_spin1 = 1;
                 switch(_current_stepper_action) {
-                    case LS_STEPPER_ACTION_RANDOM_SPIN:
+                    case LS_STEPPER_ACTION_RANDOM_SPIN: // LS_STEPPER_ROTATION_MODE_RANDOM_SPIN
                     _ls_enqueue_random_spin_target_rpm();
                     break;
-                    case LS_STEPPER_ACTION_TARGET_RPM:   
+                    case LS_STEPPER_ACTION_TARGET_RPM: // LS_STEPPER_ROTATION_MODE_RANDOM_SPIN
 #ifdef LSDEBUG_STEPPER_RANDOM
     if(ls_stepper_target_timer_alarm_count!=_timer_alarm_count_from_rpm(message.value))
     {
@@ -724,7 +769,7 @@ void ls_stepper_task(void *pvParameter)
                        _ls_enqueue_random_spin_idle_ticks();
                     }
                     break;
-                    case LS_STEPPER_ACTION_IDLE:
+                    case LS_STEPPER_ACTION_IDLE: // LS_STEPPER_ROTATION_MODE_RANDOM_SPIN
                     if (0>=message.value) { // we've been idle enough ticks
                         _ls_stepper_enqueue_finished_move();
                         _ls_enqueue_random_spin_target_rpm();
@@ -738,7 +783,7 @@ void ls_stepper_task(void *pvParameter)
 #endif
                     }
                     break;
-                    default:
+                    default:  // LS_STEPPER_ROTATION_MODE_RANDOM_SPIN
                     ; 
                 } // switch _current_stepper_action for LS_STEPPER_ROTATION_MODE_RANDOM_SPIN
                 successor_stepper_rotation_mode = _do_state_spinning(_current_stepper_rotation_mode, &message);
@@ -962,7 +1007,7 @@ void ls_stepper_debug_task(void *pvParameter)
                         _rpm_from_timer_alarm_value(ls_stepper_target_timer_alarm_count), (int) ls_stepper_target_timer_alarm_count,
                          ls_stepper_direction, _ls_stepperstep_phase);
         }
-        vTaskDelay(pdMS_TO_TICKS(2250));
+        vTaskDelay(pdMS_TO_TICKS(LSDEBUG_STEPPER_STATUS_INTERVAL_MS));
     }
 }
 #endif

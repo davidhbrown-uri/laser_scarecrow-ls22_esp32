@@ -64,6 +64,7 @@ void _selftest_detected_event(bool *selftest) {
 void _selftest_stepper_behavior(void) {
   switch (_selftest_stepper_behavior_sequence) {
   case 0:
+      ls_laser_set_mode_off();
   case 1:
     ls_stepper_set_maximum_steps_per_second(LS_STEPPER_STEPS_PER_SECOND_MIN);
     ls_stepper_forward_hop(LS_STEPPER_STEPS_PER_ROTATION / 8);
@@ -84,11 +85,15 @@ void _selftest_stepper_behavior(void) {
     ls_stepper_forward_hop(LS_STEPPER_STEPS_PER_ROTATION * 2);
     break;
   case 7:
-    ls_stepper_set_maximum_steps_per_second(LS_STEPPER_STEPS_PER_SECOND_MAX);
-    ls_stepper_random_hop();
+    ls_stepper_spin_at_rpm(LS_SETTINGS_MINIMUM_RPM_SCANNING);
+    break;
+  case 8:
+    ls_laser_set_mode_on();
+    ls_stepper_random_spin();
     break;
   case 20:
     // restart sequence
+    ls_laser_set_mode_off();
     _selftest_stepper_behavior_sequence = -1;
     break;
   default:;
@@ -219,7 +224,6 @@ void selftest_event_handler(ls_event event) {
                 configMINIMAL_STACK_SIZE * 2, NULL, 10, NULL);
     xTaskCreate(&ls_tapemode_selftest_task, "tapemode_selftest",
                 configMINIMAL_STACK_SIZE * 2, NULL, 10, NULL);
-    ls_laser_pulse_init();
     ls_settings_set_servo_bottom(LS_SERVO_US_MAX);
     ls_settings_set_servo_top(LS_SERVO_US_MIN);
     ls_settings_set_servo_sweep_pause_ms(500);
@@ -227,6 +231,7 @@ void selftest_event_handler(ls_event event) {
     _selftest_stepper_behavior();
     break;
   case LSEVT_STEPPER_FINISHED_MOVE:
+  case LSEVT_STEPPER_REACHED_SPEED:
     _selftest_stepper_behavior();
     break;
   case LSEVT_MAGNET_ENTER:

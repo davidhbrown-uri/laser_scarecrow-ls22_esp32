@@ -43,8 +43,6 @@ enum ls_stepper_action {
     LS_STEPPER_ACTION_TARGET_RPM, // 7: message.value = the desired rotation speed
 }ls_stepper_action;
 
-
-
 typedef struct ls_stepper_action_message {
     enum ls_stepper_action action;
     int32_t value;
@@ -55,7 +53,8 @@ typedef struct ls_stepper_move_t {
     int32_t steps;
 }ls_stepper_move_t;
 
-
+// TMC2209 uses DIR=0 to increment through stepping table (13.2), so it's FORWARD==0
+enum ls_stepper_direction_t {LS_STEPPER_DIRECTION_FORWARD, LS_STEPPER_DIRECTION_REVERSE} ls_stepper_direction_t;
 
 
 typedef void (*StepperMoveStrategy)(struct ls_stepper_move_t *move);
@@ -66,10 +65,6 @@ struct ls_stepper_move_t ls_stepper_move;
 
 
 QueueHandle_t ls_stepper_queue;
-// A4988 datasheet gives decay mode and other information while DIR=H, so make FORWARD==1
-// enum ls_stepper_direction_t {LS_STEPPER_DIRECTION_REVERSE, LS_STEPPER_DIRECTION_FORWARD} ls_stepper_direction_t;
-// TMC2209 uses DIR=0 to increment through stepping table (13.2), so it's FORWARD==0
-enum ls_stepper_direction_t {LS_STEPPER_DIRECTION_FORWARD, LS_STEPPER_DIRECTION_REVERSE} ls_stepper_direction_t;
 
 // don't need 32 bits, but IRAM read/write must be 32-bit
 static IRAM_ATTR volatile ls_stepper_position_t ls_stepper_position;

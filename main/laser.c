@@ -95,3 +95,8 @@ void ls_laser_pulse_init(void)
     ESP_ERROR_CHECK(timer_isr_callback_add(TIMER_GROUP_0, TIMER_1, ls_laser_pulse_isr_callback, NULL, 0));
     ESP_ERROR_CHECK(timer_start(TIMER_GROUP_0, TIMER_1));
 }
+void ls_laser_pulse_stop(void)
+{
+    ESP_ERROR_CHECK(timer_pause(TIMER_GROUP_0, TIMER_1));
+    ESP_ERROR_CHECK(timer_deinit(TIMER_GROUP_0, TIMER_1));
+}

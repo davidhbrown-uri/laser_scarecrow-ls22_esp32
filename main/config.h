@@ -202,9 +202,9 @@ assert(0); // at least for now, the tape sensor and second laser/servo cannot co
 // LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_SECOND will be added or subtracted to the steps per second when accelerating or decelerating
 #define LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_SECOND 8000
 // a constant doesn't work as well with the wider range
-#define LS_STEPPER_SPINNING_ALARMS_CLOSE_ENOUGH 5
-#define LS_STEPPER_SPINNING_ALARMS_CHANGE_DIVISOR 20
-#define LS_STEPPER_SPINNING_ALARMS_CHANGE_MINIMUM 1
+#define LS_STEPPER_SPINNING_ALARMS_CLOSE_ENOUGH (5ULL)
+#define LS_STEPPER_SPINNING_ALARMS_CHANGE_DIVISOR (30ULL)
+#define LS_STEPPER_SPINNING_ALARMS_CHANGE_MINIMUM (1ULL)
 
 #define LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_TICK (LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_SECOND / pdMS_TO_TICKS(1000))
 
@@ -212,10 +212,22 @@ assert(0); // at least for now, the tape sensor and second laser/servo cannot co
 #define LS_STEPPER_RANDOM_SPIN_MINIMUM_SECONDS 3
 #define LS_STEPPER_RANDOM_SPIN_MAXIMUM_SECONDS 10
 
+// #define LS_FAILSAFE_TESTING
+#ifdef LS_FAILSAFE_TESTING
+#define LS_LASER_ENABLE_MINIMUM_RPM 100
+#define LS_SETTINGS_MINIMUM_RPM_SCANNING 150
+#define LS_SETTINGS_MAXIMUM_RPM_SCANNING 250
+#else
 // to drop exposure to IIIA instead of IIIB:
+// correct value is 176RPM, so add a margin for 180
 #define LS_LASER_ENABLE_MINIMUM_RPM 180
 #define LS_SETTINGS_MINIMUM_RPM_SCANNING 190
 #define LS_SETTINGS_MAXIMUM_RPM_SCANNING 300
+#endif
+
+// for testing the failsafe, drop to 100RPM
+// normal values 190-300 RPM
+// for testing the failsafe, 150-250 RPM
 #define LS_SETTINGS_MINIMUM_RPM_MOVEMENT 5
 /*
 2023 dual switch setup with upper 22k, lower 10k resistors to 3V3 and 10k to
