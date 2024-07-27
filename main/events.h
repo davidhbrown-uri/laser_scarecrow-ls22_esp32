@@ -58,6 +58,8 @@ enum ls_event_t
     LSEVT_TILT_OK = 120, // the tilt sensor indicates the device orientation is in bounds
     LSEVT_TILT_DETECTED, // the tilt sensor indicates the device orientation is out of bounds
 
+    LSEVT_FAILSAFE_HEARTBEAT_MISSED = 130, // the failesafe heartbeat timer reached its alarm .
+
     LSEVT_SELFTEST_TAPE_LIGHT = 200, // used only during selftest, the tape sensor has met the "light" threshold
     LSEVT_SELFTEST_TAPE_DARK, // used only during selftest, the tape sensor has met the "dark" threshold
     LSEVT_SELFTEST_MODE_DARKSAFE, // used only during selftest, the mode jumpers have been set to "dark safe"

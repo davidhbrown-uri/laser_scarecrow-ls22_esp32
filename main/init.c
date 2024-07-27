@@ -41,7 +41,8 @@
     (1ULL<<LSGPIO_SWITCHES) | \
     (1ULL<<LSGPIO_LIGHTSENSE) | \
     (1ULL<<LSGPIO_MAGNETSENSE) | \
-    (1ULL<<LSGPIO_TAPESETTING) \
+    (1ULL<<LSGPIO_MAGNETSENSE) | \
+    (1ULL<<LSGPIO_FAILSAFE_HEARTBEAT) \
 )
 #endif
 #ifdef LS_HAS_TAPE_SENSOR
@@ -69,6 +70,8 @@
 
 void ls_gpio_initialize(void)
 {
+    // both magnet and failsafe use interrupts, so install shared service in a common point.
+    ESP_ERROR_CHECK(gpio_install_isr_service(ESP_INTR_FLAG_LEVEL4|ESP_INTR_FLAG_EDGE|ESP_INTR_FLAG_IRAM)); // see esp_intr_alloc.h for flags
     // a structure to hold all the GPIO configuration data
     gpio_config_t io_conf;
     //disable interrupt
@@ -82,7 +85,7 @@ void ls_gpio_initialize(void)
     //disable pull-up mode
     io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
     //configure GPIO with the given settings
-    gpio_config(&io_conf);
+    ESP_ERROR_CHECK(gpio_config(&io_conf));
     // ... and turn off (set low) the outputs
     gpio_set_level(LSGPIO_LASERPOWERENABLE, 0);
 #ifdef LS_HAS_TAPE_SENSOR
@@ -103,7 +106,7 @@ void ls_gpio_initialize(void)
     io_conf.pin_bit_mask = LSGPIO_INPUT_PIN_SEL;
     io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
     io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
-    gpio_config(&io_conf);
+    ESP_ERROR_CHECK(gpio_config(&io_conf));
 }
 
 // from adc1_example_main.c

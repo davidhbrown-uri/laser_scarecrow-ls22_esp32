@@ -31,6 +31,7 @@
 #include "driver/timer.h"
 #include "esp_adc_cal.h"
 #include "events.h"
+#include "failsafe.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "freertos/semphr.h"
@@ -108,6 +109,7 @@ void app_main(void) {
   ls_state_init();
   // do not set magnet ISR up before event queue
   ls_magnet_isr_begin();
+  ls_failsafe_init();
   printf("Initialized queues / semaphores / IRQs\n");
 
 #ifdef LS_TEST_SPANNODE

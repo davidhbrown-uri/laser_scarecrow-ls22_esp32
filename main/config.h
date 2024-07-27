@@ -53,15 +53,16 @@ assert(0); // at least for now, the tape sensor and second laser/servo cannot co
 22 => I2C SCL
 23 => Stepper Enable
 25 => Servo Enable
-26 => n.c. -- maybe use for Serial TX to TMC 2209 in dual laser?
-27 => Reflectance Enable / Servo 2 Pulse
+26 => Failsafe Hearbeat
+27 => Servo 2 Pulse
 32 => Laser Power Enable
 33 => Servo Pulse (1)
 34 => [IN] Reflectance Sense / Light Sense 2
 35 => [IN] Tape Mode Setting (jumpers)
 36 => [IN] Light Sense
-39 => [IN] n.c. -- maybe use for Serial RX to TMC 2209 in dual laser?
-
+39 => [IN] n.c. -- not appropriate for Failsafe Heartbeat (interrupt): 
+https://docs.espressif.com/projects/esp-idf/en/v4.4/esp32/api-reference/peripherals/gpio.html
+"Please do not use the interrupt of GPIO36 and GPIO39 when using ADC or Wi-Fi with sleep"
 */
 
 
@@ -94,6 +95,8 @@ assert(0); // at least for now, the tape sensor and second laser/servo cannot co
 
 // MAGNETSENSE is digital input (ISR), not ADC
 #define LSGPIO_MAGNETSENSE 4
+// FAILSAFE_HEARTBEAT is a digital input (ISR)
+#define LSGPIO_FAILSAFE_HEARTBEAT 26
 // Binary output
 #define LSGPIO_LASERPOWERENABLE 32
 #define LSGPIO_SERVOPOWERENABLE 25
@@ -210,6 +213,11 @@ assert(0); // at least for now, the tape sensor and second laser/servo cannot co
 #define LS_STEPPER_RANDOM_SPIN_REVERSE_PER255 50
 #define LS_STEPPER_RANDOM_SPIN_MINIMUM_SECONDS 3
 #define LS_STEPPER_RANDOM_SPIN_MAXIMUM_SECONDS 10
+
+#define LS_FAILSAFE_TIMER_GROUP TIMER_GROUP_0
+#define LS_FAILESAFE_TIMER TIMER_1
+// microseconds before failesafe alarm should trigger
+#define LS_FAILESAFE_ALARM_US 1500
 
 // #define LS_FAILSAFE_TESTING
 #ifdef LS_FAILSAFE_TESTING

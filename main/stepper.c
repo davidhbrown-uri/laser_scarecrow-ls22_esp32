@@ -518,9 +518,11 @@ void _ls_enqueue_random_spin_target_rpm(void) {
 #endif
     /** @todo get max from setting, not necessarily range limit */
     BaseType_t rpm = _map(rand_rpm, 0, 255, LS_SETTINGS_MINIMUM_RPM_SCANNING, LS_SETTINGS_MAXIMUM_RPM_SCANNING);
+    // if we're already spinning backwards, keep spinning backwards
     if(LS_STEPPER_DIRECTION_REVERSE == ls_stepper_direction) {
         rpm = -rpm;
     }
+    // unless we (randomly) want to change direction
     if(rand_dir < LS_STEPPER_RANDOM_SPIN_REVERSE_PER255) {
         rpm = -rpm;
 #ifdef LSDEBUG_STEPPER_RANDOM
