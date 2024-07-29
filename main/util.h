@@ -22,3 +22,9 @@ BaseType_t _map(BaseType_t x, BaseType_t in_min, BaseType_t in_max, BaseType_t o
 BaseType_t _constrain(BaseType_t x, BaseType_t min, BaseType_t max);
 BaseType_t _difference_exceeds_threshold(BaseType_t previous, BaseType_t current, BaseType_t threshold);
 uint16_t _make_log_response(uint16_t value, uint8_t bits);
+#ifndef max
+#define max(a,b) (((a) > (b)) ? (a) : (b))
+#endif
+#ifndef min
+#define min(a,b) (((a) < (b)) ? (a) : (b))
+#endif

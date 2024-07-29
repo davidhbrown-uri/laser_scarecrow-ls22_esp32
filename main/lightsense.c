@@ -37,8 +37,6 @@ extern SemaphoreHandle_t print_mux;
 
 static enum ls_lightsense_mode_t _ls_lightsense_current_mode = LS_LIGHTSENSE_MODE_STARTUP;
 
-static uint32_t _ls_lightsense_adc_raw = 0;
-
 int ls_lightsense_threshold_on_mv(int index)
 {
     index = _constrain(index, 0, LS_LIGHTSENSE_THRESHOLDS_COUNT - 1);
@@ -55,7 +53,7 @@ enum ls_lightsense_mode_t ls_lightsense_current_mode(void)
     return _ls_lightsense_current_mode;
 }
 
-static enum ls_lightsense_level_t _ls_lightsense_level_from_adc(uint32_t adc_reading)
+static enum ls_lightsense_level_t _ls_lightsense_level_from_adc(int adc_reading)
 {
     if (adc_reading >= ls_settings_get_light_threshold_on())
     {
@@ -69,34 +67,42 @@ static enum ls_lightsense_level_t _ls_lightsense_level_from_adc(uint32_t adc_rea
 }
 
 /**
- * Returns value in mv using best available calibration
+ * @brief Returns value in mv at requested attenuation using best available calibration
+ * 
+ * @param channel to read
+ * @param attenuation to use
  */
-int ls_lightsense_read_adc(adc_atten_t attenuation)
+int ls_lightsense_read_adc_channel(adc1_channel_t channel, adc_atten_t attenuation)
 {
     xSemaphoreTake(adc1_mux, portMAX_DELAY);
     adc1_config_width(ADC_WIDTH_BIT_12);
-    adc1_config_channel_atten(LSADC1_LIGHTSENSE, attenuation);
-    _ls_lightsense_adc_raw = 0;
-    for (int i = 0; i < 4; i++)
+    adc1_config_channel_atten(channel, attenuation);
+    int sum = 0;
+    for (int i = 0; i < LS_LIGHTSENSE_READINGS_TO_AVERAGE; i++)
     {
-        _ls_lightsense_adc_raw += adc1_get_raw((adc1_channel_t)LSADC1_LIGHTSENSE);
+        sum += adc1_get_raw( channel );
     }
-    _ls_lightsense_adc_raw /= 4;
     xSemaphoreGive(adc1_mux);
     esp_adc_cal_characteristics_t adc_cal;
     esp_adc_cal_characterize(ADC_UNIT_1, attenuation, ADC_WIDTH_12Bit, 1100, &adc_cal);
-    return (int)esp_adc_cal_raw_to_voltage(_ls_lightsense_adc_raw, &adc_cal);
+    return (int)esp_adc_cal_raw_to_voltage(sum / LS_LIGHTSENSE_READINGS_TO_AVERAGE, &adc_cal);
 }
 
-int ls_lightsense_read_hdr(void)
+/**
+ * @brief ADC of channel in mV, using either 0dB or 11dB attenuation if @0dB is > 900 mV
+ * 
+ * @param channel to read
+ */
+int ls_lightsense_read_channel_hdr(adc1_channel_t channel)
 {
-    int mV = ls_lightsense_read_adc(ADC_ATTEN_0db);
+    int mV = ls_lightsense_read_adc_channel(channel, ADC_ATTEN_0db);
     if (mV > 900)
     {
-        mV = ls_lightsense_read_adc(ADC_ATTEN_11db);
+        mV = ls_lightsense_read_adc_channel(channel, ADC_ATTEN_11db);
     }
     return mV;
 }
+
 
 /**
  * @brief Set current mode if event can be queued; otherwise let it try again next read
@@ -145,12 +151,21 @@ void ls_lightsense_read_task(void *pvParameter)
     while (1)
     {
 
-        int adc_reading = ls_lightsense_read_hdr();
-        levels[level_index] = _ls_lightsense_level_from_adc(adc_reading);
-
+        int adc_reading1 = ls_lightsense_read_channel_hdr(LSADC1_LIGHTSENSE);
+        levels[level_index] = _ls_lightsense_level_from_adc(adc_reading1);
+#ifdef LS_HAS_LIGHTSENSE2
+        int adc_reading2 = ls_lightsense_read_channel_hdr(LSADC1_LIGHTSENSE2);
+        int level2 = _ls_lightsense_level_from_adc(adc_reading2);
+        levels[level_index] = min(level2, levels[level_index]);
+#endif 
 #ifdef LSDEBUG_LIGHTSENSE
-        ls_debug_printf("Light sense %dmV (raw=%d); level=%d\n", adc_reading, _ls_lightsense_adc_raw, (u_int8_t)levels[level_index]);
-        ls_oled_println("%d mV (%d)", adc_reading, _ls_lightsense_adc_raw);
+#ifdef LS_HAS_LIGHTSENSE2
+        ls_debug_printf("Light sense 1=%dmV, 2=%dmV; level=%d\n", adc_reading1, adc_reading2, levels[level_index]);
+        ls_oled_println("%dmV (%d)", min(adc_reading1, adc_reading2), levels[level_index]);
+#else
+        ls_debug_printf("Light sense %dmV; level=%d\n", adc_reading1, levels[level_index]);
+        ls_oled_println("%d mV (%d)", adc_reading1, levels[level_index]);
+#endif
 #endif
 
         bool all_agree = true;

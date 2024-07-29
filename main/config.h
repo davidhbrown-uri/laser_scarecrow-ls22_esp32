@@ -23,18 +23,22 @@
 #define LS_HAS_DUAL_LASER
 #undef LS_HAS_TAPE_SENSOR
 #define LS_HAS_SERVO2
+#define LS_HAS_LIGHTSENSE2
 
 
 // Configure flag sanity checks
-#ifdef LS_HAS_DUAL_LASER
 #ifdef LS_HAS_TAPE_SENSOR
-assert(0); // at least for now, the tape sensor and second laser/servo cannot coexist
+#ifdef LS_HAS_DUAL_LASER
+#error the tape sensor and second laser/servo cannot coexist (only two ends of PVC Tee)
 #endif
+#ifdef LS_HAS_LIGHTSENSE2
+#error the tape sensor and second light sensor cannot coexist (same GPIO)
+#endif 
 #endif
+// each laser has its own servo
 #ifdef LS_HAS_DUAL_LASER
 #define LS_HAS_SERVO2
 #endif
-
 
 
 /* ESP32 Devkit C GPIO
@@ -63,6 +67,7 @@ assert(0); // at least for now, the tape sensor and second laser/servo cannot co
 39 => [IN] n.c. -- not appropriate for Failsafe Heartbeat (interrupt): 
 https://docs.espressif.com/projects/esp-idf/en/v4.4/esp32/api-reference/peripherals/gpio.html
 "Please do not use the interrupt of GPIO36 and GPIO39 when using ADC or Wi-Fi with sleep"
+(we use ADC)
 */
 
 
@@ -77,6 +82,10 @@ https://docs.espressif.com/projects/esp-idf/en/v4.4/esp32/api-reference/peripher
 // ADC channels
 #define LSGPIO_LIGHTSENSE 36
 #define LSADC1_LIGHTSENSE ADC1_CHANNEL_0
+#ifdef LS_HAS_LIGHTSENSE2
+#define LSGPIO_LIGHTSENSE2 34
+#define LSADC1_LIGHTSENSE2 ADC1_CHANNEL_6
+#endif
 #ifdef LS_HAS_TAPE_SENSOR
 #define LSGPIO_REFLECTANCESENSE 34
 #define LSADC1_REFLECTANCESENSE ADC1_CHANNEL_6
@@ -322,6 +331,7 @@ LS_CONTROLS_SWITCH_THRESHOLD_BOTH < ADC < 4096 => LS_CONTROLS_STATUS_BOTH;
 #define LS_LIGHTSENSE_THRESHOLD_DEFAULT 4
 #define LS_LIGHTSENSE_READING_INTERVAL_MS 4000
 #define LS_LIGHTSENSE_READINGS_TO_SWITCH 4
+#define LS_LIGHTSENSE_READINGS_TO_AVERAGE 4
 
 #define LS_TILT_THRESHOLD_DETECTED_MG 900
 #define LS_TILT_THRESHOLD_OK_MG 950
