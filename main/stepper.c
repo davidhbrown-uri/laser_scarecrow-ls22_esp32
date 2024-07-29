@@ -993,9 +993,9 @@ void ls_stepper_debug_task(void *pvParameter)
                         ls_stepper_steps_taken, ls_stepper_direction, _ls_stepperstep_phase);
         }
         if(1==ls_stepper_mode_hop0_spin1) {
-        ls_debug_printf("   (spinning) current RPM=%d [%d]; target RPM=%d [%d]; direction=%d, step_phase=%d\n",
-                        _rpm_from_timer_alarm_value(ls_stepper_current_timer_alarm_count), (int) ls_stepper_current_timer_alarm_count,
-                        _rpm_from_timer_alarm_value(ls_stepper_target_timer_alarm_count), (int) ls_stepper_target_timer_alarm_count,
+        ls_debug_printf("   (spinning) current RPM=%d [%llu]; target RPM=%d [%llu]; direction=%d, step_phase=%d\n",
+                        _rpm_from_timer_alarm_value(ls_stepper_current_timer_alarm_count), ls_stepper_current_timer_alarm_count,
+                        _rpm_from_timer_alarm_value(ls_stepper_target_timer_alarm_count), ls_stepper_target_timer_alarm_count,
                          ls_stepper_direction, _ls_stepperstep_phase);
         }
         vTaskDelay(pdMS_TO_TICKS(LSDEBUG_STEPPER_STATUS_INTERVAL_MS));

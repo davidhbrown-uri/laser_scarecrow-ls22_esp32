@@ -70,8 +70,6 @@
 
 void ls_gpio_initialize(void)
 {
-    // both magnet and failsafe use interrupts, so install shared service in a common point.
-    ESP_ERROR_CHECK(gpio_install_isr_service(ESP_INTR_FLAG_LEVEL4|ESP_INTR_FLAG_EDGE|ESP_INTR_FLAG_IRAM)); // see esp_intr_alloc.h for flags
     // a structure to hold all the GPIO configuration data
     gpio_config_t io_conf;
     //disable interrupt

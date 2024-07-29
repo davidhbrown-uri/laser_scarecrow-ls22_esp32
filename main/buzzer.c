@@ -33,6 +33,8 @@
 #define BUZZER_RESOLUTION (LEDC_TIMER_1_BIT)
 #define BUZZER_CHANNEL (LEDC_CHANNEL_0)
 #define BUZZER_DUTY (1)
+#define BUZZER_MINIMUM_FREQUENCY 500
+#define BUZZER_MAXIMUM_FREQUENCY 15000
 
 bool _ls_buzzer_in_use = false;
 #define LS_BUZZER_REQUEST_DEFAULT_FREQUENCY 1000
@@ -178,7 +180,7 @@ void ls_buzzer_handler_task(void *pvParameter)
                 _ls_buzzer_pre_laser_warning();
                 break;
             case LS_BUZZER_POWERON:
-                for(enum ls_buzzer_scale i = 500; i < 3000; i+=(i/10))
+                for(enum ls_buzzer_scale i = BUZZER_MINIMUM_FREQUENCY; i < 3000; i+=(i/10))
                 {
                     _ls_buzzer_frequency(i);
                     vTaskDelay(pdMS_TO_TICKS(20));
@@ -289,6 +291,25 @@ void ls_buzzer_handler_task(void *pvParameter)
                 vTaskDelay(pdMS_TO_TICKS(100));
                 _ls_buzzer_play_note(LS_BUZZER_SCALE_C, 100);
                 break;
+            case LS_BUZZER_PLAY_HEARTBEAT:
+                for(int beat = 0; beat < 2; beat++){
+                    for(int f = 510; f <= 515; f+=2) {
+                        _ls_buzzer_frequency(f);
+                        for(int i = 0; i < 10; i++) {vTaskDelay(1);}                
+                    }
+                    vTaskDelay(pdMS_TO_TICKS(100));
+                    ESP_ERROR_CHECK(ledc_stop(BUZZER_SPEED, BUZZER_CHANNEL, 0));
+                    vTaskDelay(pdMS_TO_TICKS(300));
+                    for(int f = 510; f >= 505; f-=2) {
+                        _ls_buzzer_frequency(f);
+                        for(int i = 0; i < 10; i++) {vTaskDelay(1);}
+                    }
+                    vTaskDelay(pdMS_TO_TICKS(100));
+                    ESP_ERROR_CHECK(ledc_stop(BUZZER_SPEED, BUZZER_CHANNEL, 0));
+                    vTaskDelay(pdMS_TO_TICKS(700));
+                }
+                ESP_ERROR_CHECK(ledc_stop(BUZZER_SPEED, BUZZER_CHANNEL, 0));
+                break;
             case LS_BUZZER_PLAY_NOTHING:
                 ESP_ERROR_CHECK(ledc_stop(BUZZER_SPEED, BUZZER_CHANNEL, 0));
                 vTaskDelay(1);
@@ -307,7 +328,7 @@ void ls_buzzer_note(enum ls_buzzer_scale note, TickType_t ticks)
 {
     struct ls_buzzer_request_t request;
     request.effect = LS_BUZZER_PLAY_TONE;
-    request.frequency = _constrain((BaseType_t)note, 500, 22000);
+    request.frequency = _constrain((BaseType_t)note, BUZZER_MINIMUM_FREQUENCY, BUZZER_MAXIMUM_FREQUENCY);
     request.ticks = ticks;
     xQueueSend(ls_buzzer_queue, (void *)&request, 0); // don't block if queue full
 };
@@ -316,7 +337,7 @@ void ls_buzzer_tone(BaseType_t frequency_hz)
 {
     struct ls_buzzer_request_t request;
     request.effect = LS_BUZZER_PLAY_TONE;
-    request.frequency = (BaseType_t)_constrain(frequency_hz, 500, 22000);
+    request.frequency = (BaseType_t)_constrain(frequency_hz, BUZZER_MINIMUM_FREQUENCY, BUZZER_MAXIMUM_FREQUENCY);
     ;
     request.ticks = LS_BUZZER_REQUEST_DEFAULT_TICKS;
     xQueueSend(ls_buzzer_queue, (void *)&request, 0); // don't block if queue full

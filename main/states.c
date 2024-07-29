@@ -37,6 +37,7 @@
 #include "coverage.h"
 #include "leds.h"
 #include "oled.h"
+#include "failsafe.h"
 
 // static const char* TAG = "LS States"; // for ESP logging
 
@@ -116,7 +117,7 @@ void event_handler_state_machine(void *pvParameter)
         else
         {
 #ifdef LSDEBUG_STATES
-            ls_debug_printf("Received event %d\n", event.type);
+            ls_debug_printf("STATES: Received event %d\n", event.type);
 #endif
             if (ls_state_current.func != NULL) // we have a current state
             {
@@ -125,7 +126,7 @@ void event_handler_state_machine(void *pvParameter)
                 if (ls_state_current.func != previous_state.func)
                 {
 #ifdef LSDEBUG_STATES
-                    ls_debug_printf("Switching states; sending entry event\n");
+                    ls_debug_printf("STATES: Switching states; sending entry event\n");
 #endif
                     xQueueSendToFront(ls_event_queue, (void *)&state_entry_event, 0);
                 }
@@ -134,7 +135,7 @@ void event_handler_state_machine(void *pvParameter)
             else
             {
 #ifdef LSDEBUG_STATES
-                ls_debug_printf("Event lost; no state function to handle it\n");
+                ls_debug_printf("STATES: Event lost; no state function to handle it\n");
 #endif
                 ; // do nothing; no state
             }
@@ -148,7 +149,7 @@ int ls_magnet_homing_tries = 50;
 ls_State ls_state_poweron(ls_event event)
 {
 #ifdef LSDEBUG_STATES
-    ls_debug_printf("STATE_POWERON handling event\n");
+    ls_debug_printf("STATES: STATE_POWERON handling event\n");
 #endif
     ls_State successor;
     successor.func = ls_state_prelaserwarn;
@@ -162,30 +163,30 @@ ls_State ls_state_poweron(ls_event event)
         case LS_TAPEMODE_IGNORE:
             successor.func = ls_state_prelaserwarn;
 #ifdef LSDEBUG_STATES
-            ls_debug_printf("State poweron ignoring tape => pre-laser warning\n");
+            ls_debug_printf("STATES: State poweron ignoring tape => pre-laser warning\n");
 #endif
             break;
         case LS_TAPEMODE_SELFTEST:
 #ifdef LSDEBUG_STATES
-            ls_debug_printf("State poweron => selftest\n");
+            ls_debug_printf("STATES: State poweron => selftest\n");
 #endif
             successor.func = ls_state_selftest;
             break;
         default:
 #ifdef LSDEBUG_STATES
-            ls_debug_printf("During poweron, ls_map_get_status()=> %d\n", ls_map_get_status());
+            ls_debug_printf("STATES: During poweron, ls_map_get_status()=> %d\n", ls_map_get_status());
 #endif
             if (ls_map_get_status() == LS_MAP_STATUS_OK)
             {
 #ifdef LSDEBUG_STATES
-                ls_debug_printf("State poweron (LS_MAP_STATUS_OK)=> pre-laser warning\n");
+                ls_debug_printf("STATES: State poweron (LS_MAP_STATUS_OK)=> pre-laser warning\n");
 #endif
                 successor.func = ls_state_prelaserwarn;
             }
             else
             {
 #ifdef LSDEBUG_STATES
-                ls_debug_printf("State poweron => map_build_substate_home\n");
+                ls_debug_printf("STATES: State poweron => map_build_substate_home\n");
 #endif
                 ls_state_set_home_successor(ls_state_map_build);
                 successor.func = ls_state_home; // ls_state_map_build_substate_home;
@@ -195,6 +196,9 @@ ls_State ls_state_poweron(ls_event event)
         break;
     case LSEVT_TILT_DETECTED:
         successor.func = ls_state_error_tilt;
+        break;
+    case LSEVT_FAILSAFE_HEARTBEAT_MISSED:
+        successor.func = ls_state_error_heartbeat;
         break;
     default: // switch event.type
         ;
@@ -214,7 +218,7 @@ void ls_state_set_prelaserwarn_successor(void *successor)
 ls_State ls_state_prelaserwarn(ls_event event)
 {
 #ifdef LSDEBUG_STATES
-    ls_debug_printf("STATE_PRELASERWARN handling event\n");
+    ls_debug_printf("STATES: STATE_PRELASERWARN handling event\n");
 #endif
     ls_State successor;
     successor.func = ls_state_prelaserwarn;
@@ -265,6 +269,9 @@ ls_State ls_state_prelaserwarn(ls_event event)
     case LSEVT_MAGNET_LEAVE:
         _ls_state_prelaserwarn_magnet_leave = true;
         break;
+    case LSEVT_FAILSAFE_HEARTBEAT_MISSED:
+        successor.func = ls_state_error_heartbeat;
+        break;
     default:; // does not handle other events
     }
     if (_ls_state_prelaserwarn_buzzer_complete && _ls_state_prelaserwarn_movement_complete)
@@ -284,7 +291,7 @@ ls_State ls_state_prelaserwarn(ls_event event)
         vTaskDelay(pdMS_TO_TICKS(1000)); // 1sec quiet/still after warning
     }
 #ifdef LSDEBUG_STATES
-ls_debug_printf("_ls_state_prelaserwarn_buzzer_complete=%d; _ls_state_prelaserwarn_movement_complete=%d\n", _ls_state_prelaserwarn_buzzer_complete, _ls_state_prelaserwarn_movement_complete);
+ls_debug_printf("STATES: _ls_state_prelaserwarn_buzzer_complete=%d; _ls_state_prelaserwarn_movement_complete=%d\n", _ls_state_prelaserwarn_buzzer_complete, _ls_state_prelaserwarn_movement_complete);
 #endif
     return successor;
 }
@@ -292,7 +299,7 @@ ls_debug_printf("_ls_state_prelaserwarn_buzzer_complete=%d; _ls_state_prelaserwa
 ls_State ls_state_active(ls_event event)
 {
 #ifdef LSDEBUG_STATES
-    ls_debug_printf("STATE_ACTIVE handling event\n");
+    ls_debug_printf("STATES: STATE_ACTIVE handling event\n");
 #endif
     ls_State successor;
     successor.func = ls_state_active;
@@ -300,7 +307,7 @@ ls_State ls_state_active(ls_event event)
     {
     case LSEVT_STATE_ENTRY:
 #ifdef LSDEBUG_STATES
-        ls_debug_printf("Beginning active state\n");
+        ls_debug_printf("STATES: Beginning active state\n");
 #endif
         ls_stepper_set_maximum_steps_per_second(ls_settings_get_stepper_speed());
         ls_stepper_random_spin();
@@ -322,67 +329,70 @@ ls_State ls_state_active(ls_event event)
         break;
     case LSEVT_MAGNET_ENTER:
 #ifdef LSDEBUG_STATES
-        ls_debug_printf("Magnet Enter @ %d %s\n", (int32_t)event.value, ls_stepper_get_direction() ? "-->" : "<--");
+        ls_debug_printf("STATES: Magnet Enter @ %d %s\n", (int32_t)event.value, ls_stepper_get_direction() ? "-->" : "<--");
 #endif
         ls_buzzer_effect(LS_BUZZER_CLICK);
         break;
     case LSEVT_MAGNET_LEAVE:
 #ifdef LSDEBUG_STATES
-        ls_debug_printf("Magnet Leave @ %d %s\n", (int32_t)event.value, ls_stepper_get_direction() ? "-->" : "<--");
+        ls_debug_printf("STATES: Magnet Leave @ %d %s\n", (int32_t)event.value, ls_stepper_get_direction() ? "-->" : "<--");
 #endif
         ls_buzzer_effect(LS_BUZZER_CLICK);
         break;
     case LSEVT_STEPPER_FINISHED_MOVE:
 #ifdef LSDEBUG_STATES
-        ls_debug_printf("Stepper finished %s move @%d \n", ls_stepper_get_direction() ? "-->" : "<--", ls_stepper_get_position());
+        ls_debug_printf("STATES: Stepper finished %s move @%d \n", ls_stepper_get_direction() ? "-->" : "<--", ls_stepper_get_position());
 #endif
         break;
     case LSEVT_SERVO_SWEEP_TOP:
 #ifdef LSDEBUG_STATES
-        ls_debug_printf("Servo finished move (reached top)\n");
+        ls_debug_printf("STATES: Servo finished move (reached top)\n");
 #endif
         break;
     case LSEVT_SERVO_SWEEP_BOTTOM:
 #ifdef LSDEBUG_STATES
-        ls_debug_printf("Servo finished move (reached bottom)\n");
+        ls_debug_printf("STATES: Servo finished move (reached bottom)\n");
 #endif
         break;
     case LSEVT_REHOME_REQUIRED:
 #ifdef LSDEBUG_STATES
-        ls_debug_printf("Rehoming from active state\n");
+        ls_debug_printf("STATES: Rehoming from active state\n");
 #endif
         successor.func = ls_state_home;
         break;
     case LSEVT_LIGHT_NIGHT:
 #ifdef LSDEBUG_STATES
-        ls_debug_printf("Entering night/sleep state\n")
+        ls_debug_printf("STATES: Entering night/sleep state\n")
 #endif
             successor.func = ls_state_sleep;
         break;
     case LSEVT_CONTROLS_UPPER:
 #ifdef LSDEBUG_STATES
-        ls_debug_printf("Entering settings (upper) control\n")
+        ls_debug_printf("STATES: Entering settings (upper) control\n")
 #endif
             successor.func = ls_state_settings_upper;
         break;
     case LSEVT_CONTROLS_LOWER:
 #ifdef LSDEBUG_STATES
-        ls_debug_printf("Entering settings (lower) control\n")
+        ls_debug_printf("STATES: Entering settings (lower) control\n")
 #endif
             successor.func = ls_state_settings_lower;
         break;
     case LSEVT_CONTROLS_BOTH:
 #ifdef LSDEBUG_STATES
-        ls_debug_printf("Entering settings (both) control\n")
+        ls_debug_printf("STATES: Entering settings (both) control\n")
 #endif
             successor.func = ls_state_settings_both;
         break;
     case LSEVT_TILT_DETECTED:
         successor.func = ls_state_error_tilt;
         break;
+    case LSEVT_FAILSAFE_HEARTBEAT_MISSED:
+        successor.func = ls_state_error_heartbeat;
+        break;
     default:;
 #ifdef LSDEBUG_STATES
-        ls_debug_printf("Unknown event %d\n", event.type);
+        ls_debug_printf("STATES: Active state received unknown event %d\n", event.type);
 #endif
     }
     // /exit behaviors:
@@ -408,7 +418,7 @@ void ls_state_set_home_successor(void *successor)
 ls_State ls_state_home(ls_event event)
 {
 #ifdef LSDEBUG_STATES
-    ls_debug_printf("STATE_HOME handling event\n");
+    ls_debug_printf("STATES: STATE_HOME handling event\n");
 #endif
     ls_State successor;
     successor.func = ls_state_home;
@@ -462,7 +472,7 @@ ls_State ls_state_home(ls_event event)
 ls_State ls_state_selftest(ls_event event)
 {
 #ifdef LSDEBUG_STATES
-    ls_debug_printf("STATE_SELFTEST handling event\n");
+    ls_debug_printf("STATES: STATE_SELFTEST handling event\n");
 #endif
     ls_State successor;
     successor.func = ls_state_selftest;
@@ -473,7 +483,7 @@ ls_State ls_state_selftest(ls_event event)
 ls_State ls_state_sleep(ls_event event)
 {
 #ifdef LSDEBUG_STATES
-    ls_debug_printf("STATE_SLEEP handling event\n");
+    ls_debug_printf("STATES: STATE_SLEEP handling event\n");
 #endif
     ls_State successor;
     successor.func = ls_state_sleep;
@@ -514,7 +524,7 @@ ls_State ls_state_sleep(ls_event event)
         break;
     case LSEVT_LIGHT_DAY:
 #ifdef LSDEBUG_STATES
-        ls_debug_printf("SLEEP received wake-up event\n");
+        ls_debug_printf("STATES: SLEEP received wake-up event\n");
 #endif
         successor.func = ls_state_wakeup;
         break;
@@ -524,7 +534,7 @@ ls_State ls_state_sleep(ls_event event)
         break;
     case LSEVT_CONTROLS_UPPER:
 #ifdef LSDEBUG_STATES
-        ls_debug_printf("Entering settings upper from sleep\n");
+        ls_debug_printf("STATES: Entering settings upper from sleep\n");
 #endif
         ls_state_set_prelaserwarn_successor(ls_state_settings_upper);
         if (ls_map_get_status() == LS_MAP_STATUS_OK)
@@ -539,7 +549,7 @@ ls_State ls_state_sleep(ls_event event)
         break;
     case LSEVT_CONTROLS_LOWER:
 #ifdef LSDEBUG_STATES
-        ls_debug_printf("Entering settings lower from sleep\n");
+        ls_debug_printf("STATES: Entering settings lower from sleep\n");
 #endif
         ls_state_set_prelaserwarn_successor(ls_state_settings_lower);
         if (ls_map_get_status() == LS_MAP_STATUS_OK)
@@ -554,7 +564,7 @@ ls_State ls_state_sleep(ls_event event)
         break;
     case LSEVT_CONTROLS_BOTH:
 #ifdef LSDEBUG_STATES
-        ls_debug_printf("Entering secondary settings control from sleep\n")
+        ls_debug_printf("STATES: Entering secondary settings control from sleep\n")
 #endif
             successor.func = ls_state_settings_both;
         break;
@@ -569,7 +579,7 @@ ls_State ls_state_sleep(ls_event event)
 ls_State ls_state_wakeup(ls_event event)
 {
 #ifdef LSDEBUG_STATES
-    ls_debug_printf("STATE_WAKEUP handling event\n");
+    ls_debug_printf("STATES: STATE_WAKEUP handling event\n");
 #endif
     ls_State successor;
     successor.func = ls_state_wakeup;
@@ -610,7 +620,7 @@ static enum ls_buzzer_effects _ls_state_map_fail_reason_tune = LS_BUZZER_PLAY_NO
 ls_State ls_state_map_build(ls_event event)
 {
 #ifdef LSDEBUG_STATES
-    ls_debug_printf("STATE_MAP_BUILD handling event %d with %d steps remaining\n", event.type, _ls_state_map_build_steps_remaining);
+    ls_debug_printf("STATES: STATE_MAP_BUILD handling event %d with %d steps remaining\n", event.type, _ls_state_map_build_steps_remaining);
 #endif
     ls_State successor;
     successor.func = ls_state_map_build;
@@ -631,13 +641,13 @@ ls_State ls_state_map_build(ls_event event)
         break;
     case LSEVT_STEPPER_FINISHED_MOVE:
 #ifdef LSDEBUG_STATES
-        ls_debug_printf("case LSEVT_STEPPER_FINISHED_MOVE...\n");
+        ls_debug_printf("STATES: case LSEVT_STEPPER_FINISHED_MOVE...\n");
 #endif
         if (_ls_state_map_build_steps_remaining > 0)
         {
             _ls_state_map_build_read_and_set_map(&_ls_state_map_enable_count, &_ls_state_map_disable_count, &_ls_state_map_misread_count);
 #ifdef LSDEBUG_STATES
-            ls_debug_printf("continuing to next position...\n");
+            ls_debug_printf("STATES: continuing to next position...\n");
 #endif
             ls_stepper_forward_hop(LS_MAP_RESOLUTION);
             _ls_state_map_build_steps_remaining--;
@@ -741,10 +751,10 @@ ls_State ls_state_map_build(ls_event event)
 ls_State ls_state_error_home(ls_event event)
 {
 #ifdef LSDEBUG_STATES
-    ls_debug_printf(">>>>HOMING FAILED: ls_state_error_home<<<\n");
+    ls_debug_printf("STATES: >>>>HOMING FAILED: ls_state_error_home<<<\n");
 #endif
 #ifdef LSDEBUG_HOMING
-    ls_debug_printf(">>>>HOMING FAILED<<<\n");
+    ls_debug_printf("HOMING: >>>>HOMING FAILED<<<\n");
 #endif
     _ls_state_everything_off();
     ls_State successor;
@@ -762,10 +772,10 @@ ls_State ls_state_error_home(ls_event event)
 ls_State ls_state_error_scanning(ls_event event)
 {
 #ifdef LSDEBUG_STATES
-    ls_debug_printf(">>>>Scanning FAILED: ls_state_error_scanning<<<\n");
+    ls_debug_printf("STATES: >>>>Scanning FAILED: ls_state_error_scanning<<<\n");
 #endif
 #ifdef LSDEBUG_MAP
-    ls_debug_printf(">>>>Scanning FAILED<<<\n");
+    ls_debug_printf("MAP: >>>>Scanning FAILED<<<\n");
 #endif
     _ls_state_everything_off();
     ls_State successor;
@@ -777,12 +787,12 @@ ls_State ls_state_error_scanning(ls_event event)
     vTaskDelay(pdMS_TO_TICKS(LS_FAILURE_LEDS_OFF_AFTER - 1000));
     ls_leds_off();
 #ifdef LSDEBUG_STATES
-    ls_debug_printf("LEDs off by ls_state_error_scanning<<<\n");
+    ls_debug_printf("STATES: LEDs off by ls_state_error_scanning<<<\n");
 #endif
     vTaskDelay(pdMS_TO_TICKS(LS_FAILURE_REPEAT_INTERVAL));
     ls_event_enqueue_noop();
 #ifdef LSDEBUG_STATES
-    ls_debug_printf("LSEVT_NOOP enqueued by returning ls_state_error_scanning<<<\n");
+    ls_debug_printf("STATES: LSEVT_NOOP enqueued by returning ls_state_error_scanning<<<\n");
 #endif
     return successor;
 }
@@ -790,10 +800,10 @@ ls_State ls_state_error_scanning(ls_event event)
 ls_State ls_state_error_tilt(ls_event event)
 {
 #ifdef LSDEBUG_STATES
-    ls_debug_printf(">>>>Tilt Error: ls_state_error_tilt<<<\n");
+    ls_debug_printf("STATES: >>>>Tilt Error: ls_state_error_tilt<<<\n");
 #endif
 #ifdef LSDEBUG_TILT
-    ls_debug_printf(">>>>Tilt Error<<<\n");
+    ls_debug_printf("TILT: >>>>Tilt Error<<<\n");
 #endif
     ls_State successor;
     successor.func = ls_state_error_tilt;
@@ -809,7 +819,7 @@ ls_State ls_state_error_tilt(ls_event event)
         case LS_TAPEMODE_DARK_SAFE:
         case LS_TAPEMODE_LIGHT_SAFE:
 #ifdef LSDEBUG_TILT
-            ls_debug_printf("TILT_OK but safe mode requires power cycle to resume\n");
+            ls_debug_printf("TILT: TILT_OK but safe mode requires power cycle to resume\n");
 #endif
             ls_buzzer_effect(LS_BUZZER_PLAY_TILT_FAIL);
             ls_buzzer_effect(LS_BUZZER_ALERT_1S);
@@ -844,7 +854,7 @@ ls_State ls_state_error_tilt(ls_event event)
 ls_State ls_state_error_noaccel(ls_event event)
 {
 #ifdef LSDEBUG_STATES
-    ls_debug_printf(">>>>NO ACCELEROMETER: ls_state_error_noaccel<<<\n");
+    ls_debug_printf("STATES: >>>>NO ACCELEROMETER: ls_state_error_noaccel<<<\n");
 #endif
     _ls_state_everything_off(); // not that we had a chance to turn anything on.
     ls_State successor;
@@ -871,13 +881,30 @@ ls_State ls_state_error_noaccel(ls_event event)
 ls_State ls_state_error_norotate(ls_event event)
 {
 #ifdef LSDEBUG_STATES
-    ls_debug_printf(">>>>NOT ROTATING: ls_state_error_norotate<<<\n");
+    ls_debug_printf("STATES: >>>>NOT ROTATING: ls_state_error_norotate<<<\n");
 #endif
     _ls_state_everything_off();
     ls_State successor;
     successor.func = ls_state_error_norotate;
     ls_leds_cycle(LEDCYCLE_FAIL_ROTATE);
     ls_buzzer_effect(LS_BUZZER_PLAY_NOROTATE);
+    vTaskDelay(pdMS_TO_TICKS(LS_FAILURE_LEDS_OFF_AFTER));
+    ls_leds_off();
+    vTaskDelay(pdMS_TO_TICKS(LS_FAILURE_REPEAT_INTERVAL));
+    ls_event_enqueue_noop();
+    return successor;
+}
+
+ls_State ls_state_error_heartbeat(ls_event event)
+{
+#ifdef LSDEBUG_STATES
+    ls_debug_printf("STATES: >>>>FAILSAFE HEARTBEAT NOT DETECTED: ls_state_error_heartbeat [%llu edges]<<<\n", ls_failsafe_edge_count());
+#endif
+    _ls_state_everything_off();
+    ls_State successor;
+    successor.func = ls_state_error_heartbeat;
+    ls_leds_cycle(LEDCYCLE_FAIL_HEARTBEAT);
+    ls_buzzer_effect(LS_BUZZER_PLAY_HEARTBEAT);
     vTaskDelay(pdMS_TO_TICKS(LS_FAILURE_LEDS_OFF_AFTER));
     ls_leds_off();
     vTaskDelay(pdMS_TO_TICKS(LS_FAILURE_REPEAT_INTERVAL));

@@ -19,6 +19,11 @@
 #include <stdlib.h>
 #include "driver/gpio.h"
 
+// bool ls_failsafe_has_heartbeat_at_poweron(void);
 void ls_failsafe_init(void);
 void ls_failsafe_pause(void);
 void ls_failsafe_start(void);
+uint64_t ls_failsafe_edge_count(void);
+#ifdef LSDEBUG_FAILSAFE
+void ls_failsafe_debug_task(void *pvParameter);
+#endif

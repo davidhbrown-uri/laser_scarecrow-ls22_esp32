@@ -21,6 +21,7 @@
 #include "debug.h"
 #include "../components/ESP32-NeoPixel-WS2812-RMT/ws2812_control.h"
 
+// Color values are 0xGGRRBB! (Not RGB)
 // values calculated using a separate program and the Adafruit neopixel library, plus some regex massaging
 static int _ledcycle_rainbow[] = {0x00FF00, 0x03FF00, 0x14FF00, 0x39FF00, 0x78FF00, 0xD7FF00, 0xFFB400, 0xFF6000, 0xFF2A00, 0xFF0D00, 0xFF0100, 0xFF0000, 0xFF0007, 0xFF001E, 0xFF004B, 0xFF0094, 0xFF00FF, 0x9400FF, 0x4B00FF, 0x1E00FF, 0x0700FF, 0x0000FF, 0x0001FF, 0x000DFF, 0x002AFF, 0x0060FF, 0x00B4FF, 0x00FFD7, 0x00FF78, 0x00FF39, 0x00FF14, 0x00FF03};
 ls_ledcycle_t LEDCYCLE_RAINBOW = {sizeof(_ledcycle_rainbow) / sizeof(int), pdMS_TO_TICKS(100), 2, _ledcycle_rainbow};
@@ -55,6 +56,11 @@ static int _ledcycle_fail_scanning[] = {GRB_RED, GRB_OFF, GRB_RED, GRB_OFF, GRB_
                                     0x80C000, 0x0000FF, 0x80C000, 0x0000FF, 0x80C000, 0x0000FF, GRB_OFF, GRB_OFF,
                                     GRB_OFF, GRB_OFF, GRB_OFF, GRB_OFF};
 ls_ledcycle_t LEDCYCLE_FAIL_SCANNING = {sizeof(_ledcycle_fail_scanning) / sizeof(int), pdMS_TO_TICKS(200), 0, _ledcycle_fail_scanning};
+
+static int _ledcycle_fail_heartbeat[] = {GRB_RED, GRB_OFF, GRB_RED, GRB_OFF, GRB_OFF, GRB_OFF,
+                                    0x40F000, 0x38C000, 0x30A000, 0x288000, 0x186000, 0x104000, 0x082000, GRB_OFF,
+                                    GRB_OFF, GRB_OFF, GRB_OFF, GRB_OFF};
+ls_ledcycle_t LEDCYCLE_FAIL_HEARTBEAT = {sizeof(_ledcycle_fail_heartbeat) / sizeof(int), pdMS_TO_TICKS(200), 0, _ledcycle_fail_heartbeat};
 
 
 // the snoring sound is computed to take 357 ticks, peaking around 71-73; design this to take 360 ticks

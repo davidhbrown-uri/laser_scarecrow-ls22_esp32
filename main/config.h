@@ -107,6 +107,7 @@ https://docs.espressif.com/projects/esp-idf/en/v4.4/esp32/api-reference/peripher
 #define LSGPIO_STEPPERSTEP 18
 // STEPPER_TXRX is STEPPER_ENABLE in EN-Diag mode
 #define LSGPIO_STEPPERENABLE 23
+
 // Stepper TMC2209 is enabled when pin is brought low
 #define STEPPERENABLE_ENABLE 0
 #define STEPPERENABLE_DISABLE 1

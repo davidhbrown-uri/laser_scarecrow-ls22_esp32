@@ -75,3 +75,4 @@ ls_State ls_state_error_scanning(ls_event);
 ls_State ls_state_error_tilt(ls_event);
 ls_State ls_state_error_noaccel(ls_event);
 ls_State ls_state_error_norotate(ls_event);
+ls_State ls_state_error_heartbeat(ls_event);
