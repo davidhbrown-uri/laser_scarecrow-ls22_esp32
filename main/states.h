@@ -64,14 +64,19 @@ ls_State ls_state_active(ls_event);
  *         successor.func = ls_state_home;
  * 
  */
+
+#ifdef LS_HAS_TAPE_SENSOR
 void ls_state_set_home_successor(void*);
 ls_State ls_state_home(ls_event);
-
 ls_State ls_state_map_build(ls_event);
 ls_State ls_state_map_build_substate_home(ls_event);
+#endif
 
+
+#ifdef LS_HAS_TAPE_SENSOR
 ls_State ls_state_error_home(ls_event);
 ls_State ls_state_error_scanning(ls_event);
+#endif
 ls_State ls_state_error_tilt(ls_event);
 ls_State ls_state_error_noaccel(ls_event);
 ls_State ls_state_error_norotate(ls_event);

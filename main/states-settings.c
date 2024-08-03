@@ -312,24 +312,26 @@ ls_State ls_state_settings_both(ls_event event) {
     ls_debug_printf("Entering upper from both settings control\n")
 #endif
         ls_state_set_prelaserwarn_successor(ls_state_settings_upper);
+      successor.func = ls_state_prelaserwarn;
+#ifdef LS_HAS_TAPE_SENSOR
     if (ls_map_get_status() == LS_MAP_STATUS_OK) {
       ls_state_set_home_successor(ls_state_prelaserwarn);
       successor.func = ls_state_home;
-    } else {
-      successor.func = ls_state_prelaserwarn;
     }
+#endif
     break;
   case LSEVT_CONTROLS_LOWER:
 #ifdef LSDEBUG_STATES
     ls_debug_printf("Entering lower from both settings control\n")
 #endif
         ls_state_set_prelaserwarn_successor(ls_state_settings_lower);
+      successor.func = ls_state_prelaserwarn;
+#ifdef LS_HAS_TAPE_SENSOR
     if (ls_map_get_status() == LS_MAP_STATUS_OK) {
       ls_state_set_home_successor(ls_state_prelaserwarn);
       successor.func = ls_state_home;
-    } else {
-      successor.func = ls_state_prelaserwarn;
     }
+#endif
     break;
   case LSEVT_TILT_DETECTED:
     successor.func = ls_state_error_tilt;
@@ -339,7 +341,9 @@ ls_State ls_state_settings_both(ls_event event) {
   default:; // do nothing for this event
   }         // switch event type
   if (ls_state_settings_both != successor.func) {
+#ifdef LS_HAS_TAPE_SENSOR
     ls_substate_home_require_rehome();
+#endif
     ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_LEAVE);
     ls_settings_save();
   }

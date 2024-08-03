@@ -64,7 +64,8 @@ void _selftest_detected_event(bool *selftest) {
 void _selftest_stepper_behavior(void) {
   switch (_selftest_stepper_behavior_sequence) {
   case 0:
-      ls_laser_set_mode_off();
+    ls_laser_set_mode_off();
+    break;
   case 1:
     ls_stepper_set_maximum_steps_per_second(LS_STEPPER_STEPS_PER_SECOND_MIN);
     ls_stepper_forward_hop(LS_STEPPER_STEPS_PER_ROTATION / 8);
@@ -73,22 +74,26 @@ void _selftest_stepper_behavior(void) {
     ls_stepper_reverse_hop(LS_STEPPER_STEPS_PER_ROTATION / 8);
     break;
   case 3:
-  case 4:
     ls_stepper_set_maximum_steps_per_second(LS_STEPPER_STEPS_PER_SECOND_MAX);
     ls_stepper_forward_hop(LS_STEPPER_STEPS_PER_ROTATION / 2);
     break;
-  case 5:
+  case 4:
     ls_stepper_reverse_hop(LS_STEPPER_STEPS_PER_ROTATION / 2);
     break;
-  case 6:
+  case 5:
     ls_stepper_set_maximum_steps_per_second(LS_HOME_STEPPER_STEPS_PER_SECOND);
     ls_stepper_forward_hop(LS_STEPPER_STEPS_PER_ROTATION * 2);
     break;
-  case 7:
+  case 6:
+    ls_laser_set_mode_on();
+    /* @todo set fastest spin to minimum scanning spin*/
     ls_stepper_spin_at_rpm(LS_SETTINGS_MINIMUM_RPM_SCANNING);
     break;
-  case 8:
-    ls_laser_set_mode_on();
+  case 7:
+    ls_stepper_random_spin();
+    break;
+  case 11:
+    /* @todo set fastest spin to maximum scanning spin*/
     ls_stepper_random_spin();
     break;
   case 20:

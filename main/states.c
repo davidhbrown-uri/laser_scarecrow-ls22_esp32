@@ -46,19 +46,14 @@ extern QueueHandle_t ls_event_queue;
 
 static TaskHandle_t ls_coverage_task_handle;
 
+TimerHandle_t _ls_state_magnet_timeout_timer;
+
+
+
+#ifdef LS_HAS_TAPE_SENSOR
 #define LEDCYCLE_HOMING LEDCYCLE_RAINBOW
 
 TimerHandle_t _ls_state_rehome_timer;
-
-#define _ls_state_everything_off() \
-    {                              \
-        ls_servo_off();            \
-        ls_stepper_off();          \
-        ls_laser_set_mode_off();   \
-        ls_tape_sensor_disable();  \
-        ls_leds_off();             \
-        ls_oled_blank_screen();    \
-    }
 
 void _ls_state_rehome_timer_callback(TimerHandle_t xTimer)
 {
@@ -73,16 +68,65 @@ void _ls_state_rehome_timer_callback(TimerHandle_t xTimer)
         xTimerReset(_ls_state_rehome_timer, pdMS_TO_TICKS(5000));
     }
 }
+#define _ls_state_everything_off() \
+    {                              \
+        ls_servo_off();            \
+        ls_stepper_off();          \
+        ls_laser_set_mode_off();   \
+        ls_tape_sensor_disable();  \
+        ls_leds_off();             \
+        ls_oled_blank_screen();    \
+    }
+#else
+#define _ls_state_everything_off() \
+    {                              \
+        ls_laser_set_mode_off();   \
+        ls_servo_off();            \
+        ls_stepper_off();          \
+        ls_leds_off();             \
+        ls_oled_blank_screen();    \
+    }
+#endif
+
+void _ls_state_magnet_timeout_callback(TimerHandle_t xTimer)
+{
+    ls_laser_set_mode_off();
+    ls_event event;
+    event.type = LSEVT_MAGNET_TIMEOUT;
+    event.value = NULL;
+    if (xQueueSend(ls_event_queue, (void *)&event, pdMS_TO_TICKS(5000)) != pdPASS)
+    {
+        _ls_state_everything_off();
+        xTimerStop(xTimer, pdMS_TO_TICKS(1000));
+#ifdef LSDEBUG_STATES
+        ls_debug_printf("WARNING: Could not enqueue LSEVT_MAGNET_TIMEOUT; failing\n");
+#endif
+        event.type = LSEVT_MAGNET_FAILURE;
+        while(xQueueSendToFront(ls_event_queue, (void *)&event, pdMS_TO_TICKS(500)) != pdPASS)
+        {
+            vTaskDelay(pdMS_TO_TICKS(500));
+        }
+    }
+}
 
 void ls_state_init(void)
 {
+#ifdef LS_HAS_TAPE_SENSOR
     _ls_state_rehome_timer = xTimerCreate("rehome_timer",                                 // pcTimerName
                                           pdMS_TO_TICKS(LS_STATE_REHOME_TIMER_PERIOD_MS), // xTimerPeriodInTicks
                                           pdFALSE,                                        // uxAutoReload
                                           0,                                              // pvTimerId not used; only timer for callback
                                           _ls_state_rehome_timer_callback                 // pxCallbackFunction
     );
+#endif
+_ls_state_magnet_timeout_timer= xTimerCreate("rehome_timer",                                 // pcTimerName
+                                          pdMS_TO_TICKS(LS_STATE_MAGNET_TIMEOUT_PERIOD_MS), // xTimerPeriodInTicks
+                                          pdFALSE,                                        // uxAutoReload
+                                          0,                                              // pvTimerId not used; only timer for callback
+                                          _ls_state_magnet_timeout_callback                 // pxCallbackFunction
+    );
 }
+
 
 /**
  * @brief Checks the event queue and dispatches to current state function
@@ -143,8 +187,10 @@ void event_handler_state_machine(void *pvParameter)
     } // while 1 -- task must not exit
 }
 
+#ifdef LS_HAS_TAPE_SENSOR
 bool ls_state_home_to_magnet_status = false;
 int ls_magnet_homing_tries = 50;
+#endif
 
 ls_State ls_state_poweron(ls_event event)
 {
@@ -160,19 +206,17 @@ ls_State ls_state_poweron(ls_event event)
         ls_tapemode_init();
         switch (ls_tapemode())
         {
-        case LS_TAPEMODE_IGNORE:
-            successor.func = ls_state_prelaserwarn;
-#ifdef LSDEBUG_STATES
-            ls_debug_printf("STATES: State poweron ignoring tape => pre-laser warning\n");
-#endif
-            break;
         case LS_TAPEMODE_SELFTEST:
 #ifdef LSDEBUG_STATES
             ls_debug_printf("STATES: State poweron => selftest\n");
 #endif
             successor.func = ls_state_selftest;
             break;
-        default:
+#ifdef LS_HAS_TAPE_SENSOR
+        case LS_TAPEMODE_DARK:
+        case LS_TAPEMODE_DARK_SAFE:
+        case LS_TAPEMODE_LIGHT:
+        case LS_TAPEMODE_LIGHT_SAFE:
 #ifdef LSDEBUG_STATES
             ls_debug_printf("STATES: During poweron, ls_map_get_status()=> %d\n", ls_map_get_status());
 #endif
@@ -191,7 +235,12 @@ ls_State ls_state_poweron(ls_event event)
                 ls_state_set_home_successor(ls_state_map_build);
                 successor.func = ls_state_home; // ls_state_map_build_substate_home;
             }
-
+#endif                
+        default:
+            successor.func = ls_state_prelaserwarn;
+#ifdef LSDEBUG_STATES
+            ls_debug_printf("STATES: State poweron ignoring tape => pre-laser warning\n");
+#endif
         } // switch tapemode
         break;
     case LSEVT_TILT_DETECTED:
@@ -315,7 +364,7 @@ ls_State ls_state_active(ls_event event)
         ls_leds_off();
         ls_oled_blank_screen();
         ls_coverage_task_handle = NULL;
-
+#ifdef LS_HAS_TAPE_SENSOR
         if (ls_map_get_status() == LS_MAP_STATUS_OK)
         {
             ls_laser_set_mode_mapped();
@@ -326,6 +375,7 @@ ls_State ls_state_active(ls_event event)
         {
             ls_laser_set_mode_on();
         }
+#endif
         break;
     case LSEVT_MAGNET_ENTER:
 #ifdef LSDEBUG_STATES
@@ -354,12 +404,14 @@ ls_State ls_state_active(ls_event event)
         ls_debug_printf("STATES: Servo finished move (reached bottom)\n");
 #endif
         break;
+#ifdef LS_HAS_TAPE_SENSOR
     case LSEVT_REHOME_REQUIRED:
 #ifdef LSDEBUG_STATES
         ls_debug_printf("STATES: Rehoming from active state\n");
 #endif
         successor.func = ls_state_home;
         break;
+#endif
     case LSEVT_LIGHT_NIGHT:
 #ifdef LSDEBUG_STATES
         ls_debug_printf("STATES: Entering night/sleep state\n")
@@ -409,6 +461,8 @@ ls_State ls_state_active(ls_event event)
     }
     return successor;
 }
+
+#ifdef LS_HAS_TAPE_SENSOR
 
 static void *_ls_state_home_successor = NULL;
 void ls_state_set_home_successor(void *successor)
@@ -468,6 +522,7 @@ ls_State ls_state_home(ls_event event)
     }
     return successor;
 }
+#endif
 
 ls_State ls_state_selftest(ls_event event)
 {
@@ -537,31 +592,29 @@ ls_State ls_state_sleep(ls_event event)
         ls_debug_printf("STATES: Entering settings upper from sleep\n");
 #endif
         ls_state_set_prelaserwarn_successor(ls_state_settings_upper);
+            successor.func = ls_state_prelaserwarn;
+#ifdef LS_HAS_TAPE_SENSOR
         if (ls_map_get_status() == LS_MAP_STATUS_OK)
         {
             ls_state_set_home_successor(ls_state_prelaserwarn);
             successor.func = ls_state_home;
         }
-        else
-        {
-            successor.func = ls_state_prelaserwarn;
-        }
+#endif
         break;
     case LSEVT_CONTROLS_LOWER:
 #ifdef LSDEBUG_STATES
         ls_debug_printf("STATES: Entering settings lower from sleep\n");
 #endif
         ls_state_set_prelaserwarn_successor(ls_state_settings_lower);
+        successor.func = ls_state_prelaserwarn;
+#ifdef LS_HAS_TAPE_SENSOR
         if (ls_map_get_status() == LS_MAP_STATUS_OK)
         {
             ls_state_set_home_successor(ls_state_prelaserwarn);
             successor.func = ls_state_home;
         }
-        else
-        {
-            successor.func = ls_state_prelaserwarn;
-        }
-        break;
+#endif
+    break;
     case LSEVT_CONTROLS_BOTH:
 #ifdef LSDEBUG_STATES
         ls_debug_printf("STATES: Entering secondary settings control from sleep\n")
@@ -586,17 +639,17 @@ ls_State ls_state_wakeup(ls_event event)
     switch (event.type)
     {
     case LSEVT_STATE_ENTRY:
+            successor.func = ls_state_prelaserwarn;
+#ifdef LS_HAS_TAPE_SENSOR
         if (ls_map_get_status() == LS_MAP_STATUS_OK)
         {
             ls_substate_home_require_rehome();
             ls_substate_home_init();
             ls_event_enqueue_noop();
         }
-        else
-        {
-            successor.func = ls_state_prelaserwarn;
-        }
+#endif
         break;
+#ifdef LS_HAS_TAPE_SENSOR
     case LSEVT_HOME_COMPLETED:
         successor.func = ls_state_prelaserwarn;
         ls_event_enqueue_noop();
@@ -605,15 +658,21 @@ ls_State ls_state_wakeup(ls_event event)
         successor.func = ls_state_error_home;
         ls_event_enqueue_noop();
         break;
+#endif
     case LSEVT_TILT_DETECTED:
         successor.func = ls_state_error_tilt;
         break;
     default:
+    ; 
+#ifdef LS_HAS_TAPE_SENSOR
+// should this be looking for specific events rather than handling everything else by default?
         ls_substate_home_handle_event(event);
+#endif
     }
     return successor;
 }
 
+#ifdef LS_HAS_TAPE_SENSOR
 static int _ls_state_map_build_steps_remaining;
 static int _ls_state_map_enable_count = 0, _ls_state_map_disable_count = 0, _ls_state_map_misread_count = 0;
 static enum ls_buzzer_effects _ls_state_map_fail_reason_tune = LS_BUZZER_PLAY_NOTHING;
@@ -747,7 +806,9 @@ ls_State ls_state_map_build(ls_event event)
     }         // switch  on event
     return successor;
 }
+#endif
 
+#ifdef LS_HAS_TAPE_SENSOR
 ls_State ls_state_error_home(ls_event event)
 {
 #ifdef LSDEBUG_STATES
@@ -767,7 +828,9 @@ ls_State ls_state_error_home(ls_event event)
     ls_event_enqueue_noop();
     return successor;
 }
+#endif
 
+#ifdef LS_HAS_TAPE_SENSOR
 /** "map" is/was how I think of it, but "scanning" is more understandable to growers, I think*/
 ls_State ls_state_error_scanning(ls_event event)
 {
@@ -796,6 +859,7 @@ ls_State ls_state_error_scanning(ls_event event)
 #endif
     return successor;
 }
+#endif
 
 ls_State ls_state_error_tilt(ls_event event)
 {

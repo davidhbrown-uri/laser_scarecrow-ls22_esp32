@@ -1,6 +1,6 @@
 /*
-    Control software for URI Laser Scarecrow, 2022 Model
-    Copyright (C) 2022-2023 David H. Brown
+    Control software for URI Laser Scarecrow, 2024 Fast Spinning
+    Copyright (C) 2022-2024 David H. Brown
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -16,10 +16,8 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 #pragma once
-#ifdef LS_HAS_TAPE_SENSOR
 #include "events.h"
 
-void ls_substate_home_init(void);
-void ls_substate_home_handle_event(ls_event);
-void ls_substate_home_require_rehome(void);
-#endif
+void ls_substate_rotation_check_init(void);
+void ls_substate_rotation_check(ls_event);
+void ls_rotation_check_task(void *pvParameter);

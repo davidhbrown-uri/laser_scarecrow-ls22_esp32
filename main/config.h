@@ -224,6 +224,8 @@ https://docs.espressif.com/projects/esp-idf/en/v4.4/esp32/api-reference/peripher
 #define LS_STEPPER_RANDOM_SPIN_MINIMUM_SECONDS 3
 #define LS_STEPPER_RANDOM_SPIN_MAXIMUM_SECONDS 10
 
+#define LS_STATE_MAGNET_TIMEOUT_PERIOD_MS 30000
+
 #define LS_FAILSAFE_TIMER_GROUP TIMER_GROUP_0
 #define LS_FAILESAFE_TIMER TIMER_1
 // microseconds before failesafe alarm should trigger

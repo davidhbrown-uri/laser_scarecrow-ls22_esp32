@@ -29,6 +29,8 @@ enum ls_event_t
     LSEVT_MAGNET_ENTER = 20, // rotating arm's magnet enters detection area
     LSEVT_MAGNET_LEAVE, // rotating arm's magnet leaves detection area
     LSEVT_MAGNET_HOMED, // found magnet while homing
+    LSEVT_MAGNET_TIMEOUT, // magnet has not been detected while active
+    LSEVT_MAGNET_FAILURE, // magnet timeout could not be resolved
 
     LSEVT_STEPPER_FINISHED_MOVE = 30, // rotating arm finishes movement
     LSEVT_STEPPER_REACHED_SPEED = 31, // rotating arm reached requested speed during fast-spin mode
@@ -47,14 +49,14 @@ enum ls_event_t
     LSEVT_CONTROLS_SLIDER2, // external control slider 2 moved (ls_event.value is pointer to ADC value)
 
     LSEVT_BUZZER_WARNING_COMPLETE = 80, // long pre-laser warning sequence of tones has finished
-
+#ifdef LS_HAS_TAPE_SENSOR
     LSEVT_HOME_COMPLETED = 100, // the homing routine has moved the arm to the reference location
     LSEVT_HOME_FAILED, // the homing routing could not locate the reference location
     LSEVT_REHOME_REQUIRED, // homing must be done again to ensure stability of position over time
 
     LSEVT_MAP_COMPLETED = 110, // the locations where the laser can't be on has successfully been read
     LSEVT_MAP_FAILED, // the locations where the laser can't be on could not be read
-
+#endif
     LSEVT_TILT_OK = 120, // the tilt sensor indicates the device orientation is in bounds
     LSEVT_TILT_DETECTED, // the tilt sensor indicates the device orientation is out of bounds
 

@@ -15,6 +15,7 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+#ifdef LS_HAS_TAPE_SENSOR
 #include "debug.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -296,3 +297,6 @@ void ls_substate_home_handle_event(ls_event event)
         break;
     }
 }
+
+// for ifdef LS_HAS_TAPE_SENSOR at start
+#endif
