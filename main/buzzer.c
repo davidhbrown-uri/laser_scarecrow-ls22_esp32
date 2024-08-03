@@ -179,8 +179,17 @@ void ls_buzzer_handler_task(void *pvParameter)
             case LS_BUZZER_PRE_LASER_WARNING:
                 _ls_buzzer_pre_laser_warning();
                 break;
+            case LS_BUZZER_GENERAL_WARNING:
+            for (int count = 0; count < 2; count++) {
+                for(BaseType_t i = 3000; i > BUZZER_MINIMUM_FREQUENCY; i-=(i/10))
+                {
+                    _ls_buzzer_frequency(i);
+                    vTaskDelay(1);
+                }
+            }
+            break;
             case LS_BUZZER_POWERON:
-                for(enum ls_buzzer_scale i = BUZZER_MINIMUM_FREQUENCY; i < 3000; i+=(i/10))
+                for(BaseType_t i = BUZZER_MINIMUM_FREQUENCY; i < 3000; i+=(i/10))
                 {
                     _ls_buzzer_frequency(i);
                     vTaskDelay(pdMS_TO_TICKS(20));

@@ -668,7 +668,6 @@ void ls_stepper_task(void *pvParameter)
                 } // switch action for LS_STEPPER_ROTATION_MODE_UNPOWERED
             break;
             case LS_STEPPER_ROTATION_MODE_STOPPED:
-                gpio_set_level(LSGPIO_STEPPERENABLE, STEPPERENABLE_ENABLE);
                 switch(message.action) {
                     case LS_STEPPER_ACTION_IDLE: // LS_STEPPER_ROTATION_MODE_STOPPED
                     break;
@@ -725,8 +724,8 @@ void ls_stepper_task(void *pvParameter)
 #endif
             break;
             case LS_STEPPER_ROTATION_MODE_RANDOM_HOP:
-                ls_stepper_mode_hop0_spin1 = 0;
                 gpio_set_level(LSGPIO_STEPPERENABLE, STEPPERENABLE_ENABLE);
+                ls_stepper_mode_hop0_spin1 = 0;
                 if (ls_stepper_steps_remaining <= 0)
                 {
                     // invoke the current move strategy
@@ -742,6 +741,7 @@ void ls_stepper_task(void *pvParameter)
                 successor_stepper_rotation_mode = _do_state_hopping(_current_stepper_rotation_mode, &message);
             break;
             case LS_STEPPER_ROTATION_MODE_RANDOM_SPIN:
+                gpio_set_level(LSGPIO_STEPPERENABLE, STEPPERENABLE_ENABLE);
                 ls_stepper_mode_hop0_spin1 = 1;
                 switch(_current_stepper_action) {
                     case LS_STEPPER_ACTION_RANDOM_SPIN: // LS_STEPPER_ROTATION_MODE_RANDOM_SPIN
@@ -780,10 +780,12 @@ void ls_stepper_task(void *pvParameter)
                 successor_stepper_rotation_mode = _do_state_spinning(_current_stepper_rotation_mode, &message);
             break;
             case LS_STEPPER_ROTATION_MODE_HOPPING:
+                gpio_set_level(LSGPIO_STEPPERENABLE, STEPPERENABLE_ENABLE);
                 ls_stepper_mode_hop0_spin1 = 0;
                 successor_stepper_rotation_mode = _do_state_hopping(_current_stepper_rotation_mode, &message);
             break;
             case LS_STEPPER_ROTATION_MODE_SPINNING:
+                gpio_set_level(LSGPIO_STEPPERENABLE, STEPPERENABLE_ENABLE);
                 ls_stepper_mode_hop0_spin1 = 1;
                 successor_stepper_rotation_mode = _do_state_spinning(_current_stepper_rotation_mode, &message);
             break;

@@ -28,7 +28,9 @@
 #include "tape.h"
 #include "map.h"
 #include "init.h"
+#ifdef LS_HAS_TAPE_SENSOR
 #include "substate_home.h"
+#endif
 #include "laser.h"
 #include "settings.h"
 #include "selftest.h"
@@ -91,18 +93,18 @@ void _ls_state_rehome_timer_callback(TimerHandle_t xTimer)
 void _ls_state_magnet_timeout_callback(TimerHandle_t xTimer)
 {
     ls_laser_set_mode_off();
+    ls_buzzer_effect(LS_BUZZER_GENERAL_WARNING);
     ls_event event;
     event.type = LSEVT_MAGNET_TIMEOUT;
     event.value = NULL;
-    if (xQueueSend(ls_event_queue, (void *)&event, pdMS_TO_TICKS(5000)) != pdPASS)
+    if (pdTRUE != xQueueSend(ls_event_queue, (void *)&event, pdMS_TO_TICKS(5000)))
     {
         _ls_state_everything_off();
-        xTimerStop(xTimer, pdMS_TO_TICKS(1000));
 #ifdef LSDEBUG_STATES
         ls_debug_printf("WARNING: Could not enqueue LSEVT_MAGNET_TIMEOUT; failing\n");
 #endif
         event.type = LSEVT_MAGNET_FAILURE;
-        while(xQueueSendToFront(ls_event_queue, (void *)&event, pdMS_TO_TICKS(500)) != pdPASS)
+        while(pdTRUE !=  xQueueSendToFront(ls_event_queue, (void *)&event, pdMS_TO_TICKS(500)))
         {
             vTaskDelay(pdMS_TO_TICKS(500));
         }
@@ -119,7 +121,7 @@ void ls_state_init(void)
                                           _ls_state_rehome_timer_callback                 // pxCallbackFunction
     );
 #endif
-_ls_state_magnet_timeout_timer= xTimerCreate("rehome_timer",                                 // pcTimerName
+_ls_state_magnet_timeout_timer= xTimerCreate("magnet_timeout_timer",                                 // pcTimerName
                                           pdMS_TO_TICKS(LS_STATE_MAGNET_TIMEOUT_PERIOD_MS), // xTimerPeriodInTicks
                                           pdFALSE,                                        // uxAutoReload
                                           0,                                              // pvTimerId not used; only timer for callback
@@ -364,6 +366,11 @@ ls_State ls_state_active(ls_event event)
         ls_leds_off();
         ls_oled_blank_screen();
         ls_coverage_task_handle = NULL;
+        if (pdFAIL == xTimerStart(_ls_state_magnet_timeout_timer, pdMS_TO_TICKS(500))) 
+        {
+            successor.func = ls_state_error_norotate;
+        }
+
 #ifdef LS_HAS_TAPE_SENSOR
         if (ls_map_get_status() == LS_MAP_STATUS_OK)
         {
@@ -375,18 +382,22 @@ ls_State ls_state_active(ls_event event)
         {
             ls_laser_set_mode_on();
         }
+#else
+        ls_laser_set_mode_on();
 #endif
         break;
     case LSEVT_MAGNET_ENTER:
 #ifdef LSDEBUG_STATES
         ls_debug_printf("STATES: Magnet Enter @ %d %s\n", (int32_t)event.value, ls_stepper_get_direction() ? "-->" : "<--");
 #endif
+        xTimerReset(_ls_state_magnet_timeout_timer, 0);
         ls_buzzer_effect(LS_BUZZER_CLICK);
         break;
     case LSEVT_MAGNET_LEAVE:
 #ifdef LSDEBUG_STATES
         ls_debug_printf("STATES: Magnet Leave @ %d %s\n", (int32_t)event.value, ls_stepper_get_direction() ? "-->" : "<--");
 #endif
+        xTimerReset(_ls_state_magnet_timeout_timer, 0);
         ls_buzzer_effect(LS_BUZZER_CLICK);
         break;
     case LSEVT_STEPPER_FINISHED_MOVE:
@@ -436,6 +447,18 @@ ls_State ls_state_active(ls_event event)
 #endif
             successor.func = ls_state_settings_both;
         break;
+    case LSEVT_MAGNET_TIMEOUT:
+#ifdef LSDEBUG_STATES
+        ls_debug_printf("STATES: Magnet timeout - slowing to check rotation\n");
+#endif
+        successor.func = ls_state_rotation_check;
+        break;
+    case LSEVT_MAGNET_FAILURE:
+#ifdef LSDEBUG_STATES
+        ls_debug_printf("STATES: Magnet failure detected while active?\n");
+#endif
+        successor.func = ls_state_error_norotate;
+        break;
     case LSEVT_TILT_DETECTED:
         successor.func = ls_state_error_tilt;
         break;
@@ -462,8 +485,76 @@ ls_State ls_state_active(ls_event event)
     return successor;
 }
 
-#ifdef LS_HAS_TAPE_SENSOR
+int32_t _state_rotation_check_rpm;
+#define LS_STATE_ROTATION_CHECK_STARTING_RPM 30
+#define LS_STATE_ROTATION_CHECK_MINIMUM_RPM 15
+#define LS_STATE_ROTATION_CHECK_MS_PER_RPM 500
 
+ls_State ls_state_rotation_check(ls_event event)
+{
+    ls_State successor;
+    successor.func = ls_state_rotation_check;
+    switch (event.type)
+    {
+    case LSEVT_STATE_ENTRY:
+#ifdef LSDEBUG_STATES
+    ls_debug_printf("STATES: ls_state_rotation_check received event %d (LSEVT_STATE_ENTRY)\n", event.type);
+#endif
+        ls_leds_cycle(LEDCYCLE_WARNING);
+        _state_rotation_check_rpm = LS_STATE_ROTATION_CHECK_STARTING_RPM;
+        ls_stepper_spin_at_rpm(_state_rotation_check_rpm);
+    break;
+
+    case LSEVT_MAGNET_ENTER:
+    case LSEVT_MAGNET_LEAVE:
+        ls_buzzer_effect(LS_BUZZER_PLAY_HOME_SUCCESS);
+        successor.func = ls_state_active;
+    break;
+
+    // left over from active state transferring control
+    case LSEVT_STEPPER_FINISHED_MOVE:
+#ifdef LSDEBUG_STATES
+    ls_debug_printf("STATES: ls_state_rotation_check received event %d (LSEVT_STEPPER_FINISHED_MOVE)\n", event.type);
+#endif
+    break;
+
+    case LSEVT_STEPPER_REACHED_SPEED:
+#ifdef LSDEBUG_STATES
+    ls_debug_printf("STATES: ls_state_rotation_check received event %d (LSEVT_STEPPER_REACHED_SPEED [%d])\n", event.type, _state_rotation_check_rpm);
+#endif
+        _state_rotation_check_rpm--;
+        if(_state_rotation_check_rpm < LS_STATE_ROTATION_CHECK_MINIMUM_RPM)
+        {
+            successor.func = ls_state_error_norotate; 
+        } else {
+            vTaskDelay(pdMS_TO_TICKS(LS_STATE_ROTATION_CHECK_MS_PER_RPM));
+            ls_stepper_spin_at_rpm(_state_rotation_check_rpm);
+        }
+        break;
+    case LSEVT_MAGNET_FAILURE:
+#ifdef LSDEBUG_STATES
+    ls_debug_printf("STATES: ls_state_rotation_check received event %d (LSEVT_MAGNET_FAILURE)\n", event.type);
+#endif
+        successor.func = ls_state_error_norotate;
+        break;
+    case LSEVT_TILT_DETECTED:
+        successor.func = ls_state_error_tilt;
+        break;
+    default:
+        ;//nothing to do
+#ifdef LSDEBUG_STATES
+    ls_debug_printf("STATES: ls_state_rotation_check received UNEXPECTED event %d\n", event.type);
+#endif
+    }
+    // exit actions:
+    if (successor.func != ls_state_rotation_check)
+    {
+        ls_leds_off();
+    }
+    return successor;
+    }
+
+#ifdef LS_HAS_TAPE_SENSOR
 static void *_ls_state_home_successor = NULL;
 void ls_state_set_home_successor(void *successor)
 {
@@ -509,6 +600,9 @@ ls_State ls_state_home(ls_event event)
             successor.func = ls_state_prelaserwarn;
         }
         ls_event_enqueue_noop();
+        break;
+    case LSEVT_TILT_DETECTED:
+        successor.func = ls_state_error_tilt;
         break;
     case LSEVT_TILT_DETECTED:
         successor.func = ls_state_error_tilt;
@@ -798,6 +892,9 @@ ls_State ls_state_map_build(ls_event event)
             }
             ls_tape_sensor_disable();
         } // done building map
+        break;
+    case LSEVT_TILT_DETECTED:
+        successor.func = ls_state_error_tilt;
         break;
     case LSEVT_TILT_DETECTED:
         successor.func = ls_state_error_tilt;
