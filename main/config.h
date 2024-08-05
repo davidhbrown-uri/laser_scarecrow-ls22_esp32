@@ -228,30 +228,36 @@ https://docs.espressif.com/projects/esp-idf/en/v4.4/esp32/api-reference/peripher
 #define LS_STEPPER_RANDOM_SPIN_MINIMUM_SECONDS 3
 #define LS_STEPPER_RANDOM_SPIN_MAXIMUM_SECONDS 10
 
-#define LS_STATE_MAGNET_TIMEOUT_PERIOD_MS 30000
+// Rotation Check - Magnet timeout - shorter is safer, but more likely to have false positive
+// 4000 ms produced a timeout every few minutes (adequate for testing, 
+// though about half the time the magnet was detected while doing the initial stop)
+// 10000 ms or so should be reasonable for deployment
+#define LS_STATE_MAGNET_TIMEOUT_PERIOD_MS 12000
+#define LS_STATE_MAGNET_SLOWSPIN_MS_PER_RPM 1000
+#define LS_STATE_MAGNET_SLOWSPIN_INITIAL_RPM 30
+#define LS_STATE_MAGNET_SLOWSPIN_FINAL_RPM 15
 
 #define LS_FAILSAFE_TIMER_GROUP TIMER_GROUP_0
 #define LS_FAILESAFE_TIMER TIMER_1
 // microseconds before failesafe alarm should trigger
 #define LS_FAILESAFE_ALARM_US 1500
 
-// #define LS_FAILSAFE_TESTING
 #ifdef LS_FAILSAFE_TESTING
+// for testing the failsafe, 150-250 RPM
+// #define LS_FAILSAFE_TESTING
 #define LS_LASER_ENABLE_MINIMUM_RPM 100
 #define LS_SETTINGS_MINIMUM_RPM_SCANNING 150
 #define LS_SETTINGS_MAXIMUM_RPM_SCANNING 250
 #else
 // to drop exposure to IIIA instead of IIIB:
 // correct value is 176RPM, so add a margin for 180
+// normal values 190-300 RPM
 #define LS_LASER_ENABLE_MINIMUM_RPM 180
 #define LS_SETTINGS_MINIMUM_RPM_SCANNING 190
 #define LS_SETTINGS_MAXIMUM_RPM_SCANNING 330
 #define LS_SETTINGS_DEFAULT_MAX_RPM 240
 #endif
 
-// for testing the failsafe, drop to 100RPM
-// normal values 190-300 RPM
-// for testing the failsafe, 150-250 RPM
 #define LS_SETTINGS_MINIMUM_RPM_MOVEMENT 5
 /*
 2023 dual switch setup with upper 22k, lower 10k resistors to 3V3 and 10k to

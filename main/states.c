@@ -48,7 +48,7 @@ extern QueueHandle_t ls_event_queue;
 
 static TaskHandle_t ls_coverage_task_handle;
 
-TimerHandle_t _ls_state_magnet_timeout_timer;
+TimerHandle_t _ls_state_magnet_timeout_timer, _ls_state_magnet_slowspin_timer;
 
 
 
@@ -111,6 +111,16 @@ void _ls_state_magnet_timeout_callback(TimerHandle_t xTimer)
     }
 }
 
+void _ls_state_magnet_slowspin_callback(TimerHandle_t xTimer)
+{
+    ls_laser_set_mode_off();
+    ls_buzzer_effect(LS_BUZZER_GENERAL_WARNING);
+    ls_event event;
+    event.type = LSEVT_NOOP;
+    event.value = NULL;
+    xQueueSend(ls_event_queue, (void *)&event, pdMS_TO_TICKS(5000));
+}
+
 void ls_state_init(void)
 {
 #ifdef LS_HAS_TAPE_SENSOR
@@ -126,6 +136,12 @@ _ls_state_magnet_timeout_timer= xTimerCreate("magnet_timeout_timer",            
                                           pdFALSE,                                        // uxAutoReload
                                           0,                                              // pvTimerId not used; only timer for callback
                                           _ls_state_magnet_timeout_callback                 // pxCallbackFunction
+    );
+_ls_state_magnet_slowspin_timer= xTimerCreate("magnet_slowspin_timer",                                 // pcTimerName
+                                          pdMS_TO_TICKS(LS_STATE_MAGNET_SLOWSPIN_MS_PER_RPM), // xTimerPeriodInTicks
+                                          pdFALSE,                                        // uxAutoReload
+                                          0,                                              // pvTimerId not used; only timer for callback
+                                          _ls_state_magnet_slowspin_callback                 // pxCallbackFunction
     );
 }
 
@@ -387,15 +403,15 @@ ls_State ls_state_active(ls_event event)
 #endif
         break;
     case LSEVT_MAGNET_ENTER:
-#ifdef LSDEBUG_STATES
-        ls_debug_printf("STATES: Magnet Enter @ %d %s\n", (int32_t)event.value, ls_stepper_get_direction() ? "-->" : "<--");
+#if defined(LSDEBUG_STATES) || defined (LSDEBUG_MAGNET_TIMEOUT)
+        ls_debug_printf("STATES||MAGNET_TIMEOUT: Magnet Enter @ %d %s\n", (int32_t)event.value, ls_stepper_get_direction() ? "-->" : "<--");
 #endif
         xTimerReset(_ls_state_magnet_timeout_timer, 0);
         ls_buzzer_effect(LS_BUZZER_CLICK);
         break;
     case LSEVT_MAGNET_LEAVE:
-#ifdef LSDEBUG_STATES
-        ls_debug_printf("STATES: Magnet Leave @ %d %s\n", (int32_t)event.value, ls_stepper_get_direction() ? "-->" : "<--");
+#if defined(LSDEBUG_STATES) || defined (LSDEBUG_MAGNET_TIMEOUT)
+        ls_debug_printf("STATES||MAGNET_TIMEOUT: Magnet Leave @ %d %s\n", (int32_t)event.value, ls_stepper_get_direction() ? "-->" : "<--");
 #endif
         xTimerReset(_ls_state_magnet_timeout_timer, 0);
         ls_buzzer_effect(LS_BUZZER_CLICK);
@@ -448,8 +464,8 @@ ls_State ls_state_active(ls_event event)
             successor.func = ls_state_settings_both;
         break;
     case LSEVT_MAGNET_TIMEOUT:
-#ifdef LSDEBUG_STATES
-        ls_debug_printf("STATES: Magnet timeout - slowing to check rotation\n");
+#if defined(LSDEBUG_STATES) || defined (LSDEBUG_MAGNET_TIMEOUT)
+        ls_debug_printf("STATES||MAGNET_TIMEOUT: Magnet timeout - slowing to check rotation\n");
 #endif
         successor.func = ls_state_rotation_check;
         break;
@@ -487,10 +503,8 @@ ls_State ls_state_active(ls_event event)
 }
 
 int32_t _state_rotation_check_rpm;
-#define LS_STATE_ROTATION_CHECK_STARTING_RPM 30
-#define LS_STATE_ROTATION_CHECK_MINIMUM_RPM 15
-#define LS_STATE_ROTATION_CHECK_MS_PER_RPM 500
 
+/* Entered if the magnet timeout event fires */
 ls_State ls_state_rotation_check(ls_event event)
 {
     ls_State successor;
@@ -498,43 +512,57 @@ ls_State ls_state_rotation_check(ls_event event)
     switch (event.type)
     {
     case LSEVT_STATE_ENTRY:
-#ifdef LSDEBUG_STATES
-    ls_debug_printf("STATES: ls_state_rotation_check received event %d (LSEVT_STATE_ENTRY)\n", event.type);
+#if defined(LSDEBUG_STATES) || defined (LSDEBUG_MAGNET_TIMEOUT)
+    ls_debug_printf("STATES||MAGNET_TIMEOUT: ls_state_rotation_check entered\n");
 #endif
         ls_leds_cycle(LEDCYCLE_WARNING);
-        _state_rotation_check_rpm = LS_STATE_ROTATION_CHECK_STARTING_RPM;
+        _state_rotation_check_rpm = LS_STATE_MAGNET_SLOWSPIN_INITIAL_RPM;
         ls_stepper_spin_at_rpm(_state_rotation_check_rpm);
     break;
-
     case LSEVT_MAGNET_ENTER:
     case LSEVT_MAGNET_LEAVE:
+#if defined (LSDEBUG_MAGNET_TIMEOUT)
+    ls_debug_printf("MAGNET_TIMEOUT: saw magnet\n");
+#endif
         ls_buzzer_effect(LS_BUZZER_PLAY_HOME_SUCCESS);
         successor.func = ls_state_active;
     break;
 
     // left over from active state transferring control
     case LSEVT_STEPPER_FINISHED_MOVE:
-#ifdef LSDEBUG_STATES
-    ls_debug_printf("STATES: ls_state_rotation_check received event %d (LSEVT_STEPPER_FINISHED_MOVE)\n", event.type);
+#if defined(LSDEBUG_STATES) || defined (LSDEBUG_MAGNET_TIMEOUT)
+    ls_debug_printf("STATES||MAGNET_TIMEOUT: ls_state_rotation_check received event %d (LSEVT_STEPPER_FINISHED_MOVE)\n", event.type);
 #endif
     break;
 
     case LSEVT_STEPPER_REACHED_SPEED:
-#ifdef LSDEBUG_STATES
-    ls_debug_printf("STATES: ls_state_rotation_check received event %d (LSEVT_STEPPER_REACHED_SPEED [%d])\n", event.type, _state_rotation_check_rpm);
+    if(pdFALSE==xTimerIsTimerActive(_ls_state_magnet_slowspin_timer)){
+#if defined(LSDEBUG_STATES) || defined (LSDEBUG_MAGNET_TIMEOUT)
+    ls_debug_printf("STATES||MAGNET_TIMEOUT: ls_state_rotation_check starting timer for spin at %d RPM)\n", _state_rotation_check_rpm);
 #endif
+        if (pdFAIL == xTimerStart(_ls_state_magnet_slowspin_timer, pdMS_TO_TICKS(1000))) 
+        {
+            successor.func = ls_state_error_norotate;
+        }
+    }
+        break;
+    case LSEVT_NOOP: // signaled by timer after reached desired RPM
+#if defined(LSDEBUG_STATES) || defined (LSDEBUG_MAGNET_TIMEOUT)
+    ls_debug_printf("STATES||MAGNET_TIMEOUT: NOOP received while at %d RPM\n", _state_rotation_check_rpm);
+#endif
+    if(pdFALSE==xTimerIsTimerActive(_ls_state_magnet_slowspin_timer)){
         _state_rotation_check_rpm--;
-        if(_state_rotation_check_rpm < LS_STATE_ROTATION_CHECK_MINIMUM_RPM)
+        if(_state_rotation_check_rpm < LS_STATE_MAGNET_SLOWSPIN_FINAL_RPM)
         {
             successor.func = ls_state_error_norotate; 
         } else {
-            vTaskDelay(pdMS_TO_TICKS(LS_STATE_ROTATION_CHECK_MS_PER_RPM));
             ls_stepper_spin_at_rpm(_state_rotation_check_rpm);
         }
-        break;
+    }
+    break;
     case LSEVT_MAGNET_FAILURE:
-#ifdef LSDEBUG_STATES
-    ls_debug_printf("STATES: ls_state_rotation_check received event %d (LSEVT_MAGNET_FAILURE)\n", event.type);
+#if defined(LSDEBUG_STATES) || defined (LSDEBUG_MAGNET_TIMEOUT)
+    ls_debug_printf("STATES||MAGNET_TIMEOUT: ls_state_rotation_check received event %d (LSEVT_MAGNET_FAILURE)\n", event.type);
 #endif
         successor.func = ls_state_error_norotate;
         break;
@@ -543,15 +571,15 @@ ls_State ls_state_rotation_check(ls_event event)
         break;
     default:
         ;//nothing to do
-#ifdef LSDEBUG_STATES
-    ls_debug_printf("STATES: ls_state_rotation_check received UNEXPECTED event %d\n", event.type);
+#if defined(LSDEBUG_STATES) || defined (LSDEBUG_MAGNET_TIMEOUT)
+    ls_debug_printf("STATES||MAGNET_TIMEOUT: ls_state_rotation_check received UNEXPECTED event %d\n", event.type);
 #endif
     }
     // exit actions:
     if (successor.func != ls_state_rotation_check)
     {
+        xTimerStop(_ls_state_magnet_slowspin_timer, 0);
         ls_leds_off();
-
     }
     return successor;
     }
