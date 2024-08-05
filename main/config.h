@@ -19,12 +19,16 @@
 #include "debug.h"
 #include "driver/gpio.h"
 
+// whenever settings code or config values are modified, increment this. Format can be YYYYMMDDHH;
+// LS_SETTINGS_VERSION must fit within a 32-bit signed integer 
+// (2^31-1 = 2147483647 gets us to the 47th hour of the 36th day in the 48th month of 2147 ;-) )
+#define LS_SETTINGS_VERSION 2024080315
+
 // Configure flags for attached hardware and general behavior
 #define LS_HAS_DUAL_LASER
 #undef LS_HAS_TAPE_SENSOR
 #define LS_HAS_SERVO2
 #define LS_HAS_LIGHTSENSE2
-
 
 // Configure flag sanity checks
 #ifdef LS_HAS_TAPE_SENSOR
@@ -241,7 +245,8 @@ https://docs.espressif.com/projects/esp-idf/en/v4.4/esp32/api-reference/peripher
 // correct value is 176RPM, so add a margin for 180
 #define LS_LASER_ENABLE_MINIMUM_RPM 180
 #define LS_SETTINGS_MINIMUM_RPM_SCANNING 190
-#define LS_SETTINGS_MAXIMUM_RPM_SCANNING 300
+#define LS_SETTINGS_MAXIMUM_RPM_SCANNING 330
+#define LS_SETTINGS_DEFAULT_MAX_RPM 240
 #endif
 
 // for testing the failsafe, drop to 100RPM

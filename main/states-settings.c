@@ -15,6 +15,7 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+
 #include "states-settings.h"
 #include "buzzer.h"
 #include "controls.h"
@@ -27,6 +28,7 @@
 #include "settings.h"
 #include "stepper.h"
 #include "util.h"
+#include "freertos/timers.h"
 
 ls_State ls_state_settings_upper(ls_event event) {
 #ifdef LSDEBUG_STATES
@@ -44,17 +46,23 @@ ls_State ls_state_settings_upper(ls_event event) {
 
   switch (event.type) {
   case LSEVT_STATE_ENTRY:
-    ls_stepper_set_maximum_steps_per_second(ls_settings_get_stepper_speed());
+    // ls_stepper_set_maximum_steps_per_second(ls_settings_get_stepper_speed());
+#ifdef LS_HAS_TAPE_SENSOR
     ls_laser_set_mode((ls_map_get_status() == LS_MAP_STATUS_OK)
                           ? LS_LASER_MAPPED
                           : LS_LASER_ON);
-    ls_stepper_forward_hop(LS_STEPPER_STEPS_PER_ROTATION * 5 / 4);
+#else
+    ls_laser_set_mode_on();
+#endif
+    // ls_stepper_forward_hop(LS_STEPPER_STEPS_PER_ROTATION * 5 / 4);
+    ls_stepper_spin_at_rpm(ls_settings_get_maximum_rpm());
     ls_servo_sweep();
     ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_ENTER);
     ls_leds_cycle(LEDCYCLE_CONTROLS_UPPER);
     break;
   case LSEVT_STEPPER_FINISHED_MOVE:
-    ls_stepper_forward_hop(LS_STEPPER_STEPS_PER_ROTATION * 5 / 4);
+    // ls_stepper_forward_hop(LS_STEPPER_STEPS_PER_ROTATION * 5 / 4);
+    ls_stepper_spin_at_rpm(ls_settings_get_maximum_rpm());
     break;
   case LSEVT_SERVO_SWEEP_TOP:
     ls_buzzer_effect(LS_BUZZER_PLAY_OCTAVE);
@@ -64,11 +72,19 @@ ls_State ls_state_settings_upper(ls_event event) {
     break;
   case LSEVT_CONTROLS_SLIDER1: // stepper speed
     control_value = *((BaseType_t *)event.value);
-    ls_settings_set_stepper_speed(
-        ls_settings_map_control_to_stepper_speed(control_value));
-    ls_stepper_set_maximum_steps_per_second(ls_settings_get_stepper_speed());
-    break;
+    // ls_settings_set_stepper_speed(
+    //     ls_settings_map_control_to_stepper_speed(control_value));
+    // ls_stepper_set_maximum_steps_per_second(ls_settings_get_stepper_speed());
+    ls_settings_set_maximum_rpm(ls_settings_map_control_to_maximum_rpm(control_value));
+    ls_stepper_spin_at_rpm(ls_settings_get_maximum_rpm());
+#ifdef LSDEBUG_SETTINGS
+    ls_debug_printf(
+        "Setting maximum spin = %d RPM.\n",
+        ls_settings_get_maximum_rpm());
+#endif
+  break;
   case LSEVT_CONTROLS_SLIDER2: // servo speed
+    ls_stepper_spin_at_rpm(ls_settings_get_minimum_rpm());
     control_value = *((BaseType_t *)event.value);
     ls_settings_set_servo_pulse_delta(
         ls_settings_map_control_to_servo_pulse_delta(control_value));
@@ -79,7 +95,7 @@ ls_State ls_state_settings_upper(ls_event event) {
 #endif
     break;
   case LSEVT_CONTROLS_OFF:
-    ls_stepper_stop_hopping();
+    // ls_stepper_stop_hopping();
     successor.func = ls_state_active;
     break;
   case LSEVT_CONTROLS_LOWER:
@@ -102,12 +118,24 @@ ls_State ls_state_settings_upper(ls_event event) {
 
   if (ls_state_settings_upper != successor.func) {
     ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_LEAVE);
+    ls_laser_set_mode_off();
+    ls_stepper_stop_spin();
     ls_settings_save();
   }
   return successor;
 }
 
-static int _ls_state_settings_servo_hold_count = 0;
+static void _ls_settings_servo_hold_timer_callback(TimerHandle_t xTimer) {
+  ls_event event;
+  event.type = LSEVT_NOOP;
+  event.value = NULL;
+  xQueueSendToBack(ls_event_queue, (void *)&event, pdMS_TO_TICKS(10000));
+#ifdef LSDEBUG_SETTINGS
+ls_debug_printf("_ls_settings_servo_hold_timer_callback enqueued NOOP");
+#endif
+}
+static TimerHandle_t _ls_state_settings_servo_hold_timer = NULL;
+// static int _ls_state_settings_servo_hold_count = 0;
 ls_State ls_state_settings_lower(ls_event event) {
 #ifdef LSDEBUG_STATES
   ls_debug_printf("STATE_SETTINGS_LOWER (servo top/range) handling event\n");
@@ -124,24 +152,37 @@ ls_State ls_state_settings_lower(ls_event event) {
 
   switch (event.type) {
   case LSEVT_STATE_ENTRY:
-    ls_stepper_set_maximum_steps_per_second(ls_settings_get_stepper_speed());
+    // ls_stepper_set_maximum_steps_per_second(ls_settings_get_stepper_speed());
+#ifdef LS_HAS_TAPE_SENSOR
     ls_laser_set_mode((ls_map_get_status() == LS_MAP_STATUS_OK)
                           ? LS_LASER_MAPPED
                           : LS_LASER_ON);
-    ls_stepper_forward_hop(LS_STEPPER_STEPS_PER_ROTATION * 5 / 4);
+#else
+    ls_laser_set_mode_on();
+#endif
+    // ls_stepper_forward_hop(LS_STEPPER_STEPS_PER_ROTATION * 5 / 4);
+    ls_stepper_spin_at_rpm(ls_settings_get_minimum_rpm());
     ls_servo_sweep();
     ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_ENTER);
     ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_ENTER);
     ls_leds_cycle(LEDCYCLE_CONTROLS_LOWER);
+    if(NULL==_ls_state_settings_servo_hold_timer) {
+      _ls_state_settings_servo_hold_timer = xTimerCreate
+                 ( "servo_hold",
+                   pdMS_TO_TICKS(10000), // duration
+                   pdFALSE, // uxAutoReload
+                   (void *) 0,// no ID
+                   _ls_settings_servo_hold_timer_callback );
+    }
     break;
   case LSEVT_STEPPER_FINISHED_MOVE:
-    ls_stepper_forward_hop(LS_STEPPER_STEPS_PER_ROTATION * 5 / 4);
-    if (_ls_state_settings_servo_hold_count > 0) {
-      _ls_state_settings_servo_hold_count--;
-    } else if (_ls_state_settings_servo_hold_count == 0) {
-      ls_servo_sweep();
-      _ls_state_settings_servo_hold_count = -1;
-    }
+    // ls_stepper_forward_hop(LS_STEPPER_STEPS_PER_ROTATION * 5 / 4);
+    // if (_ls_state_settings_servo_hold_count > 0) {
+    //   _ls_state_settings_servo_hold_count--;
+    // } else if (_ls_state_settings_servo_hold_count == 0) {
+    //   ls_servo_sweep();
+    //   _ls_state_settings_servo_hold_count = -1;
+    // }
     break;
   case LSEVT_SERVO_SWEEP_TOP:
     ls_buzzer_effect(LS_BUZZER_PLAY_OCTAVE);
@@ -154,17 +195,28 @@ ls_State ls_state_settings_lower(ls_event event) {
     ls_settings_set_servo_top(
         ls_settings_map_control_to_servo_top(control_value));
     ls_servo_moveto(ls_servo_get_top_pulse_ms());
-    _ls_state_settings_servo_hold_count = 3;
+    // _ls_state_settings_servo_hold_count = 3;
+    xTimerReset(_ls_state_settings_servo_hold_timer, 0);
     break;
   case LSEVT_CONTROLS_SLIDER2:
     control_value = *((BaseType_t *)event.value);
     ls_settings_set_servo_bottom(
         ls_settings_map_control_to_servo_bottom(control_value));
     ls_servo_moveto(ls_servo_get_bottom_pulse_ms());
-    _ls_state_settings_servo_hold_count = 3;
+    // _ls_state_settings_servo_hold_count = 3;
+    xTimerReset(_ls_state_settings_servo_hold_timer, 0);
+    break;
+  case LSEVT_NOOP:
+    if(pdFALSE == xTimerIsTimerActive(_ls_state_settings_servo_hold_timer))
+  {
+    ls_servo_sweep();
+#ifdef LSDEBUG_SETTINGS
+  ls_debug_printf("_ls_settings_servo_hold_timer is inactive; resuming servo sweep\n");
+#endif
+  }
     break;
   case LSEVT_CONTROLS_OFF:
-    ls_stepper_stop_hopping();
+    // ls_stepper_stop_hopping();
     successor.func = ls_state_active;
     break;
   case LSEVT_CONTROLS_UPPER:
@@ -184,10 +236,10 @@ ls_State ls_state_settings_lower(ls_event event) {
     break;
   default:;
   } // switch event type
-
   if (ls_state_settings_lower != successor.func) {
     ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_LEAVE);
     ls_settings_save();
+    xTimerStop(_ls_state_settings_servo_hold_timer, 0);
   }
   return successor;
 }
@@ -245,6 +297,7 @@ ls_State ls_state_settings_both(ls_event event) {
   case LSEVT_STATE_ENTRY:
     ls_laser_set_mode_off();
     ls_stepper_stop_hopping();
+    ls_stepper_stop_spin();
     ls_servo_on();
     ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_ENTER);
     ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_ENTER);

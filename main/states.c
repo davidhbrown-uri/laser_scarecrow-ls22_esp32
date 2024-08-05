@@ -478,6 +478,7 @@ ls_State ls_state_active(ls_event event)
             vTaskDelete(ls_coverage_task_handle);
             ls_coverage_task_handle = NULL; // probably not necessary now, but just in case
         }
+        xTimerStop(_ls_state_magnet_timeout_timer,0);
         ls_stepper_stop();
         ls_servo_off();
         ls_laser_set_mode_off();
@@ -550,6 +551,7 @@ ls_State ls_state_rotation_check(ls_event event)
     if (successor.func != ls_state_rotation_check)
     {
         ls_leds_off();
+
     }
     return successor;
     }

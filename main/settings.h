@@ -18,6 +18,8 @@
 #pragma once
 #include "freertos/FreeRTOS.h"
 
+// IF CHANGES are made to this code, increase  #define LS_SETTINGS_VERSION in config.h
+
 /**
  * @brief Load firmware defaults at power-up; will be overridden saved settings
  *
@@ -71,9 +73,11 @@ BaseType_t ls_settings_get_tilt_threshold_mg_ok(void);
 void ls_settings_set_sleep_light_enable(bool); // no control available in 2024
 bool ls_settings_is_sleep_light_enabled(void);
 
-void ls_settings_set_minimum_rpm(BaseType_t rpm);
+BaseType_t ls_settings_map_control_to_maximum_rpm(BaseType_t);
+void ls_settings_set_maximum_rpm(BaseType_t rpm);
+BaseType_t ls_settings_get_maximum_rpm(void);
+
 BaseType_t ls_settings_get_minimum_rpm(void);
- // no control available in 2024
 
 BaseType_t ls_settings_map_control_to_servo_maxlimit(BaseType_t);
 void ls_settings_set_servo_maxlimit(BaseType_t);

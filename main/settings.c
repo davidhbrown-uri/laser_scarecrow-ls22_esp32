@@ -15,6 +15,10 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+
+// IF CHANGES are made to this code, increase  #define LS_SETTINGS_VERSION in config.h
+
+
 #include "settings.h"
 #include "config.h"
 #include "esp_system.h"
@@ -23,7 +27,7 @@
 #include "util.h"
 
 static BaseType_t _ls_settings_stepper_speed, _ls_settings_servo_top,
-    _ls_settings_servo_bottom;
+    _ls_settings_servo_bottom, _ls_settings_stepper_max_rpm;
 static BaseType_t _ls_settings_stepper_random_max,
     _ls_settings_light_threshold_on, _ls_settings_light_threshold_off;
 static BaseType_t _ls_settings_servo_pulse_delta,
@@ -36,7 +40,12 @@ static BaseType_t _ls_settings_servo_maxlimit, _ls_settings_servo_minlimit;
 static nvs_handle_t _ls_settings_nvs_handle;
 // caution: NVS keys and namespaces are restricted to 15 characters
 #define LS_SETTINGS_NVS_NAMESPACE "ls_settings"
+// IF CHANGES are made to this code, increase  #define LS_SETTINGS_VERSION in config.h
+#define LS_SETTINGS_NVS_KEY_VERSION "version"
+// for hopping:
 #define LS_SETTINGS_NVS_KEY_STEPPER_SPEED "stepper_speed"
+// for fast spinning
+#define LS_SETTINGS_NVS_KEY_STEPPER_MAX_RPM "spin_max_rpm"
 #define LS_SETTINGS_NVS_KEY_SERVO_TOP "servo_top"
 #define LS_SETTINGS_NVS_KEY_SERVO_BOTTOM "servo_bottom"
 #define LS_SETTINGS_NVS_KEY_SERVO_DELTA "servo_delta"
@@ -48,6 +57,7 @@ static nvs_handle_t _ls_settings_nvs_handle;
 
 void ls_settings_set_defaults(void) {
   ls_settings_set_stepper_speed(LS_STEPPER_STEPS_PER_SECOND_DEFAULT);
+  ls_settings_set_maximum_rpm(LS_SETTINGS_DEFAULT_MAX_RPM);
   ls_settings_set_servo_top(LS_SERVO_US_MIN); // all the way at the top
   ls_settings_set_servo_bottom(100);          // all the way to the bottom
   ls_settings_set_servo_maxlimit(LS_SERVO_US_MAX_LIMIT);
@@ -131,14 +141,26 @@ static esp_err_t _ls_settings_read_from_nvs(char *name,
 }
 
 void ls_settings_read(void) {
-  int32_t nvs_value;
+  int32_t nvs_value = -1;
 #ifdef LSDEBUG_SETTINGS
   ls_debug_printf("Reading settings from NVS\n");
 #endif
   _ls_settings_open_nvs();
+  if (ESP_OK != _ls_settings_read_from_nvs(LS_SETTINGS_NVS_KEY_VERSION,
+                                           &nvs_value) || LS_SETTINGS_VERSION != nvs_value) {
+#ifdef LSDEBUG_SETTINGS
+  ls_debug_printf("Settings: no saved version or version mismatch current=%d stored=%d; will reset to defaults\n", LS_SETTINGS_VERSION, nvs_value);
+#endif
+      ls_settings_reset_defaults();
+      return; //early... no reason to read the value which will have just been reset
+  }
   if (ESP_OK == _ls_settings_read_from_nvs(LS_SETTINGS_NVS_KEY_STEPPER_SPEED,
                                            &nvs_value)) {
     ls_settings_set_stepper_speed(nvs_value);
+  }
+  if (ESP_OK == _ls_settings_read_from_nvs(LS_SETTINGS_NVS_KEY_STEPPER_MAX_RPM,
+                                           &nvs_value)) {
+    ls_settings_set_maximum_rpm(nvs_value);
   }
   if (ESP_OK ==
       _ls_settings_read_from_nvs(LS_SETTINGS_NVS_KEY_SERVO_TOP, &nvs_value)) {
@@ -183,6 +205,7 @@ void _ls_settings_validate(void) {
   if (ls_settings_get_servo_top() > ls_settings_get_servo_maxlimit()) {
     ls_settings_set_servo_top(ls_settings_get_servo_maxlimit());
   }
+  ls_settings_set_maximum_rpm(ls_settings_get_maximum_rpm());
 }
 
 void ls_settings_save(void) {
@@ -206,6 +229,20 @@ void ls_settings_save(void) {
 #endif
   }
   if (ESP_OK == nvs_set_i32(_ls_settings_nvs_handle,
+                            LS_SETTINGS_NVS_KEY_STEPPER_MAX_RPM,
+                            ls_settings_get_maximum_rpm())) {
+    ;
+#ifdef LSDEBUG_SETTINGS
+    ls_debug_printf("Settings saved maximum rpm=%d\n",
+                    ls_settings_get_maximum_rpm());
+#endif
+  } else {
+    ;
+#ifdef LSDEBUG_SETTINGS
+    ls_debug_printf("Settings could not save maximum rpm\n");
+#endif
+  }
+    if (ESP_OK == nvs_set_i32(_ls_settings_nvs_handle,
                             LS_SETTINGS_NVS_KEY_SERVO_TOP,
                             ls_settings_get_servo_top())) {
     ;
@@ -315,6 +352,20 @@ void ls_settings_save(void) {
     ;
 #ifdef LSDEBUG_SETTINGS
     ls_debug_printf("Settings could not save servo minlimit\n");
+#endif
+  }  
+  if (ESP_OK == nvs_set_i32(_ls_settings_nvs_handle,
+                            LS_SETTINGS_NVS_KEY_VERSION,
+                            LS_SETTINGS_VERSION)) {
+    ;
+#ifdef LSDEBUG_SETTINGS
+    ls_debug_printf("Settings saved VERSION=%d\n",
+                    LS_SETTINGS_VERSION);
+#endif
+  } else {
+    ;
+#ifdef LSDEBUG_SETTINGS
+    ls_debug_printf("Settings could not save VERSION\n");
 #endif
   }  
   _ls_settings_close_nvs();
@@ -483,4 +534,24 @@ void ls_settings_set_servo_minlimit(BaseType_t microseconds) {
 }
 BaseType_t ls_settings_get_servo_minlimit(void) {
   return _ls_settings_servo_minlimit;
+}
+
+BaseType_t ls_settings_map_control_to_maximum_rpm(BaseType_t adc) {
+    return _map(_constrain(adc, LS_CONTROLS_READING_BOTTOM, LS_CONTROLS_READING_TOP),
+           LS_CONTROLS_READING_BOTTOM, LS_CONTROLS_READING_TOP, 
+           LS_SETTINGS_MINIMUM_RPM_SCANNING, LS_SETTINGS_MAXIMUM_RPM_SCANNING);
+}
+
+void ls_settings_set_maximum_rpm(BaseType_t rpm)
+{
+  _ls_settings_stepper_max_rpm=_constrain(rpm, LS_SETTINGS_MINIMUM_RPM_SCANNING, LS_SETTINGS_MAXIMUM_RPM_SCANNING);
+}
+
+BaseType_t ls_settings_get_maximum_rpm(void) {
+  return _ls_settings_stepper_max_rpm;
+}
+
+// there is not currently any control for this
+BaseType_t ls_settings_get_minimum_rpm(void){
+  return LS_SETTINGS_MINIMUM_RPM_SCANNING;
 }

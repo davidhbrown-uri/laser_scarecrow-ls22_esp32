@@ -41,6 +41,7 @@ enum ls_stepper_action {
     LS_STEPPER_ACTION_RANDOM_HOP, // 5: begin random hopping behavior
     LS_STEPPER_ACTION_RANDOM_SPIN, // 6: begin random spinning behavior
     LS_STEPPER_ACTION_TARGET_RPM, // 7: message.value = the desired rotation speed
+    LS_STEPPER_ACTION_SPIN, // 8: spin at a fixed RPM until further notice
 }ls_stepper_action;
 
 typedef struct ls_stepper_action_message {
@@ -48,14 +49,15 @@ typedef struct ls_stepper_action_message {
     int32_t value;
 }ls_stepper_action_message;
 
-typedef struct ls_stepper_move_t {
-    bool direction;
-    int32_t steps;
-}ls_stepper_move_t;
 
 // TMC2209 uses DIR=0 to increment through stepping table (13.2), so it's FORWARD==0
 enum ls_stepper_direction_t {LS_STEPPER_DIRECTION_FORWARD, LS_STEPPER_DIRECTION_REVERSE} ls_stepper_direction_t;
 
+
+typedef struct ls_stepper_move_t {
+    enum ls_stepper_direction_t direction;
+    int32_t steps;
+}ls_stepper_move_t;
 
 typedef void (*StepperMoveStrategy)(struct ls_stepper_move_t *move);
 void ls_stepper_random_strategy_default(struct ls_stepper_move_t *move);
