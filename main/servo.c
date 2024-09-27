@@ -31,6 +31,16 @@
 
 static bool _ls_servo_is_on = false; // The servo will start off from ls_gpio_initialize()
 
+uint16_t ls_servo_get_top_pulse_ms(void)
+{
+    return (uint16_t)ls_settings_get_servo_top();
+}
+
+uint16_t ls_servo_get_bottom_pulse_ms(void)
+{
+    return (uint16_t)ls_settings_get_servo_top() + ((LS_SERVO_US_MAX - (uint16_t)ls_settings_get_servo_top()) * (uint16_t) ls_settings_get_servo_bottom() / 100);
+}
+
 // Immediately jumps to the specified pulse_width
 static void _ls_servo_jump_to_pw(uint32_t pulse_width)
 {
@@ -232,8 +242,8 @@ void ls_servo_task(void *pvParameter)
 #endif
                 // pause when target reached
                 vTaskDelay(pdMS_TO_TICKS(ls_settings_get_servo_random_pause_ms()));
-                uint16_t min = (uint16_t)ls_settings_get_servo_top();
-                uint16_t max = (uint16_t)ls_settings_get_servo_bottom();
+                uint16_t min = ls_servo_get_top_pulse_ms();
+                uint16_t max = ls_servo_get_bottom_pulse_ms();
                 target_pulse_width = esp_random() % (max - min + 1) + min;
 
 #ifdef LSDEBUG_SERVO
@@ -242,11 +252,11 @@ void ls_servo_task(void *pvParameter)
             }
             else if (mode == LS_SERVO_MODE_SWEEP && current_pulse_width == target_pulse_width)
             {
-                uint16_t top = (uint16_t)ls_settings_get_servo_top();
-                uint16_t bottom = (uint16_t)ls_settings_get_servo_bottom();
+                uint16_t top = ls_servo_get_top_pulse_ms();
+                uint16_t bottom = ls_servo_get_bottom_pulse_ms();
                 uint16_t mid = (top + bottom) / 2;
 #ifdef LSDEBUG_SERVO
-                ls_debug_printf("Servo sweep from top = %d to bottom = %d\n", top, bottom);
+                ls_debug_printf("Servo sweep from top = %d to bottom = %d (%d%%)\n", top, bottom, ls_settings_get_servo_bottom());
 #endif
                 // If the current pulse width is at the top, queue a LSEVT_SERVO_SWEEP_TOP event
                 if (current_pulse_width == top)

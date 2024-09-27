@@ -16,17 +16,8 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 #pragma once
-#include "freertos/FreeRTOS.h"
-#include "freertos/queue.h"
+#include "states.h"
 
-enum ls_controls_status{
-    LS_CONTROLS_STATUS_OFF,
-    LS_CONTROLS_STATUS_UPPER,
-    LS_CONTROLS_STATUS_LOWER,
-    LS_CONTROLS_STATUS_BOTH,
-    LS_CONTROLS_STATUS_INVALID
-};
-
-enum ls_controls_status ls_controls_get_current_status(void);
-
-void ls_controls_task(void *pvParameter);
+ls_State ls_state_settings_upper(ls_event);
+ls_State ls_state_settings_lower(ls_event);
+ls_State ls_state_settings_both(ls_event);

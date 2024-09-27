@@ -38,12 +38,12 @@ enum ls_event_t
     LSEVT_LIGHT_DAY = 50, // ambient light level moves above daytime light level threshold 
     LSEVT_LIGHT_NIGHT, // ambient light level moves below nighttime light level threshold 
 
-    LSEVT_CONTROLS_CONNECTED = 60, // external controls switched "on"
-    LSEVT_CONTROLS_DISCONNECTED, // extenral controls switched "off"
-    LSEVT_CONTROLS_SPEED, // external control slider 1 moved (ls_event.value is pointer to ADC value)
-    LSEVT_CONTROLS_TOPANGLE, // external control slider 2 moved (ls_event.value is pointer to ADC value)
-    LSEVT_CONTROLS_BOTTOMANGLE, // external control slider 3 moved (ls_event.value is pointer to ADC value)
-    LSEVT_CONTROLS_CONNECT_SECONDARY, // controls entered, exited, and reentered
+    LSEVT_CONTROLS_OFF = 60, // control switches both turned off
+    LSEVT_CONTROLS_UPPER, // upper control switch is on
+    LSEVT_CONTROLS_LOWER, // lower control switch is on
+    LSEVT_CONTROLS_BOTH, // both control switches are on
+    LSEVT_CONTROLS_SLIDER1, // external control slider 1 moved (ls_event.value is pointer to ADC value)
+    LSEVT_CONTROLS_SLIDER2, // external control slider 2 moved (ls_event.value is pointer to ADC value)
 
     LSEVT_BUZZER_WARNING_COMPLETE = 80, // long pre-laser warning sequence of tones has finished
 
@@ -56,6 +56,14 @@ enum ls_event_t
 
     LSEVT_TILT_OK = 120, // the tilt sensor indicates the device orientation is in bounds
     LSEVT_TILT_DETECTED, // the tilt sensor indicates the device orientation is out of bounds
+
+    LSEVT_SELFTEST_TAPE_LIGHT = 200, // used only during selftest, the tape sensor has met the "light" threshold
+    LSEVT_SELFTEST_TAPE_DARK, // used only during selftest, the tape sensor has met the "dark" threshold
+    LSEVT_SELFTEST_MODE_DARKSAFE, // used only during selftest, the mode jumpers have been set to "dark safe"
+    LSEVT_SELFTEST_MODE_DARK, // used only during selftest, the mode jumpers have been set to "dark"
+    LSEVT_SELFTEST_MODE_IGNORE, // used only during selftest, the mode jumpers have been set to "ignore"
+    LSEVT_SELFTEST_MODE_LIGHT, // used only during selftest, the mode jumpers have been set to "light"
+    LSEVT_SELFTEST_MODE_LIGHTSAFE, // used only during selftest, the mode jumpers have been set to "light safe"
 }; 
 
 typedef struct ls_event

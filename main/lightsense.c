@@ -26,11 +26,30 @@
 #include "esp_adc_cal.h"
 #include "settings.h"
 #include "states.h"
+#include "util.h"
+#include "tapemode.h"
+#ifdef LSDEBUG_LIGHTSENSE
+#include "oled.h"
+#endif
 
 extern SemaphoreHandle_t adc1_mux;
 extern SemaphoreHandle_t print_mux;
 
 static enum ls_lightsense_mode_t _ls_lightsense_current_mode = LS_LIGHTSENSE_MODE_STARTUP;
+
+static uint32_t _ls_lightsense_adc_raw = 0;
+
+int ls_lightsense_threshold_on_mv(int index)
+{
+    index = _constrain(index, 0, LS_LIGHTSENSE_THRESHOLDS_COUNT - 1);
+    return ((int[]){ LS_LIGHTSENSE_THRESHOLDS_ON_MV })[index];
+}
+int ls_lightsense_threshold_off_mv(int index)
+{
+    index = _constrain(index, 0, LS_LIGHTSENSE_THRESHOLDS_COUNT - 1);
+    return ((int[]){ LS_LIGHTSENSE_THRESHOLDS_OFF_MV })[index];
+}
+
 enum ls_lightsense_mode_t ls_lightsense_current_mode(void)
 {
     return _ls_lightsense_current_mode;
@@ -49,20 +68,36 @@ static enum ls_lightsense_level_t _ls_lightsense_level_from_adc(uint32_t adc_rea
     return LS_LIGHTSENSE_LEVEL_INDETERMINATE;
 }
 
-int ls_lightsense_read_adc(void)
+/**
+ * Returns value in mv using best available calibration
+ */
+int ls_lightsense_read_adc(adc_atten_t attenuation)
 {
     xSemaphoreTake(adc1_mux, portMAX_DELAY);
     adc1_config_width(ADC_WIDTH_BIT_12);
-    adc1_config_channel_atten(LSADC1_LIGHTSENSE, ADC_ATTEN_DB_11);
-    uint32_t adc_reading = 0;
+    adc1_config_channel_atten(LSADC1_LIGHTSENSE, attenuation);
+    _ls_lightsense_adc_raw = 0;
     for (int i = 0; i < 4; i++)
     {
-        adc_reading += adc1_get_raw((adc1_channel_t)LSADC1_LIGHTSENSE);
+        _ls_lightsense_adc_raw += adc1_get_raw((adc1_channel_t)LSADC1_LIGHTSENSE);
     }
-    adc_reading /= 4;
+    _ls_lightsense_adc_raw /= 4;
     xSemaphoreGive(adc1_mux);
-    return (int)adc_reading;
+    esp_adc_cal_characteristics_t adc_cal;
+    esp_adc_cal_characterize(ADC_UNIT_1, attenuation, ADC_WIDTH_12Bit, 1100, &adc_cal);
+    return (int)esp_adc_cal_raw_to_voltage(_ls_lightsense_adc_raw, &adc_cal);
 }
+
+int ls_lightsense_read_hdr(void)
+{
+    int mV = ls_lightsense_read_adc(ADC_ATTEN_0db);
+    if (mV > 900)
+    {
+        mV = ls_lightsense_read_adc(ADC_ATTEN_11db);
+    }
+    return mV;
+}
+
 /**
  * @brief Set current mode if event can be queued; otherwise let it try again next read
  *
@@ -109,11 +144,15 @@ void ls_lightsense_read_task(void *pvParameter)
     int level_index = 0;
     while (1)
     {
-        int adc_reading = ls_lightsense_read_adc();
+
+        int adc_reading = ls_lightsense_read_hdr();
         levels[level_index] = _ls_lightsense_level_from_adc(adc_reading);
+
 #ifdef LSDEBUG_LIGHTSENSE
-        ls_debug_printf("Light sense adc=%d; level=%d\n", adc_reading, (int)levels[level_index]);
+        ls_debug_printf("Light sense %dmV (raw=%d); level=%d\n", adc_reading, _ls_lightsense_adc_raw, (u_int8_t)levels[level_index]);
+        ls_oled_println("%d mV (%d)", adc_reading, _ls_lightsense_adc_raw);
 #endif
+
         bool all_agree = true;
         for (int i = 1; all_agree && i < LS_LIGHTSENSE_READINGS_TO_SWITCH; i++)
         {
@@ -122,9 +161,9 @@ void ls_lightsense_read_task(void *pvParameter)
                 all_agree = false;
             }
         }
-        if (all_agree)
+        if (all_agree || ls_tapemode() == LS_TAPEMODE_SELFTEST)
         {
-            switch (levels[0])
+            switch (levels[level_index])
             {
             case LS_LIGHTSENSE_LEVEL_DAY:
                 if (ls_lightsense_current_mode() != LS_LIGHTSENSE_MODE_DAY)
@@ -134,7 +173,7 @@ void ls_lightsense_read_task(void *pvParameter)
                 break;
             case LS_LIGHTSENSE_LEVEL_NIGHT:
                 if (ls_lightsense_current_mode() != LS_LIGHTSENSE_MODE_NIGHT ||
-                (ls_state_current.func != ls_state_sleep && ls_state_current.func != ls_state_settings))
+                    (ls_state_current.func != ls_state_sleep && ls_state_current.func != ls_state_settings_upper && ls_state_current.func != ls_state_settings_lower && ls_state_current.func != ls_state_settings_both))
                 {
                     _ls_lightsense_set_mode(LS_LIGHTSENSE_MODE_NIGHT);
                 }
@@ -143,10 +182,8 @@ void ls_lightsense_read_task(void *pvParameter)
             }
         }
         // move to next level reading
-        if (++level_index > LS_LIGHTSENSE_READINGS_TO_SWITCH)
-        {
-            level_index = 0;
-        }
+        level_index++;
+        level_index %= LS_LIGHTSENSE_READINGS_TO_SWITCH;
         vTaskDelay(pdMS_TO_TICKS(LS_LIGHTSENSE_READING_INTERVAL_MS));
     }
 }

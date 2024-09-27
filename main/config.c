@@ -16,7 +16,7 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 #include "config.h"
-
+/*
 gpio_num_t IRAM_ATTR _lsgpio_laserpowerenable = 32; // Nov '21 = 33
 gpio_num_t _lsgpio_laserheaterenable = 26;          // Nov '21 = 32
 gpio_num_t _lsgpio_stepperdirection = 19;           // Nov '21 = 5
@@ -58,3 +58,4 @@ void ls_config_set_gpio_nov21(void)
     _lsgpio_servopowerenable = 26;
     _lsgpio_servopulse = 25;
 }
+*/

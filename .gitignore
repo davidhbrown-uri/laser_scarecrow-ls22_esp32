@@ -1,6 +1,6 @@
 ### EPS-IDF ###
 build/
-sdkconfig
+# not sdkconfig... it's important to set components
 sdkconfig.old
 
 

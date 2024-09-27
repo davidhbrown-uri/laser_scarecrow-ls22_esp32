@@ -22,8 +22,11 @@
 #include "tapemode.h"
 #include "stepper.h"
 #include "buzzer.h"
+#include "leds.h"
 #include "math.h"
 
+#define LS_MAP_LOWPITCH 1024
+#define LS_MAP_HIGHPITCH 2048
 #define LS_MAP_ENTRIES_REQUIRED (LS_STEPPER_STEPS_PER_ROTATION / 32 / LS_MAP_RESOLUTION)
 static uint32_t IRAM_ATTR _ls_map_data[LS_MAP_ENTRIES_REQUIRED];
 
@@ -32,10 +35,10 @@ static int32_t _ls_map_all_spans_total_steps = 0;
 struct ls_map_SpanNode *_ls_map_span_at_map_reading[LS_MAP_ENTRY_COUNT];
 int _stepper_position_to_map_reading(ls_stepper_position_t position)
 {
-    return (position % LS_STEPPER_STEPS_PER_ROTATION) / LS_MAP_RESOLUTION; 
+    return (position % LS_STEPPER_STEPS_PER_ROTATION) / LS_MAP_RESOLUTION;
 }
 void _init_map_span_at_map_readings(struct ls_map_SpanNode *first_span)
-{ 
+{
     for (int i = 0; i < LS_MAP_ENTRY_COUNT; i++)
     {
         _ls_map_span_at_map_reading[i] = first_span;
@@ -45,8 +48,8 @@ void _init_map_span_at_map_readings(struct ls_map_SpanNode *first_span)
     {
         for (int i = current_span->begin; i < current_span->end; i += LS_MAP_RESOLUTION)
         {
-         _ls_map_span_at_map_reading[_stepper_position_to_map_reading(i)] = current_span;
-         //ls_debug_printf("%d => %d\n", i, _stepper_position_to_map_reading(i));
+            _ls_map_span_at_map_reading[_stepper_position_to_map_reading(i)] = current_span;
+            // ls_debug_printf("%d => %d\n", i, _stepper_position_to_map_reading(i));
         }
         current_span = current_span->next;
     }
@@ -211,24 +214,24 @@ void _ls_state_map_build_set_map(int *enable_count, int *disable_count, int *mis
         ls_stepper_position_t position = map_index * LS_MAP_RESOLUTION;
         switch (ls_tapemode())
         {
-        case LS_TAPEMODE_BLACK:
-        case LS_TAPEMODE_BLACK_SAFE:
-            if (raw_adc <= low_threshold || raw_adc <= LS_REFLECTANCE_ADC_MAX_WHITE_BUCKET)
+        case LS_TAPEMODE_DARK:
+        case LS_TAPEMODE_DARK_SAFE:
+            if (raw_adc <= low_threshold || raw_adc <= LS_REFLECTANCE_ADC_MAX_LIGHT)
             {
                 reading = LS_STATE_MAP_READING_ENABLE;
             }
-            if (raw_adc >= high_threshold || raw_adc >= LS_REFLECTANCE_ADC_MIN_BLACK_TAPE)
+            if (raw_adc >= high_threshold || raw_adc >= LS_REFLECTANCE_ADC_MIN_DARK)
             {
                 reading = LS_STATE_MAP_READING_DISABLE;
             }
             break;
-        case LS_TAPEMODE_REFLECT:
-        case LS_TAPEMODE_REFLECT_SAFE:
-            if (raw_adc >= high_threshold || raw_adc >= LS_REFLECTANCE_ADC_MIN_BLACK_BUCKET)
+        case LS_TAPEMODE_LIGHT:
+        case LS_TAPEMODE_LIGHT_SAFE:
+            if (raw_adc >= high_threshold || raw_adc >= LS_REFLECTANCE_ADC_MIN_DARK)
             {
                 reading = LS_STATE_MAP_READING_ENABLE;
             }
-            if (raw_adc <= low_threshold || raw_adc <= LS_REFLECTANCE_ADC_MAX_SILVER_TAPE)
+            if (raw_adc <= low_threshold || raw_adc <= LS_REFLECTANCE_ADC_MAX_LIGHT)
             {
                 reading = LS_STATE_MAP_READING_DISABLE;
             }
@@ -302,29 +305,24 @@ void _ls_state_map_build_read_and_set_map(int *enable_count, int *disable_count,
     }
     switch (ls_tapemode())
     {
-    case LS_TAPEMODE_BLACK:
-    case LS_TAPEMODE_BLACK_SAFE:
-        pitch = _map(_constrain(raw_adc, LS_REFLECTANCE_ADC_MAX_WHITE_BUCKET, LS_REFLECTANCE_ADC_MIN_BLACK_TAPE),
-                     LS_REFLECTANCE_ADC_MAX_WHITE_BUCKET, LS_REFLECTANCE_ADC_MIN_BLACK_TAPE, 1024, 2048);
-        ;
-        if (raw_adc <= LS_REFLECTANCE_ADC_MAX_WHITE_BUCKET)
+    case LS_TAPEMODE_DARK:
+    case LS_TAPEMODE_DARK_SAFE:
+        if (raw_adc <= LS_REFLECTANCE_ADC_MAX_LIGHT)
         {
             reading = LS_STATE_MAP_READING_ENABLE;
         }
-        if (raw_adc >= LS_REFLECTANCE_ADC_MIN_BLACK_TAPE)
+        if (raw_adc >= LS_REFLECTANCE_ADC_MIN_DARK)
         {
             reading = LS_STATE_MAP_READING_DISABLE;
         }
         break;
-    case LS_TAPEMODE_REFLECT:
-    case LS_TAPEMODE_REFLECT_SAFE:
-        pitch = _map(_constrain(raw_adc, LS_REFLECTANCE_ADC_MAX_SILVER_TAPE, LS_REFLECTANCE_ADC_MIN_BLACK_BUCKET),
-                     LS_REFLECTANCE_ADC_MIN_BLACK_BUCKET, LS_REFLECTANCE_ADC_MAX_SILVER_TAPE, 1024, 2048);
-        if (raw_adc >= LS_REFLECTANCE_ADC_MIN_BLACK_BUCKET)
+    case LS_TAPEMODE_LIGHT:
+    case LS_TAPEMODE_LIGHT_SAFE:
+        if (raw_adc >= LS_REFLECTANCE_ADC_MIN_DARK)
         {
             reading = LS_STATE_MAP_READING_ENABLE;
         }
-        if (raw_adc <= LS_REFLECTANCE_ADC_MAX_SILVER_TAPE)
+        if (raw_adc <= LS_REFLECTANCE_ADC_MAX_LIGHT)
         {
             reading = LS_STATE_MAP_READING_DISABLE;
         }
@@ -333,6 +331,10 @@ void _ls_state_map_build_read_and_set_map(int *enable_count, int *disable_count,
         // we are ignoring the map, so why are we building a map?
         reading = LS_STATE_MAP_READING_ENABLE;
     }
+    pitch = _map(_constrain(raw_adc, LS_REFLECTANCE_ADC_MAX_LIGHT, LS_REFLECTANCE_ADC_MIN_DARK),
+                 LS_REFLECTANCE_ADC_MIN_DARK, LS_REFLECTANCE_ADC_MAX_LIGHT, LS_MAP_LOWPITCH, LS_MAP_HIGHPITCH);
+
+    ls_leds_rgb(_map(pitch, LS_MAP_LOWPITCH, LS_MAP_HIGHPITCH, 0, 192), _map(pitch, LS_MAP_LOWPITCH, LS_MAP_HIGHPITCH, 0, 128), _map(pitch, LS_MAP_LOWPITCH, LS_MAP_HIGHPITCH, 255, 0));
     ls_buzzer_tone(pitch);
     switch (reading)
     {
@@ -472,14 +474,14 @@ int ls_map_find_spans()
 Guru Meditation Error: Core  1 panic'ed (IntegerDivideByZero). Exception was unhandled.
 
 Core  1 register dump:
-PC      : 0x400d8fb2  PS      : 0x00060130  A0      : 0x800d6df8  A1      : 0x3ffba600  
+PC      : 0x400d8fb2  PS      : 0x00060130  A0      : 0x800d6df8  A1      : 0x3ffba600
 0x400d8fb2: ls_map_find_spans at R:/URI_Projects/laser-scarecrow/ls2022_esp32/main/map.c:470 (discriminator 1)
 
 A2      : 0x3ffafe48  A3      : 0x3ffafe48  A4      : 0x3ffafe48  A5      : 0x00000000
 A6      : 0x00000000  A7      : 0x00000c78  A8      : 0x000003e8  A9      : 0x00000000
 A10     : 0x0000007d  A11     : 0x000001f4  A12     : 0x000009c1  A13     : 0x00000000
 A14     : 0x0000000f  A15     : 0x00000000  SAR     : 0x00000011  EXCCAUSE: 0x00000006
-EXCVADDR: 0x00000000  LBEG    : 0x4000c2e0  LEND    : 0x4000c2f6  LCOUNT  : 0xffffffff  
+EXCVADDR: 0x00000000  LBEG    : 0x4000c2e0  LEND    : 0x4000c2f6  LCOUNT  : 0xffffffff
 
 
 Backtrace: 0x400d8faf:0x3ffba600 0x400d6df5:0x3ffba620 0x400d6fac:0x3ffba660 0x4008a815:0x3ffba6a0
@@ -569,30 +571,7 @@ struct ls_map_SpanNode *ls_map_span_next(ls_stepper_position_t step, enum ls_ste
     return starting_span;
 }
 
-void ls_stepper_random_move_within_current_span(struct ls_stepper_move_t *move)
-{
-    struct ls_map_SpanNode *span = _ls_map_span_at(ls_stepper_get_position(), ls_map_span_first);
-    int32_t span_length = _ls_map_span_length(span);
-    uint32_t random = esp_random();
-    uint32_t min_steps = 1 + span_length / 20;
-    int32_t span_percent = 100 * span_length / _ls_map_all_spans_total_steps;
-    // steps of half the span length cover a single span well but favor shorter spans
-    // increasing max_steps for shorter spans should avoid this bias
-    // max steps: 100% span => 0.5x; 50% span => 0.57x; 20% span => .63x
-    uint32_t max_steps = span_length * 100 / (150 + span_percent / 2);
-    // on longer spans, we want a forward bias to avoid getting "stuck" for too long
-    uint8_t fwd_per_255 = (127 + (25 - span_percent / 4));
-    move->direction = ((uint8_t)random & 0xFF) > fwd_per_255 ? false : true;
-    move->steps = min_steps + ((random >> 16) * (max_steps - min_steps) / 65536);
-#ifdef LSDEBUG_STEPPER_RANDOM
-    ls_debug_printf("RS_MapSpans: moving %s%d within span [%d..%d] -- %d%% fwd; %d-%d step range; \n",
-                    (move->direction ? "+" : "-"), move->steps,
-                    span->begin, span->end,
-                    fwd_per_255 * 100 / 255, min_steps, max_steps);
-#endif
-}
-
-void ls_stepper_random_move_within_new_span(struct ls_stepper_move_t *move, struct ls_map_SpanNode *span)
+ls_stepper_position_t ls_stepper_random_target_within_span(struct ls_map_SpanNode *span)
 {
     int32_t span_length = _ls_map_span_length(span);
     // int32_t target = (span->begin + (span_length * (255-_ls_stepper_random_reverse_per255) / 255)) ;
@@ -603,18 +582,69 @@ void ls_stepper_random_move_within_new_span(struct ls_stepper_move_t *move, stru
     //     / (((uint8_t)random & 0xFF) > _ls_stepper_random_reverse_per255 ? -2 : 2);
     // favor edges by squaring the span_length when selecting an offset from the middle??
     double rand0to1 = pow((double)(random >> 16) / 65536.0, 0.5);
-    int32_t target = (span->begin + span_length / 2) + (random & 1 ? 1 : -1) * (int32_t)floor((double)span_length / 2.0 * rand0to1);
+    ls_stepper_position_t target = (span->begin + span_length / 2) + (random & 1 ? 1 : -1) * (int32_t)floor((double)span_length / 2.0 * rand0to1);
     // int32_t target = next_span->begin + (random >> 16) * span_length / 65536; // any point within span
     //  constrain to 0..STEPS_PER_ROTATION
     target = target % LS_STEPPER_STEPS_PER_ROTATION;
+    return target;
+}
+
+void ls_stepper_random_move_within_current_span(struct ls_stepper_move_t *move)
+{
+    ls_stepper_position_t current_position = ls_stepper_get_position();
+    struct ls_map_SpanNode *span = _ls_map_span_at(current_position, ls_map_span_first);
+    int32_t span_length = _ls_map_span_length(span);
+    uint32_t random = esp_random();
+    uint32_t min_steps = 1 + span_length / 20;
+    int32_t span_percent = 100 * span_length / _ls_map_all_spans_total_steps;
+    // steps of half the span length cover a single span well but favor shorter spans
+    // increasing max_steps for shorter spans should avoid this bias
+    // max steps: 100% span => 0.5x; 50% span => 0.57x; 20% span => .63x
+    uint32_t max_steps = span_length * 100 / (150 + span_percent / 2);
+    // on longer spans, we want a forward bias to avoid getting "stuck" for too long
+    uint8_t fwd_per_255 = (127 + (25 - span_percent / 4));
+    move->direction = ((uint8_t)random & 0xFF) > fwd_per_255 ? LS_STEPPER_DIRECTION_REVERSE : LS_STEPPER_DIRECTION_FORWARD;
+    move->steps = min_steps + ((random >> 16) * (max_steps - min_steps) / 65536);
+#ifdef LSDEBUG_STEPPER_RANDOM
+    ls_debug_printf("RS_MapSpans: moving %s%d within span [%d..%d] -- %d%% fwd; %d-%d step range; \n",
+                    (move->direction == LS_STEPPER_DIRECTION_FORWARD ? "+" : "-"), move->steps,
+                    span->begin, span->end,
+                    fwd_per_255 * 100 / 255, min_steps, max_steps);
+#endif
+    ls_stepper_position_t target = ls_stepper_position_constrained(move->direction == LS_STEPPER_DIRECTION_FORWARD ? ls_stepper_get_position() + move->steps : ls_stepper_get_position() - move->steps);
+    if (!ls_map_is_enabled_at(target))
+    {
+#ifdef LSDEBUG_STEPPER_RANDOM
+        ls_debug_printf("RS_MapSpans: DISABLED TARGET at %d\n", target);
+#endif
+        struct ls_map_SpanNode *new_span = ls_map_span_next(target, move->direction, ls_map_span_first);
+        int32_t new_target = ls_stepper_random_target_within_span(new_span);
+        int32_t additional_steps = abs(new_target - target);
+        move->steps += additional_steps;
+#ifdef LSDEBUG_STEPPER_RANDOM
+        ls_debug_printf("RS_MapSpans: NEW TARGET at %d; steps increased by %d to %d\n", new_target, additional_steps, move->steps);
+#endif
+    }
+}
+
+void ls_stepper_random_move_within_new_span(struct ls_stepper_move_t *move, struct ls_map_SpanNode *span)
+{
+    ls_stepper_position_t target = ls_stepper_random_target_within_span(span);
     int32_t steps = target - ls_stepper_get_position();
     move->direction = steps < 0 ? LS_STEPPER_DIRECTION_REVERSE : LS_STEPPER_DIRECTION_FORWARD;
     move->steps = abs(steps);
 #ifdef LSDEBUG_STEPPER_RANDOM
-    ls_debug_printf("RS_MapSpans: Laser disabled at end of random move; moving to %d in next span (%d..%d)\n", target, span->begin, span->end);
+    ls_debug_printf("RS_MapSpans: Laser SHOULD NOT HAVE BEEN disabled at end of random move; moving to %d in next span (%d..%d)\n", target, span->begin, span->end);
 #endif
 }
 
+/**
+ * The logic has been improved here so that ls_stepper_random_move_within_current_span() will check to see whether the target is
+ * enabled and if not, extend the move to the position that would be selected by ls_stepper_random_move_within_new_span();
+ * this allows great acceleration as it avoids stopping at the disabled position.
+ *
+ *
+ */
 void ls_stepper_random_strategy_map_spans(struct ls_stepper_move_t *move)
 {
     // if still in a span after move, do a random relative move
@@ -629,7 +659,7 @@ void ls_stepper_random_strategy_map_spans(struct ls_stepper_move_t *move)
     ls_stepper_random_move_within_new_span(move, next_span);
 }
 
-#ifdef LSDEBUG_ENABLE    
+#ifdef LSDEBUG_ENABLE
 #ifdef LS_TEST_SPANNODE
 void ls_map_test_spannode()
 {
@@ -677,7 +707,7 @@ void ls_map_test_spannode()
     ls_debug_printf("Two spans (wrap and mid): wrap is next for step %d moving forward: %s\n", step, passed ? "pass" : "FAIL");
     passed = passed && ls_map_span_next(step, LS_STEPPER_DIRECTION_REVERSE, wrap) == mid;
     ls_debug_printf("Two spans (wrap and mid): mid is next for step %d moving backward: %s\n", step, passed ? "pass" : "FAIL");
-vTaskDelay(1);
+    vTaskDelay(1);
     ls_debug_printf("Initializing position->span lookup...\n");
     _init_map_span_at_map_readings(wrap);
     step = LS_STEPPER_STEPS_PER_ROTATION * 0 / 8;

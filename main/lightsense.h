@@ -18,6 +18,8 @@
 #pragma once
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
+#include "esp_adc_cal.h"
+
 
 enum ls_lightsense_mode_t {
     LS_LIGHTSENSE_MODE_NIGHT,
@@ -32,8 +34,71 @@ enum ls_lightsense_level_t {
 };
 
 enum ls_lightsense_mode_t ls_lightsense_current_mode(void);
-int ls_lightsense_read_adc(void);
+int ls_lightsense_read_adc(adc_atten_t attenuation);
 void ls_lightsense_read_task(void *pvParameter);
+/**
+ * First reads ADC with 0dB attenuation; if over 900mV, reads again with 11dB atten
+ * Value returned has been converted from raw to mV using esp_adc_cal_raw_to_voltage()
+*/
+int ls_lightsense_read_hdr(void);
+
+int ls_lightsense_threshold_on_mv(int index);
+int ls_lightsense_threshold_off_mv(int index);
+int ls_lightsense_threshold_count(void);
+
+/* "Calibration data" April 7 2023 focusing on mapping low level lux to mV
+
+lux -> mV   (raw)
+2.8 -> 75   (0 raw)
+3.3 -> 80   (20)
+3.4 -> 84   (39)
+3.6 -> 88   (56)
+3.9 -> 95   (86)
+4.0 -> 99   (101)
+4.5 -> 112  (157)
+5.0 -> 128  (221)
+5.5 -> 143  (286)
+6.0 -> 157  (344)
+6.5 -> 170  (400)
+7.0 -> 181  (444)
+7.5 -> 190  (483)
+8.0 -> 204  (543)
+8.5 -> 223  (662)
+9.0 -> 238  (683)
+9.5 -> 251  (738)
+10  -> 265  (798)
+...
+14  -> 395  (1343)
+15  -> 432  (1496)
+...
+18  -> 537  (1939)
+19  -> 575  (2120)
+20  -> 604  (2218)
+... above is 0dB atten; below is 11dB; mV should be consistent
+27  -> 938  (976)
+28  -> 982  (1029)
+29  -> 1035 (1095)
+30  -> 1070 (1138)
+...
+45  -> 1691 (1898)
+50  -> 1852 (2096)
+
+Suggest lux-on-off levels
+
+nominal lux, on mV/ off mV
+3   80  75
+4   100 95
+5   130 120
+7.5 190 180
+
+10  265 255
+
+15  430 395
+20  600 540  
+30  1070 980
+50  1850 1690
+
+*/
 
 /* "Calibration" data
 April 4 '22: measuring actual light levels with HoldPeak HP881-C meter and one sample phototransistor

@@ -19,6 +19,7 @@
 #include "states.h"
 #include "freertos/semphr.h"
 #include "freertos/timers.h"
+#include "esp_log.h"
 #include "stepper.h"
 #include "servo.h"
 #include "buzzer.h"
@@ -34,11 +35,17 @@
 #include "util.h"
 #include "controls.h"
 #include "coverage.h"
+#include "leds.h"
+#include "oled.h"
+
+// static const char* TAG = "LS States"; // for ESP logging
 
 extern SemaphoreHandle_t print_mux;
 extern QueueHandle_t ls_event_queue;
 
 static TaskHandle_t ls_coverage_task_handle;
+
+#define LEDCYCLE_HOMING LEDCYCLE_RAINBOW
 
 TimerHandle_t _ls_state_rehome_timer;
 
@@ -48,6 +55,8 @@ TimerHandle_t _ls_state_rehome_timer;
         ls_stepper_off();          \
         ls_laser_set_mode_off();   \
         ls_tape_sensor_disable();  \
+        ls_leds_off();             \
+        ls_oled_blank_screen();    \
     }
 
 void _ls_state_rehome_timer_callback(TimerHandle_t xTimer)
@@ -146,6 +155,7 @@ ls_State ls_state_poweron(ls_event event)
     switch (event.type)
     {
     case LSEVT_STATE_ENTRY:
+        ls_buzzer_effect(LS_BUZZER_POWERON);
         ls_tapemode_init();
         switch (ls_tapemode())
         {
@@ -195,6 +205,7 @@ ls_State ls_state_poweron(ls_event event)
 static bool _ls_state_prelaserwarn_buzzer_complete;
 static bool _ls_state_prelaserwarn_movement_complete;
 static int _ls_state_prelaserwarn_rotation_count;
+static bool _ls_state_prelaserwarn_magnet_enter, _ls_state_prelaserwarn_magnet_leave;
 static void *_ls_state_prelaserwarn_successor = NULL;
 void ls_state_set_prelaserwarn_successor(void *successor)
 {
@@ -212,7 +223,11 @@ ls_State ls_state_prelaserwarn(ls_event event)
     case LSEVT_STATE_ENTRY:
         _ls_state_prelaserwarn_buzzer_complete = false;
         _ls_state_prelaserwarn_movement_complete = false;
+        _ls_state_prelaserwarn_magnet_enter = false;
+        _ls_state_prelaserwarn_magnet_leave = false;
         _ls_state_prelaserwarn_rotation_count = 0;
+        ls_leds_cycle(LEDCYCLE_WARNING);
+
         while (ls_buzzer_in_use() || ls_stepper_is_moving())
         {
             vTaskDelay(1);
@@ -221,7 +236,7 @@ ls_State ls_state_prelaserwarn(ls_event event)
         vTaskDelay(pdMS_TO_TICKS(1000)); // 1sec quiet/still before warning
         ls_buzzer_effect(LS_BUZZER_PRE_LASER_WARNING);
         ls_stepper_set_maximum_steps_per_second(LS_STEPPER_STEPS_PER_SECOND_WARNING);
-        ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION / 2);
+        ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION * 3 / 4);
         break;
     case LSEVT_BUZZER_WARNING_COMPLETE:
         _ls_state_prelaserwarn_buzzer_complete = true;
@@ -230,11 +245,11 @@ ls_State ls_state_prelaserwarn(ls_event event)
         _ls_state_prelaserwarn_rotation_count++;
         if (3 > _ls_state_prelaserwarn_rotation_count)
         {
-            ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION / 2);
+            ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION * 3 / 4);
         }
         if (3 == _ls_state_prelaserwarn_rotation_count)
         {
-            ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION * 3 / 2);
+            ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION * 2);
         }
         if (3 < _ls_state_prelaserwarn_rotation_count)
         {
@@ -244,13 +259,25 @@ ls_State ls_state_prelaserwarn(ls_event event)
     case LSEVT_TILT_DETECTED:
         successor.func = ls_state_error_tilt;
         break;
+    case LSEVT_MAGNET_ENTER:
+        _ls_state_prelaserwarn_magnet_enter = true;
+        break;
+    case LSEVT_MAGNET_LEAVE:
+        _ls_state_prelaserwarn_magnet_leave = true;
+        break;
     default:; // does not handle other events
     }
     if (_ls_state_prelaserwarn_buzzer_complete && _ls_state_prelaserwarn_movement_complete)
     {
+        ls_leds_off();
         if (NULL == _ls_state_prelaserwarn_successor)
         {
-            _ls_state_prelaserwarn_successor = ls_state_active; // default
+            ls_state_set_prelaserwarn_successor(ls_state_active); // default
+        }
+        if (!(_ls_state_prelaserwarn_magnet_enter && _ls_state_prelaserwarn_magnet_leave))
+        {
+            ls_state_set_prelaserwarn_successor(ls_state_error_norotate);
+            successor.func = ls_state_error_norotate;
         }
         successor.func = _ls_state_prelaserwarn_successor;
         _ls_state_prelaserwarn_successor = NULL;
@@ -275,6 +302,8 @@ ls_State ls_state_active(ls_event event)
         ls_stepper_set_maximum_steps_per_second(ls_settings_get_stepper_speed());
         ls_stepper_random();
         ls_servo_random();
+        ls_leds_off();
+        ls_oled_blank_screen();
         ls_coverage_task_handle = NULL;
 
         if (ls_map_get_status() == LS_MAP_STATUS_OK)
@@ -327,20 +356,23 @@ ls_State ls_state_active(ls_event event)
 #endif
             successor.func = ls_state_sleep;
         break;
-    case LSEVT_CONTROLS_CONNECTED:
-    case LSEVT_CONTROLS_SPEED:
-    case LSEVT_CONTROLS_TOPANGLE:
-    case LSEVT_CONTROLS_BOTTOMANGLE:
+    case LSEVT_CONTROLS_UPPER:
 #ifdef LSDEBUG_STATES
-        ls_debug_printf("Entering settings control\n")
+        ls_debug_printf("Entering settings (upper) control\n")
 #endif
-            successor.func = ls_state_settings;
+            successor.func = ls_state_settings_upper;
         break;
-    case LSEVT_CONTROLS_CONNECT_SECONDARY:
+    case LSEVT_CONTROLS_LOWER:
 #ifdef LSDEBUG_STATES
-        ls_debug_printf("Entering secondary settings control\n")
+        ls_debug_printf("Entering settings (lower) control\n")
 #endif
-            successor.func = ls_state_secondary_settings;
+            successor.func = ls_state_settings_lower;
+        break;
+    case LSEVT_CONTROLS_BOTH:
+#ifdef LSDEBUG_STATES
+        ls_debug_printf("Entering settings (both) control\n")
+#endif
+            successor.func = ls_state_settings_both;
         break;
     case LSEVT_TILT_DETECTED:
         successor.func = ls_state_error_tilt;
@@ -380,6 +412,7 @@ ls_State ls_state_home(ls_event event)
     switch (event.type)
     {
     case LSEVT_STATE_ENTRY:
+        ls_leds_cycle(LEDCYCLE_HOMING);
         ls_substate_home_init();
         ls_event_enqueue_noop();
         break;
@@ -396,8 +429,8 @@ ls_State ls_state_home(ls_event event)
         ls_buzzer_effect(LS_BUZZER_PLAY_HOME_FAIL);
         switch (ls_tapemode())
         {
-        case LS_TAPEMODE_BLACK_SAFE:
-        case LS_TAPEMODE_REFLECT_SAFE:
+        case LS_TAPEMODE_DARK_SAFE:
+        case LS_TAPEMODE_LIGHT_SAFE:
             successor.func = ls_state_error_home;
             break;
         default:
@@ -416,6 +449,10 @@ ls_State ls_state_home(ls_event event)
     default:
         ls_substate_home_handle_event(event);
     }
+    if (successor.func != ls_state_home)
+    {
+        ls_leds_off();
+    }
     return successor;
 }
 
@@ -427,178 +464,6 @@ ls_State ls_state_selftest(ls_event event)
     ls_State successor;
     successor.func = ls_state_selftest;
     selftest_event_handler(event);
-    return successor;
-}
-
-static int _ls_state_settings_servo_hold_count = 0;
-ls_State ls_state_settings(ls_event event)
-{
-#ifdef LSDEBUG_STATES
-    ls_debug_printf("STATE_SETTINGS handling event\n");
-#endif
-    ls_State successor;
-    successor.func = ls_state_settings;
-    BaseType_t control_value;
-
-    // somewhat awkward patch for #44 https://github.com/davidhbrown-uri/laser_scarecrow-ls22_esp32/issues/44
-    if (LS_CONTROLS_STATUS_DISCONNECTED == ls_controls_get_current_status())
-    {
-        event.type = LSEVT_CONTROLS_DISCONNECTED;
-    }
-
-    switch (event.type)
-    {
-    case LSEVT_STATE_ENTRY:
-        ls_stepper_set_maximum_steps_per_second(ls_settings_get_stepper_speed());
-        ls_laser_set_mode((ls_map_get_status() == LS_MAP_STATUS_OK) ? LS_LASER_MAPPED : LS_LASER_ON);
-        ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION * 5 / 4);
-        ls_servo_sweep();
-        ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_ENTER);
-        break;
-    case LSEVT_STEPPER_FINISHED_MOVE:
-        ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION * 5 / 4);
-        if (_ls_state_settings_servo_hold_count > 0)
-        {
-            _ls_state_settings_servo_hold_count--;
-        }
-        else if (_ls_state_settings_servo_hold_count == 0)
-        {
-            ls_servo_sweep();
-            _ls_state_settings_servo_hold_count = -1;
-        }
-        break;
-    case LSEVT_SERVO_SWEEP_TOP:
-        ls_buzzer_effect(LS_BUZZER_PLAY_OCTAVE);
-        break;
-    case LSEVT_SERVO_SWEEP_BOTTOM:
-        ls_buzzer_effect(LS_BUZZER_PLAY_ROOT);
-        break;
-    case LSEVT_CONTROLS_SPEED:
-        control_value = *((BaseType_t *)event.value);
-        ls_settings_set_stepper_speed(ls_settings_map_control_to_stepper_speed(control_value));
-        ls_stepper_set_maximum_steps_per_second(ls_settings_get_stepper_speed());
-        break;
-    case LSEVT_CONTROLS_TOPANGLE:
-        control_value = *((BaseType_t *)event.value);
-        ls_settings_set_servo_top(ls_settings_map_control_to_servo_top(control_value));
-        ls_servo_jumpto(ls_settings_get_servo_top());
-        _ls_state_settings_servo_hold_count = 3;
-        break;
-    case LSEVT_CONTROLS_BOTTOMANGLE:
-        control_value = *((BaseType_t *)event.value);
-        ls_settings_set_servo_bottom(ls_settings_map_control_to_servo_bottom(control_value));
-        ls_servo_jumpto(ls_settings_get_servo_bottom());
-        _ls_state_settings_servo_hold_count = 3;
-        break;
-    case LSEVT_CONTROLS_DISCONNECTED:
-        ls_stepper_stop();
-        successor.func = ls_state_active;
-        break;
-    case LSEVT_CONTROLS_CONNECT_SECONDARY:
-#ifdef LSDEBUG_STATES
-        ls_debug_printf("Entering secondary from primary settings control\n")
-#endif
-            successor.func = ls_state_secondary_settings;
-        break;
-    case LSEVT_TILT_DETECTED:
-        successor.func = ls_state_error_tilt;
-        break;
-    default:;
-    } // switch event type
-
-    if (ls_state_settings != successor.func)
-    {
-        ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_LEAVE);
-        ls_settings_save();
-    }
-    return successor;
-}
-
-static enum ls_buzzer_scale _ls_state_secondary_settings_lightsense_scale[] = {
-    // 0..4 => switch at lower light levels
-    LS_BUZZER_SCALE_D, LS_BUZZER_SCALE_Dx, LS_BUZZER_SCALE_E, LS_BUZZER_SCALE_F, LS_BUZZER_SCALE_Fx,
-    LS_BUZZER_SCALE_G, // 5th value; center of range
-    // 6..10 => switch at higher levels
-    LS_BUZZER_SCALE_Gx, LS_BUZZER_SCALE_A, LS_BUZZER_SCALE_Ax, LS_BUZZER_SCALE_B, LS_BUZZER_SCALE_CC};
-static int _ls_state_secondary_settings_servo_count = 0;
-ls_State ls_state_secondary_settings(ls_event event)
-{
-#ifdef LSDEBUG_STATES
-    ls_debug_printf("CONTROLS_SECONDARY handling event\n");
-#endif
-    ls_State successor;
-    successor.func = ls_state_secondary_settings;
-    BaseType_t control_value;
-    switch (event.type)
-    {
-    case LSEVT_STATE_ENTRY:
-        ls_laser_set_mode_off();
-        ls_stepper_stop();
-        ls_stepper_sleep(); // why? loses homing
-        ls_servo_off();
-        ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_ENTER);
-        ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_ENTER);
-        _ls_state_secondary_settings_servo_count = 0;
-        break;
-    case LSEVT_SERVO_SWEEP_TOP:
-        ls_buzzer_effect(LS_BUZZER_PLAY_OCTAVE);
-        _ls_state_secondary_settings_servo_count--;
-        if (_ls_state_secondary_settings_servo_count <= 0)
-        {
-            ls_servo_off();
-        }
-        break;
-    case LSEVT_SERVO_SWEEP_BOTTOM:
-        ls_buzzer_effect(LS_BUZZER_PLAY_ROOT);
-        _ls_state_secondary_settings_servo_count--;
-        if (_ls_state_secondary_settings_servo_count <= 0)
-        {
-            ls_servo_off();
-        }
-        break;
-    case LSEVT_CONTROLS_SPEED: // servo speed
-        control_value = *((BaseType_t *)event.value);
-        ls_settings_set_servo_pulse_delta(ls_settings_map_control_to_servo_pulse_delta(control_value));
-#ifdef LSDEBUG_SETTINGS
-        ls_debug_printf("Setting servo pulse delta to %d microseconds per tick.\n", ls_settings_map_control_to_servo_pulse_delta(control_value));
-#endif
-        _ls_state_secondary_settings_servo_count = 6;
-        ls_servo_sweep();
-        break;
-    case LSEVT_CONTROLS_TOPANGLE: // light threshold
-        control_value = *((BaseType_t *)event.value);
-        // map input to 0-10 setting range
-        int index = _map(_constrain(control_value, LS_CONTROLS_READING_BOTTOM, LS_CONTROLS_READING_TOP),
-                         LS_CONTROLS_READING_BOTTOM, LS_CONTROLS_READING_TOP, 0, 10);
-#ifdef LSDEBUG_SETTINGS
-        ls_debug_printf("Setting lightsense thresholds to index %d.\n", index);
-#endif
-        // calculate/set threshold values
-        // ls_settings_set_light_thresholds_from_0to10(index);
-        // if event queue is empty, play tune to indicate threshold value
-        ls_buzzer_note(_ls_state_secondary_settings_lightsense_scale[5], 3);
-        ls_buzzer_note(_ls_state_secondary_settings_lightsense_scale[index], 3);
-        ls_settings_set_light_thresholds_from_0to10(index);
-        break;
-    case LSEVT_CONTROLS_BOTTOMANGLE:; // nothing assigned
-        break;
-    case LSEVT_CONTROLS_DISCONNECTED:
-        ls_servo_off();
-        successor.func = ls_state_wakeup; // because we turned laser off, must do wakeup and pre-laser warning
-        break;
-    case LSEVT_TILT_DETECTED:
-        successor.func = ls_state_error_tilt;
-        break;
-    case LSEVT_NOOP:
-        ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_ENTER);
-    default:; // do nothing for this event
-    }         // switch event type
-    if (ls_state_secondary_settings != successor.func)
-    {
-        ls_substate_home_require_rehome(); 
-        ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_LEAVE);
-        ls_settings_save();
-    }
     return successor;
 }
 
@@ -614,10 +479,13 @@ ls_State ls_state_sleep(ls_event event)
     case LSEVT_STATE_ENTRY:
         ls_laser_set_mode_off();
         ls_servo_off();
-        ls_stepper_forward(1);
+        ls_stepper_forward(1); // make sure we move past magnet
+        ls_leds_off();
+        ls_oled_blank_screen();
         break;
     case LSEVT_STEPPER_FINISHED_MOVE:
         // the magnet sensor includes an LED which could pointlessly drain power during sleep
+        // yes, wind might blow the arm back to the magnet, but at least we tried!
         if (ls_magnet_is_detected())
         {
             ls_stepper_forward(LS_STEPPER_STEPS_PER_ROTATION / 4);
@@ -634,35 +502,15 @@ ls_State ls_state_sleep(ls_event event)
 #endif
         successor.func = ls_state_wakeup;
         break;
-    case LSEVT_NOOP: // snore (?)
-        for (int i = 0; i < 20; i++)
-        {
-            ls_buzzer_effect(LS_BUZZER_CLICK);
-            vTaskDelay(5 - i / 5);
-        }
-        for (int i = 0; i < 40; i++)
-        {
-            ls_buzzer_effect(LS_BUZZER_CLICK);
-            vTaskDelay(1 + i / 3);
-        }
-        for (int i = 0; i < 40; i++)
-        {
-            if (ls_event_queue_has_messages())
-            {
-                break;
-            }
-            vTaskDelay(pdMS_TO_TICKS(1000));
-        }
-        ls_event_enqueue_noop_if_queue_empty();
+    case LSEVT_NOOP:
+        // rate determined by LS_EVENT_NOOP_TIMEOUT_MS
+        ls_buzzer_snore();
         break;
-    case LSEVT_CONTROLS_CONNECTED:
-    case LSEVT_CONTROLS_SPEED:
-    case LSEVT_CONTROLS_TOPANGLE:
-    case LSEVT_CONTROLS_BOTTOMANGLE:
+    case LSEVT_CONTROLS_UPPER:
 #ifdef LSDEBUG_STATES
-        ls_debug_printf("Entering settings control from sleep\n");
+        ls_debug_printf("Entering settings upper from sleep\n");
 #endif
-        ls_state_set_prelaserwarn_successor(ls_state_settings);
+        ls_state_set_prelaserwarn_successor(ls_state_settings_upper);
         if (ls_map_get_status() == LS_MAP_STATUS_OK)
         {
             ls_state_set_home_successor(ls_state_prelaserwarn);
@@ -673,11 +521,26 @@ ls_State ls_state_sleep(ls_event event)
             successor.func = ls_state_prelaserwarn;
         }
         break;
-    case LSEVT_CONTROLS_CONNECT_SECONDARY:
+    case LSEVT_CONTROLS_LOWER:
+#ifdef LSDEBUG_STATES
+        ls_debug_printf("Entering settings lower from sleep\n");
+#endif
+        ls_state_set_prelaserwarn_successor(ls_state_settings_lower);
+        if (ls_map_get_status() == LS_MAP_STATUS_OK)
+        {
+            ls_state_set_home_successor(ls_state_prelaserwarn);
+            successor.func = ls_state_home;
+        }
+        else
+        {
+            successor.func = ls_state_prelaserwarn;
+        }
+        break;
+    case LSEVT_CONTROLS_BOTH:
 #ifdef LSDEBUG_STATES
         ls_debug_printf("Entering secondary settings control from sleep\n")
 #endif
-            successor.func = ls_state_secondary_settings;
+            successor.func = ls_state_settings_both;
         break;
     case LSEVT_TILT_DETECTED:
         successor.func = ls_state_error_tilt;
@@ -727,7 +590,7 @@ ls_State ls_state_wakeup(ls_event event)
 
 static int _ls_state_map_build_steps_remaining;
 static int _ls_state_map_enable_count = 0, _ls_state_map_disable_count = 0, _ls_state_map_misread_count = 0;
-
+static enum ls_buzzer_effects _ls_state_map_fail_reason_tune = LS_BUZZER_PLAY_NOTHING;
 ls_State ls_state_map_build(ls_event event)
 {
 #ifdef LSDEBUG_STATES
@@ -796,30 +659,44 @@ ls_State ls_state_map_build(ls_event event)
 #ifdef LSDEBUG_MAP
                 ls_debug_printf("\nBad map: must include at least one enabled and one disabled reading.\n");
 #endif
+                switch (ls_tapemode())
+                {
+                case LS_TAPEMODE_DARK:
+                case LS_TAPEMODE_DARK_SAFE:
+                    _ls_state_map_fail_reason_tune = (0 == _ls_state_map_enable_count) ? LS_BUZZER_PLAY_TAPE_DISABLE : LS_BUZZER_PLAY_TAPE_ENABLE;
+                    break;
+                case LS_TAPEMODE_LIGHT:
+                case LS_TAPEMODE_LIGHT_SAFE:
+                    _ls_state_map_fail_reason_tune = (0 == _ls_state_map_enable_count) ? LS_BUZZER_PLAY_TAPE_ENABLE : LS_BUZZER_PLAY_TAPE_DISABLE;
+                    break;
+                default:;
+                }
             }
             if (ls_map_is_excessive_misreads(_ls_state_map_misread_count))
             {
                 badmap = true;
+                _ls_state_map_fail_reason_tune = LS_BUZZER_PLAY_TAPE_MISREAD;
 #ifdef LSDEBUG_MAP
                 ls_debug_printf("\nBad map: too many misreads\n");
 #endif
             }
             if (badmap)
             {
-                ls_map_set_status(LS_MAP_STATUS_FAILED);
                 ls_buzzer_effect(LS_BUZZER_PLAY_NOTHING);
-                ls_buzzer_effect(LS_BUZZER_PLAY_MAP_FAIL);
                 switch (ls_tapemode())
                 {
-                case LS_TAPEMODE_BLACK_SAFE:
-                case LS_TAPEMODE_REFLECT_SAFE:
-                    successor.func = ls_state_error_map;
+                case LS_TAPEMODE_DARK_SAFE:
+                case LS_TAPEMODE_LIGHT_SAFE:
+                    // fail if a Safe mode
+                    ls_map_set_status(LS_MAP_STATUS_FAILED);
+                    successor.func = ls_state_error_scanning;
                     break;
                 default:
-                    if (0 == _ls_state_map_enable_count)
-                    {
-                        ls_map_set_status(LS_MAP_STATUS_IGNORE);
-                    }
+                    // just play the fail tone and ignore map
+                    ls_buzzer_effect(_ls_state_map_fail_reason_tune);
+                    vTaskDelay(pdMS_TO_TICKS(1000)); // rest a second
+                    ls_buzzer_effect(LS_BUZZER_PLAY_MAP_FAIL);
+                    ls_map_set_status(LS_MAP_STATUS_IGNORE);
                     break;
                 }
             } // handle bad map
@@ -847,57 +724,60 @@ ls_State ls_state_map_build(ls_event event)
 
 ls_State ls_state_error_home(ls_event event)
 {
+#ifdef LSDEBUG_STATES
+    ls_debug_printf(">>>>HOMING FAILED: ls_state_error_home<<<\n");
+#endif
+#ifdef LSDEBUG_HOMING
+    ls_debug_printf(">>>>HOMING FAILED<<<\n");
+#endif
     _ls_state_everything_off();
     ls_State successor;
     successor.func = ls_state_error_home;
-#ifdef LSDEBUG_HOMING
-    xSemaphoreTake(print_mux, portMAX_DELAY);
-    ls_debug_printf(">>>>HOMING FAILED<<<\n");
-    xSemaphoreGive(print_mux);
-#endif
-    vTaskDelay(pdMS_TO_TICKS(30000)); // 30 seconds between alerts
+    ls_leds_cycle(LEDCYCLE_FAIL_HOMING);
     ls_buzzer_effect(LS_BUZZER_PLAY_HOME_FAIL);
+    vTaskDelay(pdMS_TO_TICKS(LS_FAILURE_LEDS_OFF_AFTER));
+    ls_leds_off();
+    vTaskDelay(pdMS_TO_TICKS(LS_FAILURE_REPEAT_INTERVAL));
     ls_event_enqueue_noop();
     return successor;
 }
 
-ls_State ls_state_error_map(ls_event event)
+/** "map" is/was how I think of it, but "scanning" is more understandable to growers, I think*/
+ls_State ls_state_error_scanning(ls_event event)
 {
+#ifdef LSDEBUG_STATES
+    ls_debug_printf(">>>>Scanning FAILED: ls_state_error_scanning<<<\n");
+#endif
+#ifdef LSDEBUG_MAP
+    ls_debug_printf(">>>>Scanning FAILED<<<\n");
+#endif
     _ls_state_everything_off();
     ls_State successor;
-    successor.func = ls_state_error_map;
-#ifdef LSDEBUG_MAP
-    xSemaphoreTake(print_mux, portMAX_DELAY);
-    ls_debug_printf(">>>>MAPPING FAILED<<<\n");
-    xSemaphoreGive(print_mux);
-#endif
-    vTaskDelay(pdMS_TO_TICKS(30000)); // 30 seconds between alerts
-    if (0 == _ls_state_map_enable_count)
-    {
-        ls_buzzer_effect(LS_BUZZER_PLAY_TAPE_DISABLE);
-        vTaskDelay(pdMS_TO_TICKS(1000)); // 1 second between tones
-    }
-    if (0 == _ls_state_map_disable_count)
-    {
-        ls_buzzer_effect(LS_BUZZER_PLAY_TAPE_ENABLE);
-        vTaskDelay(pdMS_TO_TICKS(1000)); // 1 second between tones
-    }
-    if (ls_map_is_excessive_misreads(_ls_state_map_misread_count))
-    {
-        ls_buzzer_effect(LS_BUZZER_PLAY_TAPE_MISREAD);
-        vTaskDelay(pdMS_TO_TICKS(1000)); // 1 second between tones
-    }
+    successor.func = ls_state_error_scanning;
+    ls_leds_cycle(LEDCYCLE_FAIL_SCANNING);
+    ls_buzzer_effect(_ls_state_map_fail_reason_tune);
+    vTaskDelay(pdMS_TO_TICKS(1000)); // 1 second between tones
     ls_buzzer_effect(LS_BUZZER_PLAY_MAP_FAIL);
+    vTaskDelay(pdMS_TO_TICKS(LS_FAILURE_LEDS_OFF_AFTER - 1000));
+    ls_leds_off();
+#ifdef LSDEBUG_STATES
+    ls_debug_printf("LEDs off by ls_state_error_scanning<<<\n");
+#endif
+    vTaskDelay(pdMS_TO_TICKS(LS_FAILURE_REPEAT_INTERVAL));
     ls_event_enqueue_noop();
+#ifdef LSDEBUG_STATES
+    ls_debug_printf("LSEVT_NOOP enqueued by returning ls_state_error_scanning<<<\n");
+#endif
     return successor;
 }
 
 ls_State ls_state_error_tilt(ls_event event)
 {
+#ifdef LSDEBUG_STATES
+    ls_debug_printf(">>>>Tilt Error: ls_state_error_tilt<<<\n");
+#endif
 #ifdef LSDEBUG_TILT
-    xSemaphoreTake(print_mux, portMAX_DELAY);
-    ls_debug_printf("ERROR_TILT\n");
-    xSemaphoreGive(print_mux);
+    ls_debug_printf(">>>>Tilt Error<<<\n");
 #endif
     ls_State successor;
     successor.func = ls_state_error_tilt;
@@ -910,12 +790,10 @@ ls_State ls_state_error_tilt(ls_event event)
     case LSEVT_TILT_OK:
         switch (ls_tapemode())
         {
-        case LS_TAPEMODE_BLACK_SAFE:
-        case LS_TAPEMODE_REFLECT_SAFE:
+        case LS_TAPEMODE_DARK_SAFE:
+        case LS_TAPEMODE_LIGHT_SAFE:
 #ifdef LSDEBUG_TILT
-            xSemaphoreTake(print_mux, portMAX_DELAY);
             ls_debug_printf("TILT_OK but safe mode requires power cycle to resume\n");
-            xSemaphoreGive(print_mux);
 #endif
             ls_buzzer_effect(LS_BUZZER_PLAY_TILT_FAIL);
             ls_buzzer_effect(LS_BUZZER_ALERT_1S);
@@ -926,9 +804,14 @@ ls_State ls_state_error_tilt(ls_event event)
         } // switch on tapemode if TILT_OK
         break;
     default:
+        ls_leds_cycle(LEDCYCLE_FAIL_TILT);
         ls_buzzer_effect(LS_BUZZER_PLAY_TILT_FAIL);
-        // 30 seconds between alerts unless an event is pending
-        if (pdFALSE == xQueuePeek(ls_event_queue, &event, pdMS_TO_TICKS(30000)))
+        // ledcycle for 5 seconds between alerts unless an event is pending
+        if (pdFALSE == xQueuePeek(ls_event_queue, &event, pdMS_TO_TICKS(LS_FAILURE_LEDS_OFF_AFTER)))
+        {
+            ls_leds_off();
+        }
+        if (pdFALSE == xQueuePeek(ls_event_queue, &event, pdMS_TO_TICKS(LS_FAILURE_REPEAT_INTERVAL)))
         {
             ls_event_enqueue_noop();
         }
@@ -944,10 +827,15 @@ ls_State ls_state_error_tilt(ls_event event)
  */
 ls_State ls_state_error_noaccel(ls_event event)
 {
+#ifdef LSDEBUG_STATES
+    ls_debug_printf(">>>>NO ACCELEROMETER: ls_state_error_noaccel<<<\n");
+#endif
+    _ls_state_everything_off(); // not that we had a chance to turn anything on.
     ls_State successor;
     successor.func = ls_state_error_noaccel;
     // we're never really going to return
     ls_buzzer_effect(LS_BUZZER_PLAY_TILT_FAIL);
+    ls_leds_cycle(LEDCYCLE_FAIL_ACCELEROMETER);
     vTaskDelay(pdMS_TO_TICKS(500));
     // if this is the first attempt just try to restart
     if (esp_reset_reason() != ESP_RST_SW)
@@ -956,8 +844,27 @@ ls_State ls_state_error_noaccel(ls_event event)
     }
     // otherwise play the warning tone, too, and wait to try again
     ls_buzzer_effect(LS_BUZZER_ALTERNATE_HIGH);
-    vTaskDelay(pdMS_TO_TICKS(29000));
+    vTaskDelay(pdMS_TO_TICKS(LS_FAILURE_LEDS_OFF_AFTER));
+    ls_leds_off();
+    vTaskDelay(pdMS_TO_TICKS(LS_FAILURE_REPEAT_INTERVAL));
     esp_restart(); // software reset of the chip; starts execution again
-    // will not be reached
+    // will not be reached, but for consistency/type-correctness:
+    return successor;
+}
+
+ls_State ls_state_error_norotate(ls_event event)
+{
+#ifdef LSDEBUG_STATES
+    ls_debug_printf(">>>>NOT ROTATING: ls_state_error_norotate<<<\n");
+#endif
+    _ls_state_everything_off();
+    ls_State successor;
+    successor.func = ls_state_error_norotate;
+    ls_leds_cycle(LEDCYCLE_FAIL_ROTATE);
+    ls_buzzer_effect(LS_BUZZER_PLAY_NOROTATE);
+    vTaskDelay(pdMS_TO_TICKS(LS_FAILURE_LEDS_OFF_AFTER));
+    ls_leds_off();
+    vTaskDelay(pdMS_TO_TICKS(LS_FAILURE_REPEAT_INTERVAL));
+    ls_event_enqueue_noop();
     return successor;
 }

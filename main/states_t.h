@@ -15,18 +15,13 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-#pragma once
-#include "freertos/FreeRTOS.h"
-#include "freertos/queue.h"
+#include "events.h"
 
-enum ls_controls_status{
-    LS_CONTROLS_STATUS_OFF,
-    LS_CONTROLS_STATUS_UPPER,
-    LS_CONTROLS_STATUS_LOWER,
-    LS_CONTROLS_STATUS_BOTH,
-    LS_CONTROLS_STATUS_INVALID
-};
+// see http://c-faq.com/decl/recurfuncp.html
+// "Q: How can I declare a function that can return a pointer to a function of the same type? I'm building a state machine with one function for each state.... "
+typedef int (*ls_state_funcptr)(ls_event);	  /* generic function pointer */
+typedef ls_state_funcptr (*_ls_state_funcptr)(ls_event);  /* ptr to ls_state fcn taking event and returning g.f.p. */
 
-enum ls_controls_status ls_controls_get_current_status(void);
-
-void ls_controls_task(void *pvParameter);
+typedef struct ls_State {
+    struct ls_State (*func)(ls_event);
+}ls_State;
