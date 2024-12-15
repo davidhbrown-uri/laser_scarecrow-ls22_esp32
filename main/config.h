@@ -219,7 +219,7 @@ https://docs.espressif.com/projects/esp-idf/en/v4.4/esp32/api-reference/peripher
 // LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_SECOND will be added or subtracted to the steps per second when accelerating or decelerating
 #define LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_SECOND 8000
 // a constant doesn't work as well with the wider range
-#define LS_STEPPER_SPINNING_ALARMS_CHANGE_DIVISOR (30ULL)
+#define LS_STEPPER_SPINNING_ALARMS_CHANGE_DIVISOR (60ULL)
 #define LS_STEPPER_SPINNING_ALARMS_CHANGE_MINIMUM (1ULL)
 
 #define LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_TICK (LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_SECOND / pdMS_TO_TICKS(1000))
