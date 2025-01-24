@@ -28,7 +28,7 @@
 #define LS_HAS_DUAL_LASER
 #undef LS_HAS_TAPE_SENSOR
 #define LS_HAS_SERVO2
-#define LS_HAS_LIGHTSENSE2
+// #define LS_HAS_LIGHTSENSE2
 
 // Configure flag sanity checks
 #ifdef LS_HAS_TAPE_SENSOR
