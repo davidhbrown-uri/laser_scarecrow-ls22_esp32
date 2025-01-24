@@ -65,6 +65,11 @@ enum ls_tapemode_mode ls_tapemode(void)
     return _ls_tapemode;
 }
 
+enum ls_spinmode_mode ls_spinmode(void)
+{
+    return _ls_tapemode;
+}
+
 enum ls_tapemode_mode ls_tapemode_current(void)
 {
     xSemaphoreTake(adc1_mux, portMAX_DELAY);
@@ -78,6 +83,11 @@ enum ls_tapemode_mode ls_tapemode_current(void)
     adc_reading /= 4;
     xSemaphoreGive(adc1_mux);
     return ls_tapemode_from_adc(adc_reading);
+}
+
+enum ls_spinmode_mode ls_spinmode_current(void)
+{
+    return ls_tapemode_current();
 }
 
 void ls_tapemode_selftest_task(void *pvParameter)

@@ -94,7 +94,7 @@ volatile BaseType_t IRAM_ATTR ls_stepper_steps_remaining; // hopping
 volatile BaseType_t IRAM_ATTR ls_stepper_steps_taken; // hopping
 uint64_t IRAM_ATTR ls_stepper_current_timer_alarm_count = _alarms_1_rpm * 2; // spinning
 uint64_t IRAM_ATTR ls_stepper_target_timer_alarm_count = _alarms_1_rpm * 2; // spinning
-uint64_t IRAM_ATTR ls_stepper_maximum_laser_enable_alarm_count = _alarms_1_rpm / LS_LASER_ENABLE_MINIMUM_RPM;
+uint64_t IRAM_ATTR ls_stepper_maximum_laser_enable_alarm_count; // set during ls_stepper_init() based on ls_settings_get_mode()
 uint64_t ls_stepper_timer_alarm_count_stoppable;
 
 volatile static BaseType_t IRAM_ATTR _ls_stepperstep_phase = 0;
@@ -228,6 +228,12 @@ static bool IRAM_ATTR ls_stepper_step_isr_callback(void *args)
 
 void ls_stepper_init(void)
 {
+    if(ls_settings_get_mode()==LS_SETTINGS_MINIMUM_RPM_SCANNING_1M) {
+        ls_stepper_maximum_laser_enable_alarm_count = _alarms_1_rpm / LS_LASER_ENABLE_MINIMUM_RPM_1M;
+    } else {
+        ls_stepper_maximum_laser_enable_alarm_count = _alarms_1_rpm / LS_LASER_ENABLE_MINIMUM_RPM_100MM;
+    }
+    ls_stepper_maximum_laser_enable_alarm_count = 
     gpio_set_level(LSGPIO_STEPPERENABLE, STEPPERENABLE_DISABLE); // don't step while we get ready
     gpio_set_level(LSGPIO_STEPPERDIRECTION, LS_STEPPER_DIRECTION_FORWARD); // reasonable default
     ls_stepper_position = 0;

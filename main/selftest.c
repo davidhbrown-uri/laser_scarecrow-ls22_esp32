@@ -87,7 +87,7 @@ void _selftest_stepper_behavior(void) {
   case 6:
     ls_laser_set_mode_on();
     /* @todo set fastest spin to minimum scanning spin*/
-    ls_stepper_spin_at_rpm(LS_SETTINGS_MINIMUM_RPM_SCANNING);
+    ls_stepper_spin_at_rpm(ls_settings_get_minimum_rpm());
     break;
   case 7:
     ls_stepper_random_spin();
@@ -223,6 +223,7 @@ void selftest_event_handler(ls_event event) {
     break;
   case LSEVT_BUZZER_WARNING_COMPLETE:
     _selftest_wait_for_buzzer_warning_complete = false;
+    ls_settings_set_mode(LS_SPINMODE_HOP);
     ls_settings_reset_defaults();
     ls_leds_off();
     xTaskCreate(&ls_tape_sensor_selftest_task, "tapesense_selftest",

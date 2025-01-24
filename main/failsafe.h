@@ -20,8 +20,17 @@
 #include "driver/gpio.h"
 
 // bool ls_failsafe_has_heartbeat_at_poweron(void);
+/**
+ * Enables interrupt; sets up timer, assigns callback to alarm timer
+ */
 void ls_failsafe_init(void);
+/**
+ * Pauses the alarm timer and removes the ISR function that counts edges
+ */
 void ls_failsafe_pause(void);
+/**
+ * Adds ISR function to handler to count edges; starts alarm timer
+ */
 void ls_failsafe_start(void);
 uint64_t ls_failsafe_edge_count(void);
 #ifdef LSDEBUG_FAILSAFE

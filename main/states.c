@@ -221,7 +221,7 @@ ls_State ls_state_poweron(ls_event event)
     {
     case LSEVT_STATE_ENTRY:
         ls_buzzer_effect(LS_BUZZER_POWERON);
-        ls_tapemode_init();
+#ifdef LS_HAS_TAPE_SENSOR
         switch (ls_tapemode())
         {
         case LS_TAPEMODE_SELFTEST:
@@ -230,7 +230,7 @@ ls_State ls_state_poweron(ls_event event)
 #endif
             successor.func = ls_state_selftest;
             break;
-#ifdef LS_HAS_TAPE_SENSOR
+
         case LS_TAPEMODE_DARK:
         case LS_TAPEMODE_DARK_SAFE:
         case LS_TAPEMODE_LIGHT:
@@ -253,13 +253,33 @@ ls_State ls_state_poweron(ls_event event)
                 ls_state_set_home_successor(ls_state_map_build);
                 successor.func = ls_state_home; // ls_state_map_build_substate_home;
             }
-#endif                
         default:
             successor.func = ls_state_prelaserwarn;
 #ifdef LSDEBUG_STATES
             ls_debug_printf("STATES: State poweron ignoring tape => pre-laser warning\n");
 #endif
         } // switch tapemode
+#else
+        successor.func = ls_state_prelaserwarn;
+
+        switch (ls_spinmode())
+        {
+            case LS_SPINMODE_SELFTEST:
+                    successor.func = ls_state_selftest;
+#ifdef LSDEBUG_STATES
+            ls_debug_printf("STATES: State poweron => selftest\n");
+#endif
+            break;
+            case LS_SPINMODE_CLASSIIIA:
+            ls_failsafe_init(); // only initialize; it won't be started until the laser is turned on
+            break;
+            default:
+            ;//nothing to do
+#ifdef LSDEBUG_STATES
+            ls_debug_printf("STATES: State poweron => pre-laser warning\n");
+#endif
+        }// switch spinmode
+#endif
         break;
     case LSEVT_TILT_DETECTED:
         successor.func = ls_state_error_tilt;

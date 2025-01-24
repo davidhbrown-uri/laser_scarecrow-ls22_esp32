@@ -21,11 +21,13 @@
 
 #include "settings.h"
 #include "config.h"
+#include "tapemode.h"
 #include "esp_system.h"
 #include "nvs.h"
 #include "nvs_flash.h"
 #include "util.h"
 
+static BaseType_t _ls_settings_mode;
 static BaseType_t _ls_settings_stepper_speed, _ls_settings_servo_top,
     _ls_settings_servo_bottom, _ls_settings_stepper_max_rpm;
 static BaseType_t _ls_settings_stepper_random_max,
@@ -36,6 +38,8 @@ static BaseType_t _ls_settings_tilt_threshold_detected,
     _ls_settings_tilt_threshold_ok;
 static bool _ls_settings_sleep_light_enable;
 static BaseType_t _ls_settings_servo_maxlimit, _ls_settings_servo_minlimit;
+
+static BaseType_t _ls_settings_stepper_steps_per_second_limit, _ls_settings_minimum_rpm_scanning;
 
 static nvs_handle_t _ls_settings_nvs_handle;
 // caution: NVS keys and namespaces are restricted to 15 characters
@@ -54,16 +58,38 @@ static nvs_handle_t _ls_settings_nvs_handle;
 #define LS_SETTINGS_NVS_KEY_SLEEP_LIGHT_ENABLE "sleep_light"
 #define LS_SETTINGS_NVS_KEY_SERVO_MAXLIMIT "servo_maxlimit"
 #define LS_SETTINGS_NVS_KEY_SERVO_MINLIMIT "servo_minlimit"
+#define LS_SETTINGS_NVS_KEY_MODE "mode"
 
+void ls_settings_configure_limits(void) {
+  if (ls_settings_get_mode()==LS_SPINMODE_HOP_FURTHER) {
+    _ls_settings_stepper_steps_per_second_limit = (2 * LS_STEPPER_STEPS_PER_SECOND_MAX);
+  } else {
+    _ls_settings_stepper_steps_per_second_limit = LS_STEPPER_STEPS_PER_SECOND_MAX;
+  }
+  if(ls_settings_get_mode()==LS_SPINMODE_1M) {
+    _ls_settings_minimum_rpm_scanning = LS_SETTINGS_MINIMUM_RPM_SCANNING_1M;
+  } else {
+    _ls_settings_minimum_rpm_scanning = LS_SETTINGS_MINIMUM_RPM_SCANNING_100MM;
+  }
+}
 void ls_settings_set_defaults(void) {
+  ls_settings_configure_limits();
   ls_settings_set_stepper_speed(LS_STEPPER_STEPS_PER_SECOND_DEFAULT);
-  ls_settings_set_maximum_rpm(LS_SETTINGS_DEFAULT_MAX_RPM);
+  if(ls_settings_get_mode()==LS_SPINMODE_1M) {
+    ls_settings_set_maximum_rpm(LS_SETTINGS_DEFAULT_MAX_RPM_1M);
+  } else {
+     ls_settings_set_maximum_rpm(LS_SETTINGS_DEFAULT_MAX_RPM_100MM);
+  }
   ls_settings_set_servo_top(LS_SERVO_US_MIN); // all the way at the top
   ls_settings_set_servo_bottom(100);          // all the way to the bottom
   ls_settings_set_servo_maxlimit(LS_SERVO_US_MAX_LIMIT);
   ls_settings_set_servo_minlimit(LS_SERVO_US_MIN_LIMIT);
 
+  if (ls_settings_get_mode()==LS_SPINMODE_HOP_FURTHER) {
+    ls_settings_set_stepper_random_max((2 * LS_STEPPER_RANDOM_HOP_STEPS_MAX));
+  } else {
   ls_settings_set_stepper_random_max(LS_STEPPER_RANDOM_HOP_STEPS_MAX);
+  }
   ls_settings_set_light_threshold_on((int)((int[]){
       LS_LIGHTSENSE_THRESHOLDS_ON_MV})[LS_LIGHTSENSE_THRESHOLD_DEFAULT]);
   ls_settings_set_light_threshold_off((int)((int[]){
@@ -82,6 +108,58 @@ void ls_settings_set_defaults(void) {
 void ls_settings_reset_defaults(void) {
   ls_settings_set_defaults();
   ls_settings_save();
+}
+
+void ls_settings_reset_for_current_spinmode(void){
+    ls_settings_configure_limits();
+  // reset only speed and servo according to current mode
+  switch(ls_spinmode()) {
+      case LS_SPINMODE_CLASSIIIA:
+      case LS_SPINMODE_100MM:
+          ls_settings_set_maximum_rpm(LS_SETTINGS_DEFAULT_MAX_RPM_100MM);
+          ls_settings_set_servo_minlimit(LS_SERVO_US_10DEG);
+          ls_settings_set_servo_maxlimit(LS_SERVO_US_90DEG);
+          ls_settings_set_servo_top(LS_SERVO_US_10DEG); // a bit below the top
+          ls_settings_set_servo_bottom(90);          // not quite all the way to the bottom
+          ls_settings_set_mode(ls_spinmode());
+          ls_settings_save();
+      break;
+      case LS_SPINMODE_1M:
+          ls_settings_set_servo_minlimit(LS_SERVO_US_0DEG);
+          ls_settings_set_servo_maxlimit(LS_SERVO_US_90DEG);
+          ls_settings_set_maximum_rpm(LS_SETTINGS_DEFAULT_MAX_RPM_1M);
+          ls_settings_set_servo_top(LS_SERVO_US_10DEG); // not quite the top
+          ls_settings_set_servo_bottom(90);          // not quite all the way to the bottom
+          ls_settings_set_mode(ls_spinmode());
+          ls_settings_save();
+      break;
+      case LS_SPINMODE_HOP_FURTHER:
+          ls_settings_set_servo_minlimit(LS_SERVO_US_0DEG);
+          ls_settings_set_servo_maxlimit(LS_SERVO_US_60DEG);
+          ls_settings_set_stepper_random_max(2 * LS_STEPPER_RANDOM_HOP_STEPS_MAX);
+          ls_settings_set_servo_top(LS_SERVO_US_0DEG); // not quite the top
+          ls_settings_set_servo_bottom(50);          // half way 
+          ls_settings_set_mode(ls_spinmode());
+          ls_settings_save();
+      break;
+      case LS_SPINMODE_HOP:
+          ls_settings_set_servo_minlimit(LS_SERVO_US_0DEG);
+          ls_settings_set_servo_maxlimit(LS_SERVO_US_60DEG);
+          ls_settings_set_stepper_random_max(LS_STEPPER_RANDOM_HOP_STEPS_MAX);
+          ls_settings_set_servo_top(LS_SERVO_US_0DEG); // not quite the top
+          ls_settings_set_servo_bottom(50);          // half way 
+          ls_settings_set_mode(ls_spinmode());
+          ls_settings_save();
+      break;
+      case LS_SPINMODE_SELFTEST:
+      case LS_SPINMODE_NOT_INITIALIZED:
+          ls_settings_set_servo_minlimit(LS_SERVO_US_0DEG);
+          ls_settings_set_servo_maxlimit(LS_SERVO_US_90DEG);
+          ls_settings_set_stepper_random_max(LS_STEPPER_RANDOM_HOP_STEPS_MAX);
+          ls_settings_set_maximum_rpm(LS_SETTINGS_DEFAULT_MAX_RPM_100MM);
+          // don't save
+      break;
+  }//switch on mode
 }
 
 static void _ls_settings_open_nvs(void) {
@@ -154,6 +232,10 @@ void ls_settings_read(void) {
       ls_settings_reset_defaults();
       return; //early... no reason to read the value which will have just been reset
   }
+  if (ESP_OK == _ls_settings_read_from_nvs(LS_SETTINGS_NVS_KEY_MODE,
+                                           &nvs_value)) {
+    ls_settings_set_mode(nvs_value);
+  }
   if (ESP_OK == _ls_settings_read_from_nvs(LS_SETTINGS_NVS_KEY_STEPPER_SPEED,
                                            &nvs_value)) {
     ls_settings_set_stepper_speed(nvs_value);
@@ -214,6 +296,20 @@ void ls_settings_save(void) {
   ls_debug_printf("Saving settings to NVS\n");
 #endif
   _ls_settings_open_nvs();
+  if (ESP_OK == nvs_set_i32(_ls_settings_nvs_handle,
+                            LS_SETTINGS_NVS_KEY_MODE,
+                            ls_settings_get_mode())) {
+    ;
+#ifdef LSDEBUG_SETTINGS
+    ls_debug_printf("Settings saved mode=%d\n",
+                    ls_settings_get_mode());
+#endif
+  } else {
+    ;
+#ifdef LSDEBUG_SETTINGS
+    ls_debug_printf("Settings could not save stepper speed\n");
+#endif
+  }
   if (ESP_OK == nvs_set_i32(_ls_settings_nvs_handle,
                             LS_SETTINGS_NVS_KEY_STEPPER_SPEED,
                             ls_settings_get_stepper_speed())) {
@@ -371,16 +467,23 @@ void ls_settings_save(void) {
   _ls_settings_close_nvs();
 }
 
+void ls_settings_set_mode(BaseType_t mode){
+  _ls_settings_mode = mode;
+}
+BaseType_t ls_settings_get_mode(void){
+  return _ls_settings_mode;
+}
+
 BaseType_t ls_settings_map_control_to_stepper_speed(BaseType_t adc) {
   return _map(
       _constrain(adc, LS_CONTROLS_READING_BOTTOM, LS_CONTROLS_READING_TOP),
       LS_CONTROLS_READING_BOTTOM, LS_CONTROLS_READING_TOP,
-      LS_STEPPER_STEPS_PER_SECOND_MIN, LS_STEPPER_STEPS_PER_SECOND_MAX);
+      LS_STEPPER_STEPS_PER_SECOND_MIN, _ls_settings_stepper_steps_per_second_limit);
 }
 void ls_settings_set_stepper_speed(BaseType_t steps_per_second) {
   _ls_settings_stepper_speed =
       _constrain(steps_per_second, LS_STEPPER_STEPS_PER_SECOND_MIN,
-                 LS_STEPPER_STEPS_PER_SECOND_MAX);
+                 _ls_settings_stepper_steps_per_second_limit);
 #ifdef LSDEBUG_SETTINGS
   ls_debug_printf("Setting stepper_speed = %d\n", _ls_settings_stepper_speed);
 #endif
@@ -539,12 +642,12 @@ BaseType_t ls_settings_get_servo_minlimit(void) {
 BaseType_t ls_settings_map_control_to_maximum_rpm(BaseType_t adc) {
     return _map(_constrain(adc, LS_CONTROLS_READING_BOTTOM, LS_CONTROLS_READING_TOP),
            LS_CONTROLS_READING_BOTTOM, LS_CONTROLS_READING_TOP, 
-           LS_SETTINGS_MINIMUM_RPM_SCANNING, LS_SETTINGS_MAXIMUM_RPM_SCANNING);
+           _ls_settings_minimum_rpm_scanning, LS_SETTINGS_MAXIMUM_RPM_SCANNING);
 }
 
 void ls_settings_set_maximum_rpm(BaseType_t rpm)
 {
-  _ls_settings_stepper_max_rpm=_constrain(rpm, LS_SETTINGS_MINIMUM_RPM_SCANNING, LS_SETTINGS_MAXIMUM_RPM_SCANNING);
+  _ls_settings_stepper_max_rpm=_constrain(rpm, _ls_settings_minimum_rpm_scanning, LS_SETTINGS_MAXIMUM_RPM_SCANNING);
 }
 
 BaseType_t ls_settings_get_maximum_rpm(void) {
@@ -553,5 +656,5 @@ BaseType_t ls_settings_get_maximum_rpm(void) {
 
 // there is not currently any control for this
 BaseType_t ls_settings_get_minimum_rpm(void){
-  return LS_SETTINGS_MINIMUM_RPM_SCANNING;
+  return _ls_settings_minimum_rpm_scanning;
 }

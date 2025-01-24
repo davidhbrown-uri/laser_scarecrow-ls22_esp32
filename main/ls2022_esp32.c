@@ -16,7 +16,7 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 #define VERSION_MESSAGE                                                        \
-  "URI Laser Scarecrow Aquaculture Prototype version 3.0.1 (Fast Spinning)\n"
+  "URI Laser Scarecrow Berry Prototype version 3.1.0 (Spin Modes)\n"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -99,12 +99,17 @@ void app_main(void) {
   ls_servo_init();
   ls_leds_init();
   ls_oled_init();
+  ls_tapemode_init();
   ls_oled_show_logo();
 
   printf("Initialized Hardware\n");
   ls_settings_set_defaults();
   ls_settings_read();
   printf("Loaded settings\n");
+  if (ls_spinmode() != ls_settings_get_mode()) {
+    printf("Resetting potentially incompatible settings for new jumper setting %d.", ls_spinmode());
+    ls_settings_reset_for_current_spinmode();
+  }
 
   ls_event_queue_init();
   ls_state_init();
@@ -128,7 +133,7 @@ void app_main(void) {
   //   printf("No failsafe heartbeat!\n");
   //   ls_state_current.func = ls_state_error_heartbeat;
   // }
-  ls_failsafe_init();
+
 
 
   // higher priority tasks get higher priority values

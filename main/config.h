@@ -22,7 +22,7 @@
 // whenever settings code or config values are modified, increment this. Format can be YYYYMMDDHH;
 // LS_SETTINGS_VERSION must fit within a 32-bit signed integer 
 // (2^31-1 = 2147483647 gets us to the 47th hour of the 36th day in the 48th month of 2147 ;-) )
-#define LS_SETTINGS_VERSION 2024080315
+#define LS_SETTINGS_VERSION 2025012021
 
 // Configure flags for attached hardware and general behavior
 #define LS_HAS_DUAL_LASER
@@ -154,7 +154,7 @@ https://docs.espressif.com/projects/esp-idf/en/v4.4/esp32/api-reference/peripher
 
 // physical limits for the servo:
 #define LS_SERVO_US_MIN 750
-// 2250 not safe for dual
+// 2250 not safe for dual; can jam/break laser wire
 // #define LS_SERVO_US_MAX 2250
 #define LS_SERVO_US_MAX 2000
 // positions available to use in state-settings:
@@ -162,6 +162,7 @@ https://docs.espressif.com/projects/esp-idf/en/v4.4/esp32/api-reference/peripher
 // #define LS_SERVO_US_NEG10DEG 888
 #define LS_SERVO_US_NEG5DEG 944
 #define LS_SERVO_US_0DEG 1000
+#define LS_SERVO_US_10DEG 1111
 #define LS_SERVO_US_20DEG 1222
 #define LS_SERVO_US_30DEG 1333
 #define LS_SERVO_US_45DEG 1500
@@ -239,7 +240,7 @@ https://docs.espressif.com/projects/esp-idf/en/v4.4/esp32/api-reference/peripher
 
 #define LS_FAILSAFE_TIMER_GROUP TIMER_GROUP_0
 #define LS_FAILESAFE_TIMER TIMER_1
-// microseconds before failesafe alarm should trigger
+// microseconds (µs) before failesafe alarm should trigger
 #define LS_FAILESAFE_ALARM_US 1500
 
 #ifdef LS_FAILSAFE_TESTING
@@ -252,10 +253,17 @@ https://docs.espressif.com/projects/esp-idf/en/v4.4/esp32/api-reference/peripher
 // to drop exposure to IIIA instead of IIIB:
 // correct value is 176RPM, so add a margin for 180
 // normal values 190-300 RPM
-#define LS_LASER_ENABLE_MINIMUM_RPM 180
-#define LS_SETTINGS_MINIMUM_RPM_SCANNING 190
+//#define LS_LASER_ENABLE_MINIMUM_RPM 180
+#define LS_LASER_ENABLE_MINIMUM_RPM_100MM 180
+#define LS_SETTINGS_MINIMUM_RPM_SCANNING_100MM 190
+#define LS_LASER_ENABLE_MINIMUM_RPM_1M 21
+#define LS_SETTINGS_MINIMUM_RPM_SCANNING_1M 22
+// #define LS_SETTINGS_MINIMUM_RPM_SCANNING 190
+// #define LS_SETTINGS_DEFAULT_MAX_RPM 240
+// 100MM values also for IIIA mode
+#define LS_SETTINGS_DEFAULT_MAX_RPM_100MM 240
+#define LS_SETTINGS_DEFAULT_MAX_RPM_1M 100
 #define LS_SETTINGS_MAXIMUM_RPM_SCANNING 330
-#define LS_SETTINGS_DEFAULT_MAX_RPM 240
 #endif
 
 #define LS_SETTINGS_MINIMUM_RPM_MOVEMENT 5

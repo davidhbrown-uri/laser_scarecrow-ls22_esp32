@@ -31,6 +31,17 @@ enum ls_tapemode_mode
     LS_TAPEMODE_NOT_INITIALIZED
 };
 
+enum ls_spinmode_mode
+{
+    LS_SPINMODE_SELFTEST,
+    LS_SPINMODE_HOP,
+    LS_SPINMODE_HOP_FURTHER,
+    LS_SPINMODE_1M,
+    LS_SPINMODE_100MM,
+    LS_SPINMODE_CLASSIIIA,
+    LS_SPINMODE_NOT_INITIALIZED,
+};
+
 /**
  * @brief Call once on startup, then use ls_tapemode();
  * 
@@ -44,6 +55,8 @@ void ls_tapemode_init(void);
  */
 enum ls_tapemode_mode ls_tapemode(void);
 
+enum ls_spinmode_mode ls_spinmode(void);
+
 /**
  * @brief the currently selected tape mode
  * 
@@ -52,6 +65,7 @@ enum ls_tapemode_mode ls_tapemode(void);
  * @return enum ls_tapemode_mode 
  */
 enum ls_tapemode_mode ls_tapemode_current(void);
+enum ls_spinmode_mode ls_spinmode_current(void);
 
 void ls_tapemode_selftest_task(void *pvParameter);
 

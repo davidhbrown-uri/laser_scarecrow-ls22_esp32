@@ -18,6 +18,7 @@
 #include "laser.h"
 #include "config.h"
 #include "failsafe.h"
+#include "tapemode.h"
 #include "driver/gpio.h"
 #include "driver/timer.h"
 
@@ -28,7 +29,10 @@ void ls_laser_set_mode(enum ls_laser_mode_t requested_mode)
     switch (requested_mode)
     {
     case LS_LASER_OFF:
-        ls_failsafe_pause();
+        if(LS_SPINMODE_CLASSIIIA == ls_spinmode() )
+        {
+            ls_failsafe_pause();
+        }
         gpio_set_level(LSGPIO_LASERPOWERENABLE, 0);
         break;
     case LS_LASER_ON:
@@ -39,7 +43,10 @@ void ls_laser_set_mode(enum ls_laser_mode_t requested_mode)
         vTaskDelay(pdMS_TO_TICKS(500));
     #endif
         gpio_set_level(LSGPIO_LASERPOWERENABLE, 1);
-        ls_failsafe_start();
+        if(LS_SPINMODE_CLASSIIIA == ls_spinmode() )
+        {
+            ls_failsafe_start();
+        }
         break;
     case LS_LASER_MAPPED:
     // if we ever do mapped with a failsafe, we will need to ensure that the laser is powered and begin the failsafe.

@@ -33,6 +33,12 @@ void ls_settings_reset_defaults(void);
 void ls_settings_read(void);
 void ls_settings_save(void);
 
+void ls_settings_reset_for_current_spinmode(void);
+void ls_settings_configure_limits(void);
+
+void ls_settings_set_mode(BaseType_t mode);
+BaseType_t ls_settings_get_mode(void);
+
 BaseType_t ls_settings_map_control_to_stepper_speed(BaseType_t adc);
 void ls_settings_set_stepper_speed(BaseType_t steps_per_second);
 BaseType_t ls_settings_get_stepper_speed(void);
@@ -86,3 +92,4 @@ BaseType_t ls_settings_get_servo_maxlimit(void);
 BaseType_t ls_settings_map_control_to_servo_minlimit(BaseType_t);
 void ls_settings_set_servo_minlimit(BaseType_t);
 BaseType_t ls_settings_get_servo_minlimit(void);
+
