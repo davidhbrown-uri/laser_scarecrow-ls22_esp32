@@ -25,20 +25,25 @@
 #include "freertos/queue.h"
 #include "freertos/semphr.h"
 
-
-// #define LSDEBUG_ENABLE
+#define LSDEBUG_ENABLE
 
 #ifdef LSDEBUG_ENABLE
 
 extern SemaphoreHandle_t print_mux; // in ls2022_esp32.c
 
-//variadic macro help from https://gcc.gnu.org/onlinedocs/cpp/Variadic-Macros.html
-#define ls_debug_printf(args...) { xSemaphoreTake(print_mux, 5); printf("[%llu] ", (esp_timer_get_time() / 1000ULL)); printf(args); xSemaphoreGive(print_mux); }
+// variadic macro help from https://gcc.gnu.org/onlinedocs/cpp/Variadic-Macros.html
+#define ls_debug_printf(args...)                             \
+    {                                                        \
+        xSemaphoreTake(print_mux, 5);                        \
+        printf("[%llu] ", (esp_timer_get_time() / 1000ULL)); \
+        printf(args);                                        \
+        xSemaphoreGive(print_mux);                           \
+    }
 
 // Uncomment any desired classes of debug output to enable output via ls_debug_printf
 
 // output information about rotation
-// #define LSDEBUG_STEPPER
+#define LSDEBUG_STEPPER
 
 #ifdef LSDEBUG_STEPPER
 #define LSDEBUG_STEPPER_STATUS_INTERVAL_MS 4000
@@ -47,47 +52,47 @@ extern SemaphoreHandle_t print_mux; // in ls2022_esp32.c
 // output (less) about selection of random movement targets
 // #define LSDEBUG_STEPPER_RANDOM
 
-//#define LSDEBUG_COVERAGE
-// LSDEBUG_COVERAGE_POSITIONS outputs most recent list whenever the ring buffer cycled 
-//#define LSDEBUG_COVERAGE_POSITIONS
-// LSDEBUG_COVERAGE_MEASURE output is the position of the arm multiple times per second
-//#define LSDEBUG_COVERAGE_MEASURE
+// #define LSDEBUG_COVERAGE
+//  LSDEBUG_COVERAGE_POSITIONS outputs most recent list whenever the ring buffer cycled
+// #define LSDEBUG_COVERAGE_POSITIONS
+//  LSDEBUG_COVERAGE_MEASURE output is the position of the arm multiple times per second
+// #define LSDEBUG_COVERAGE_MEASURE
 
 // caution: debugging acceleration is exceptionally verbose
-//#define LSDEBUG_ACCELERATION
+// #define LSDEBUG_ACCELERATION
 
-//#define LSDEBUG_HOMING
+// #define LSDEBUG_HOMING
 
-// #define LSDEBUG_STATES
+#define LSDEBUG_STATES
 
 // #define LSDEBUG_MAGNET_TIMEOUT
 
 // #define LSDEBUG_FAILSAFE
 
-//#define LSDEBUG_CONTROLS
+// #define LSDEBUG_CONTROLS
 
-//#define LSDEBUG_CONTROLS_VERBOSE
+// #define LSDEBUG_CONTROLS_VERBOSE
 
-//#define LSDEBUG_TAPEMODE
+#define LSDEBUG_TAPEMODE
 
-//#define LSDEBUG_BUZZER
+// #define LSDEBUG_BUZZER
 
 // REMEMBER #define LSDEBUG_ENABLE at top if you aren't getting any output!
 
-//#define LSDEBUG_MAP
+// #define LSDEBUG_MAP
 
 // #define LSDEBUG_LIGHTSENSE
- 
-//#define LSDEBUG_SERVO
 
-//#define LSDEBUG_SERVO_VERBOSE
+// #define LSDEBUG_SERVO
 
-// #define LSDEBUG_SETTINGS
+// #define LSDEBUG_SERVO_VERBOSE
 
-//#define LSDEBUG_LEDS
+#define LSDEBUG_SETTINGS
 
-//#define LSDEBUG_I2C
+// #define LSDEBUG_LEDS
 
-//#define LSDEBUG_TILT
+// #define LSDEBUG_I2C
+
+// #define LSDEBUG_TILT
 
 #endif

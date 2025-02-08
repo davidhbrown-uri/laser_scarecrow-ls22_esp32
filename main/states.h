@@ -31,7 +31,7 @@ void event_handler_state_machine(void *pvParameter);
  * @brief Initialize timers 
  * 
  */
-void ls_state_init(void);
+void ls_state_init_watchdog_timers(void);
 
 // typedef struct ls_State {
 //     struct ls_State (*func)(ls_event);

@@ -112,7 +112,7 @@ void app_main(void) {
   }
 
   ls_event_queue_init();
-  ls_state_init();
+  ls_state_init_watchdog_timers();
   // do not set magnet ISR up before event queue
   ls_magnet_isr_begin();
   // do not init failsafe before event queue

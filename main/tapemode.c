@@ -30,6 +30,27 @@ extern SemaphoreHandle_t adc1_mux;
 extern SemaphoreHandle_t print_mux;
 static enum ls_tapemode_mode _ls_tapemode = LS_TAPEMODE_NOT_INITIALIZED;
 
+bool ls_spinmode_is_spinning(void) {
+    switch (ls_spinmode()) {
+        case LS_SPINMODE_CLASSIIIA:
+        case LS_SPINMODE_100MM:
+        case LS_SPINMODE_1M:
+        return true;
+        default:
+        return false;
+    }
+}
+bool ls_spinmode_is_hopping(void){
+    switch (ls_spinmode()) {
+        case LS_SPINMODE_HOP:
+        case LS_SPINMODE_HOP_FURTHER:
+        return true;
+        default:
+        return false;
+    }
+}
+
+
 static enum ls_tapemode_mode ls_tapemode_from_adc(uint32_t adc_reading)
 {
     if (adc_reading > LS_TAPEMODE_THRESHOLD_5)

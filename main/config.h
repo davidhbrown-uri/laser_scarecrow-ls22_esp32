@@ -179,8 +179,8 @@ https://docs.espressif.com/projects/esp-idf/en/v4.4/esp32/api-reference/peripher
 #define LS_SERVO_DELTA_PER_TICK_DEFAULT 2
 #define LS_SERVO_DELTA_PER_TICK_MAX 15
 #define LS_SERVO_DELTA_PER_TICK_MIN 1
-#define LS_SERVO_RANDOM_PAUSE_MS 300
-#define LS_SERVO_SWEEP_PAUSE_MS 4000
+#define LS_SERVO_RANDOM_PAUSE_MS 3000
+#define LS_SERVO_SWEEP_PAUSE_MS 5000
 // see https://docs.espressif.com/projects/esp-idf/en/v4.4.7/esp32/api-reference/peripherals/mcpwm.html
 #define LS_SERVO_MCPWM_UNIT MCPWM_UNIT_0
 #define LS_SERVO_MCPWM_IO_SIGNALS MCPWM0A
@@ -233,7 +233,8 @@ https://docs.espressif.com/projects/esp-idf/en/v4.4/esp32/api-reference/peripher
 // 4000 ms produced a timeout every few minutes (adequate for testing, 
 // though about half the time the magnet was detected while doing the initial stop)
 // 10000 ms or so should be reasonable for deployment
-#define LS_STATE_MAGNET_TIMEOUT_PERIOD_MS 12000
+// set to 2000 for testing whether it can work when hopping
+#define LS_STATE_MAGNET_TIMEOUT_PERIOD_MS 2000
 #define LS_STATE_MAGNET_SLOWSPIN_MS_PER_RPM 1000
 #define LS_STATE_MAGNET_SLOWSPIN_INITIAL_RPM 30
 #define LS_STATE_MAGNET_SLOWSPIN_FINAL_RPM 15

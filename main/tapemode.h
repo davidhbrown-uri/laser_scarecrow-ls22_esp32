@@ -57,6 +57,9 @@ enum ls_tapemode_mode ls_tapemode(void);
 
 enum ls_spinmode_mode ls_spinmode(void);
 
+bool ls_spinmode_is_spinning(void);
+bool ls_spinmode_is_hopping(void);
+
 /**
  * @brief the currently selected tape mode
  * 
