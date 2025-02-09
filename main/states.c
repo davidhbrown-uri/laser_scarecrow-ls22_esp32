@@ -409,7 +409,7 @@ ls_State ls_state_active(ls_event event)
 #ifdef LSDEBUG_STATES
         ls_debug_printf("STATES: enabling random 'hopping' rotation.\n");
 #endif
-            ls_stepper_set_random_hop_strategy(&ls_stepper_random_strategy_default);
+            ls_stepper_set_random_hop_strategy(ls_stepper_random_strategy_default);
             ls_stepper_random_hop();
         }
         if (ls_spinmode_is_spinning()) {

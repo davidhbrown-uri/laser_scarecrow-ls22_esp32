@@ -289,7 +289,7 @@ static void _ls_stepper_set_hop_speed(void)
         _ls_stepper_speed_current_hop_rate -= LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_TICK;
     }
 #ifdef LSDEBUG_ACCELERATION
-    ls_debug_printf("Current rate/max: %d/%d; steps to decelerate: %d; steps remaining: %d; %c %c\n", _ls_stepper_speed_current_hop_rate, _ls_stepper_steps_per_second_max, steps_to_decelerate, ls_stepper_steps_remaining,
+    ls_debug_printf("ACCEL: Current rate/max: %d/%d; steps to decelerate: %d; steps remaining: %d; %c %c\n", _ls_stepper_speed_current_hop_rate, _ls_stepper_steps_per_second_max, steps_to_decelerate, ls_stepper_steps_remaining,
                     could_accelerate ? '+' : ' ', should_decelerate ? '-' : ' ');
 #endif
     // but stay within bounds
@@ -432,21 +432,36 @@ enum ls_stepper_rotation_mode _do_state_hopping(enum ls_stepper_rotation_mode cu
         }
         break;
     case LS_STEPPER_ACTION_IDLE: // LS_STEPPER_ROTATION_MODE_HOPPING|LS_STEPPER_ROTATION_MODE_RANDOM_HOP
+        if(ls_stepper_mode_hop0_spin1 == 0) {
+            _ls_stepper_set_hop_speed();
+        } else {
+            _ls_stepper_set_spin_speed();
+        }
+        break;
     case LS_STEPPER_ACTION_RANDOM_HOP: // LS_STEPPER_ROTATION_MODE_HOPPING|LS_STEPPER_ROTATION_MODE_RANDOM_HOP
-        _ls_stepper_set_hop_speed(); // LS_STEPPER_ROTATION_MODE_HOPPING|LS_STEPPER_ROTATION_MODE_RANDOM_HOP
+        _ls_stepper_set_hop_speed();
+        successor_rotation_mode = LS_STEPPER_ROTATION_MODE_RANDOM_HOP;
         break;
     case LS_STEPPER_ACTION_RANDOM_SPIN: // LS_STEPPER_ROTATION_MODE_HOPPING|LS_STEPPER_ROTATION_MODE_RANDOM_HOP
+        _ls_stepper_set_spin_speed();
+        successor_rotation_mode = LS_STEPPER_ROTATION_MODE_RANDOM_SPIN;
+        break;
     case LS_STEPPER_ACTION_TARGET_RPM: // LS_STEPPER_ROTATION_MODE_HOPPING|LS_STEPPER_ROTATION_MODE_RANDOM_HOP
+        _ls_stepper_set_spin_speed();
+        successor_rotation_mode = LS_STEPPER_ROTATION_MODE_SPINNING;
+        break;
     case LS_STEPPER_ACTION_SLEEP: // LS_STEPPER_ROTATION_MODE_HOPPING|LS_STEPPER_ROTATION_MODE_RANDOM_HOP
-    case LS_STEPPER_ACTION_SPIN:
         _ls_stepper_stop_next_action();
+        break;
+    case LS_STEPPER_ACTION_SPIN:
+        _ls_stepper_set_spin_speed();
         _ls_stepper_repeat_action(current_message);
     break;
     }
     return successor_rotation_mode;
 }
 void _ls_stepper_set_direction_and_timer_for_rpm(int rpm){
-    enum ls_stepper_direction_t new_direction = rpm >= 0 ? LS_STEPPER_DIRECTION_FORWARD : LS_STEPPER_DIRECTION_REVERSE;
+    enum ls_stepper_direction_t new_direction = (rpm >= 0) ? LS_STEPPER_DIRECTION_FORWARD : LS_STEPPER_DIRECTION_REVERSE;
     uint64_t new_count = _timer_alarm_count_from_rpm(rpm);
     if((new_direction != ls_stepper_direction) || (new_count != ls_stepper_target_timer_alarm_count))
     {
@@ -653,7 +668,7 @@ void ls_stepper_task(void *pvParameter)
         // now process according to current state
         successor_stepper_rotation_mode = _current_stepper_rotation_mode;
         switch (_current_stepper_rotation_mode) {
-            case LS_STEPPER_ROTATION_MODE_UNPOWERED:
+            case LS_STEPPER_ROTATION_MODE_UNPOWERED: // 0
                 gpio_set_level(LSGPIO_STEPPERENABLE, STEPPERENABLE_DISABLE);
                 switch(_current_stepper_action) {
                     case LS_STEPPER_ACTION_SLEEP: // we're already there... nothing to do
@@ -680,7 +695,7 @@ void ls_stepper_task(void *pvParameter)
                     break;
                 } // switch action for LS_STEPPER_ROTATION_MODE_UNPOWERED
             break;
-            case LS_STEPPER_ROTATION_MODE_STOPPED:
+            case LS_STEPPER_ROTATION_MODE_STOPPED: // 1
                 switch(message.action) {
                     case LS_STEPPER_ACTION_IDLE: // LS_STEPPER_ROTATION_MODE_STOPPED
                     break;
@@ -737,11 +752,14 @@ void ls_stepper_task(void *pvParameter)
                 // ls_debug_printf("Stepper starting\n");
 #endif
             break;
-            case LS_STEPPER_ROTATION_MODE_RANDOM_HOP:
+            case LS_STEPPER_ROTATION_MODE_RANDOM_HOP: // 2
                 gpio_set_level(LSGPIO_STEPPERENABLE, STEPPERENABLE_ENABLE);
                 ls_stepper_mode_hop0_spin1 = 0;
                 if (ls_stepper_steps_remaining <= 0)
                 {
+#ifdef LSDEBUG_STEPPER_RANDOM
+ls_debug_printf("Finished move; calling the _ls_stepper_random_strategy\n");
+#endif                    
                     // invoke the current move strategy
                     (*_ls_stepper_random_strategy)(&ls_stepper_move);
                     ls_stepper_direction = ls_stepper_move.direction;
@@ -754,7 +772,7 @@ void ls_stepper_task(void *pvParameter)
                 } // finished move
                 successor_stepper_rotation_mode = _do_state_hopping(_current_stepper_rotation_mode, &message);
             break;
-            case LS_STEPPER_ROTATION_MODE_RANDOM_SPIN:
+            case LS_STEPPER_ROTATION_MODE_RANDOM_SPIN: // 3
                 gpio_set_level(LSGPIO_STEPPERENABLE, STEPPERENABLE_ENABLE);
                 ls_stepper_mode_hop0_spin1 = 1;
                 switch(_current_stepper_action) {
@@ -799,12 +817,12 @@ if(successor_stepper_rotation_mode != _current_stepper_rotation_mode)
 }
 #endif
             break;
-            case LS_STEPPER_ROTATION_MODE_HOPPING:
+            case LS_STEPPER_ROTATION_MODE_HOPPING: // 4
                 gpio_set_level(LSGPIO_STEPPERENABLE, STEPPERENABLE_ENABLE);
                 ls_stepper_mode_hop0_spin1 = 0;
                 successor_stepper_rotation_mode = _do_state_hopping(_current_stepper_rotation_mode, &message);
             break;
-            case LS_STEPPER_ROTATION_MODE_SPINNING:
+            case LS_STEPPER_ROTATION_MODE_SPINNING: // 5
                 gpio_set_level(LSGPIO_STEPPERENABLE, STEPPERENABLE_ENABLE);
                 ls_stepper_mode_hop0_spin1 = 1;
                 successor_stepper_rotation_mode = _do_state_spinning(_current_stepper_rotation_mode, &message);
@@ -1013,9 +1031,10 @@ void ls_stepper_debug_task(void *pvParameter)
         ls_debug_printf("STEPPER DEBUG: _current_stepper_rotation_mode = %d; _current_stepper_action = %d.\n",
              _current_stepper_rotation_mode, _current_stepper_action);
         if(0==ls_stepper_mode_hop0_spin1) {
-        ls_debug_printf("   (hopping) position=%d; rate=%d; remaining=%d; taken=%d; direction=%d, step_phase=%d\n",
-                        ls_stepper_position, _ls_stepper_speed_current_hop_rate, ls_stepper_steps_remaining,
-                        ls_stepper_steps_taken, ls_stepper_direction, _ls_stepperstep_phase);
+        ls_debug_printf("   (hopping) position=%d; rate=%d/%d; remaining=%d; taken=%d; direction=%d, step_phase=%d\n",
+                        ls_stepper_position, _ls_stepper_speed_current_hop_rate, _ls_stepper_steps_per_second_max, 
+                        ls_stepper_steps_remaining, ls_stepper_steps_taken, 
+                        ls_stepper_direction, _ls_stepperstep_phase);
         }
         if(1==ls_stepper_mode_hop0_spin1) {
         ls_debug_printf("   (spinning) current RPM=%d [%llu]; target RPM=%d [%llu]; direction=%d, step_phase=%d\n",
