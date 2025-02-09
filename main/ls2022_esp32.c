@@ -94,12 +94,12 @@ void app_main(void) {
       ADC_UNIT_1, ADC_ATTEN_11db, ADC_WIDTH_12Bit, 1100, adc_chars);
   print_char_val_type(val_type);
   check_efuse();
+  ls_tapemode_init();
   ls_buzzer_init();
-  ls_stepper_init();
+  ls_stepper_init();// depends on tapemode
   ls_servo_init();
   ls_leds_init();
   ls_oled_init();
-  ls_tapemode_init();
   ls_oled_show_logo();
 
   printf("Initialized Hardware\n");

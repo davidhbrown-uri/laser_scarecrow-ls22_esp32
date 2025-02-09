@@ -50,7 +50,7 @@ extern SemaphoreHandle_t print_mux; // in ls2022_esp32.c
 #endif
 
 // output (less) about selection of random movement targets
-// #define LSDEBUG_STEPPER_RANDOM
+#define LSDEBUG_STEPPER_RANDOM
 
 // #define LSDEBUG_COVERAGE
 //  LSDEBUG_COVERAGE_POSITIONS outputs most recent list whenever the ring buffer cycled
@@ -63,7 +63,9 @@ extern SemaphoreHandle_t print_mux; // in ls2022_esp32.c
 
 // #define LSDEBUG_HOMING
 
-#define LSDEBUG_STATES
+#define LSDEBUG_LASER
+
+// #define LSDEBUG_STATES
 
 // #define LSDEBUG_MAGNET_TIMEOUT
 
@@ -73,7 +75,7 @@ extern SemaphoreHandle_t print_mux; // in ls2022_esp32.c
 
 // #define LSDEBUG_CONTROLS_VERBOSE
 
-#define LSDEBUG_TAPEMODE
+// #define LSDEBUG_TAPEMODE
 
 // #define LSDEBUG_BUZZER
 

@@ -34,6 +34,7 @@
 #include "map.h"
 #include "util.h"
 #include "settings.h"
+#include "tapemode.h"
 #include "math.h"
 
 #define LS_STEPPER_TIMER_DIVIDER (10)
@@ -170,8 +171,8 @@ void ls_stepper_set_maximum_steps_per_second(int steps_per_second)
 static bool IRAM_ATTR ls_stepper_step_isr_callback(void *args)
 {
     BaseType_t high_task_awoken = pdFALSE;
-    // always turn the laser off if hopping or too slow
-    if (0==ls_stepper_mode_hop0_spin1 || ls_stepper_current_timer_alarm_count > ls_stepper_maximum_laser_enable_alarm_count)
+    // turn the laser off if spinning and too slow
+    if (1==ls_stepper_mode_hop0_spin1 && ls_stepper_current_timer_alarm_count > ls_stepper_maximum_laser_enable_alarm_count)
     {
         gpio_set_level(LSGPIO_LASERPOWERENABLE,0);
     }
@@ -228,12 +229,18 @@ static bool IRAM_ATTR ls_stepper_step_isr_callback(void *args)
 
 void ls_stepper_init(void)
 {
-    if(ls_settings_get_mode()==LS_SETTINGS_MINIMUM_RPM_SCANNING_1M) {
+    if(ls_spinmode()==LS_SPINMODE_1M) {
+#ifdef LSDEBUG_STEPPER
+ls_debug_printf("STEPPER: Laser will be enabled when spinning at least %d RPM [1m].\n", LS_LASER_ENABLE_MINIMUM_RPM_1M);
+#endif
         ls_stepper_maximum_laser_enable_alarm_count = _alarms_1_rpm / LS_LASER_ENABLE_MINIMUM_RPM_1M;
-    } else {
+    } else if (ls_spinmode_is_spinning())
+    {
+#ifdef LSDEBUG_STEPPER
+ls_debug_printf("STEPPER: Laser will be enabled when spinning at least %d RPM [100mm].\n", LS_LASER_ENABLE_MINIMUM_RPM_100MM);
+#endif
         ls_stepper_maximum_laser_enable_alarm_count = _alarms_1_rpm / LS_LASER_ENABLE_MINIMUM_RPM_100MM;
     }
-    ls_stepper_maximum_laser_enable_alarm_count = 
     gpio_set_level(LSGPIO_STEPPERENABLE, STEPPERENABLE_DISABLE); // don't step while we get ready
     gpio_set_level(LSGPIO_STEPPERDIRECTION, LS_STEPPER_DIRECTION_FORWARD); // reasonable default
     ls_stepper_position = 0;

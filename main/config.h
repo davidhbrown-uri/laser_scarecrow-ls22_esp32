@@ -234,7 +234,7 @@ https://docs.espressif.com/projects/esp-idf/en/v4.4/esp32/api-reference/peripher
 // though about half the time the magnet was detected while doing the initial stop)
 // 10000 ms or so should be reasonable for deployment
 // set to 2000 for testing whether it can work when hopping
-#define LS_STATE_MAGNET_TIMEOUT_PERIOD_MS 2000
+#define LS_STATE_MAGNET_TIMEOUT_PERIOD_MS 20000
 #define LS_STATE_MAGNET_SLOWSPIN_MS_PER_RPM 1000
 #define LS_STATE_MAGNET_SLOWSPIN_INITIAL_RPM 30
 #define LS_STATE_MAGNET_SLOWSPIN_FINAL_RPM 15
@@ -262,8 +262,8 @@ https://docs.espressif.com/projects/esp-idf/en/v4.4/esp32/api-reference/peripher
 // #define LS_SETTINGS_MINIMUM_RPM_SCANNING 190
 // #define LS_SETTINGS_DEFAULT_MAX_RPM 240
 // 100MM values also for IIIA mode
-#define LS_SETTINGS_DEFAULT_MAX_RPM_100MM 240
-#define LS_SETTINGS_DEFAULT_MAX_RPM_1M 100
+#define LS_SETTINGS_DEFAULT_MAX_RPM_100MM 250
+#define LS_SETTINGS_DEFAULT_MAX_RPM_1M 200
 #define LS_SETTINGS_MAXIMUM_RPM_SCANNING 330
 #endif
 

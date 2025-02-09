@@ -17,6 +17,7 @@
 */
 #include "laser.h"
 #include "config.h"
+#include "debug.h"
 #include "failsafe.h"
 #include "tapemode.h"
 #include "driver/gpio.h"
@@ -34,6 +35,9 @@ void ls_laser_set_mode(enum ls_laser_mode_t requested_mode)
             ls_failsafe_pause();
         }
         gpio_set_level(LSGPIO_LASERPOWERENABLE, 0);
+#ifdef LSDEBUG_LASER
+ls_debug_printf("LASER: switched off\n");
+#endif
         break;
     case LS_LASER_ON:
     //wait for servos that might be starting at the same time to not overload supply
@@ -43,6 +47,9 @@ void ls_laser_set_mode(enum ls_laser_mode_t requested_mode)
         vTaskDelay(pdMS_TO_TICKS(500));
     #endif
         gpio_set_level(LSGPIO_LASERPOWERENABLE, 1);
+#ifdef LSDEBUG_LASER
+ls_debug_printf("LASER: switched on\n");
+#endif
         if(LS_SPINMODE_CLASSIIIA == ls_spinmode() )
         {
             ls_failsafe_start();
@@ -51,6 +58,9 @@ void ls_laser_set_mode(enum ls_laser_mode_t requested_mode)
     case LS_LASER_MAPPED:
     // if we ever do mapped with a failsafe, we will need to ensure that the laser is powered and begin the failsafe.
         gpio_set_level(LSGPIO_LASERPOWERENABLE, 0);
+#ifdef LSDEBUG_LASER
+ls_debug_printf("LASER: switched off (mapped)\n");
+#endif
         break;
     }
     _ls_laser_mode = requested_mode;
