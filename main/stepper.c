@@ -548,11 +548,11 @@ void _ls_enqueue_random_spin_target_rpm(void) {
     uint32_t random = esp_random();
     uint8_t rand_rpm = random & 0xFF;
     uint8_t rand_dir = (random >> 8) & 0xFF;
-#ifdef LSDEBUG_STEPPER_RANDOM
-    ls_debug_printf("STEPPER_RANDOM: _ls_enqueue_random_spin_target_rpm: rand_rpm=%d; rand_dir = %d.\n", rand_rpm, rand_dir);
-#endif
-    /** @todo get max from setting, not necessarily range limit */
     BaseType_t rpm = _map(rand_rpm, 0, 255, ls_settings_get_minimum_rpm(), ls_settings_get_maximum_rpm());
+#ifdef LSDEBUG_STEPPER_RANDOM
+    ls_debug_printf("STEPPER_RANDOM: _ls_enqueue_random_spin_target_rpm: rand_rpm=%d (%d-%d); rand_dir = %d.\n", 
+        rpm,  ls_settings_get_minimum_rpm(), ls_settings_get_maximum_rpm(), rand_dir);
+#endif
     // if we're already spinning backwards, keep spinning backwards
     if(LS_STEPPER_DIRECTION_REVERSE == ls_stepper_direction) {
         rpm = -rpm;
@@ -776,6 +776,8 @@ ls_debug_printf("Finished move; calling the _ls_stepper_random_strategy\n");
     #ifdef LSDEBUG_STEPPER
                     ls_debug_printf("STEPPER: from %d, moving %d steps %s\n", ls_stepper_position, ls_stepper_steps_remaining, ls_stepper_direction ? "-->" : "<--");
     #endif
+    /** @todo should I change the message if "stopping" at this point? */
+                    if (message.action == LS_STEPPER_ACTION_STOP) {message.action = LS_STEPPER_ACTION_RANDOM_HOP;}
                 } // finished move
                 successor_stepper_rotation_mode = _do_state_hopping(_current_stepper_rotation_mode, &message);
             break;

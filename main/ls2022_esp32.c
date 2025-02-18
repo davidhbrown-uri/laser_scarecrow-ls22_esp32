@@ -103,11 +103,12 @@ void app_main(void) {
   ls_oled_show_logo();
 
   printf("Initialized Hardware\n");
+  ls_settings_configure_limits();
   ls_settings_set_defaults();
   ls_settings_read();
   printf("Loaded settings\n");
   if (ls_spinmode() != ls_settings_get_mode()) {
-    printf("Resetting potentially incompatible settings for new jumper setting %d.", ls_spinmode());
+    printf("Resetting potentially incompatible settings for new jumper mode %d.", ls_spinmode());
     ls_settings_reset_for_current_spinmode();
   }
 

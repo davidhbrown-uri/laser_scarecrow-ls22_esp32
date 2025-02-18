@@ -25,7 +25,7 @@
 #include "freertos/queue.h"
 #include "freertos/semphr.h"
 
-#define LSDEBUG_ENABLE
+// #define LSDEBUG_ENABLE
 
 #ifdef LSDEBUG_ENABLE
 
@@ -34,7 +34,7 @@ extern SemaphoreHandle_t print_mux; // in ls2022_esp32.c
 // variadic macro help from https://gcc.gnu.org/onlinedocs/cpp/Variadic-Macros.html
 #define ls_debug_printf(args...)                             \
     {                                                        \
-        xSemaphoreTake(print_mux, 5);                        \
+        xSemaphoreTake(print_mux, 15);                        \
         printf("[%llu] ", (esp_timer_get_time() / 1000ULL)); \
         printf(args);                                        \
         xSemaphoreGive(print_mux);                           \
@@ -50,7 +50,7 @@ extern SemaphoreHandle_t print_mux; // in ls2022_esp32.c
 #endif
 
 // output (less) about selection of random movement targets
-#define LSDEBUG_STEPPER_RANDOM
+// #define LSDEBUG_STEPPER_RANDOM
 
 // #define LSDEBUG_COVERAGE
 //  LSDEBUG_COVERAGE_POSITIONS outputs most recent list whenever the ring buffer cycled
@@ -65,7 +65,7 @@ extern SemaphoreHandle_t print_mux; // in ls2022_esp32.c
 
 #define LSDEBUG_LASER
 
-// #define LSDEBUG_STATES
+#define LSDEBUG_STATES
 
 // #define LSDEBUG_MAGNET_TIMEOUT
 
@@ -96,5 +96,7 @@ extern SemaphoreHandle_t print_mux; // in ls2022_esp32.c
 // #define LSDEBUG_I2C
 
 // #define LSDEBUG_TILT
+
+#define LSDEBUG_SELFTEST
 
 #endif

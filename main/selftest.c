@@ -62,47 +62,84 @@ void _selftest_detected_event(bool *selftest) {
 }
 
 void _selftest_stepper_behavior(void) {
-  switch (_selftest_stepper_behavior_sequence) {
+#ifdef LSDEBUG_SELFTEST
+  ls_debug_printf("Selftest %d: ", _selftest_stepper_behavior_sequence);
+#endif
+switch (_selftest_stepper_behavior_sequence) {
   case 0:
-    ls_laser_set_mode_off();
+#ifdef LSDEBUG_SELFTEST
+    ls_debug_printf("laser off except pulse; slow hop forward 1/16");
+#endif
+  ls_laser_set_mode_off();
+  ls_stepper_set_maximum_steps_per_second(LS_STEPPER_STEPS_PER_SECOND_MIN);
+  ls_stepper_forward_hop(LS_STEPPER_STEPS_PER_ROTATION / 16);
     break;
   case 1:
+#ifdef LSDEBUG_SELFTEST
+  ls_debug_printf("slow hop forward 1/8");
+#endif
     ls_stepper_set_maximum_steps_per_second(LS_STEPPER_STEPS_PER_SECOND_MIN);
     ls_stepper_forward_hop(LS_STEPPER_STEPS_PER_ROTATION / 8);
     break;
   case 2:
+#ifdef LSDEBUG_SELFTEST
+  ls_debug_printf("slow hop backward 1/8");
+#endif
     ls_stepper_reverse_hop(LS_STEPPER_STEPS_PER_ROTATION / 8);
     break;
   case 3:
+#ifdef LSDEBUG_SELFTEST
+  ls_debug_printf("hop forward 1/2");
+#endif
     ls_stepper_set_maximum_steps_per_second(LS_STEPPER_STEPS_PER_SECOND_MAX);
     ls_stepper_forward_hop(LS_STEPPER_STEPS_PER_ROTATION / 2);
     break;
   case 4:
+#ifdef LSDEBUG_SELFTEST
+  ls_debug_printf("hop backward 1/2");
+#endif
     ls_stepper_reverse_hop(LS_STEPPER_STEPS_PER_ROTATION / 2);
     break;
   case 5:
-    ls_stepper_set_maximum_steps_per_second(LS_HOME_STEPPER_STEPS_PER_SECOND);
+#ifdef LSDEBUG_SELFTEST
+  ls_debug_printf("hop forward 2");
+#endif
+    ls_stepper_set_maximum_steps_per_second(LS_STEPPER_STEPS_PER_SECOND_MAX);
     ls_stepper_forward_hop(LS_STEPPER_STEPS_PER_ROTATION * 2);
     break;
   case 6:
-    ls_laser_set_mode_on();
-    /* @todo set fastest spin to minimum scanning spin*/
+#ifdef LSDEBUG_SELFTEST
+  ls_debug_printf("spin at minimum");
+#endif
     ls_stepper_spin_at_rpm(ls_settings_get_minimum_rpm());
+    // occasionally getting flashes longer than the pulse is supposed to do, so let's leave it off.
+    // ls_laser_set_mode_on(); /** @todo need to see whether the pulse is enough to wake up the failsafe */
     break;
-  case 7:
+    case 7:
+#ifdef LSDEBUG_SELFTEST
+    ls_debug_printf("spin fastest");
+#endif
+    ls_stepper_spin_at_rpm(ls_settings_get_maximum_rpm());
+    break;
+  case 8:
+#ifdef LSDEBUG_SELFTEST
+  ls_debug_printf("spin random");
+#endif
     ls_stepper_random_spin();
     break;
-  case 11:
-    /* @todo set fastest spin to maximum scanning spin*/
-    ls_stepper_random_spin();
-    break;
-  case 20:
+  case 12:
     // restart sequence
-    ls_laser_set_mode_off();
+  #ifdef LSDEBUG_SELFTEST
+    ls_debug_printf("stop spin; restart sequence");
+  #endif
+  ls_stepper_stop_spin();
     _selftest_stepper_behavior_sequence = -1;
     break;
   default:;
   }
+#ifdef LSDEBUG_SELFTEST
+  ls_debug_printf("\n");
+#endif  
   _selftest_stepper_behavior_sequence++;
 }
 
@@ -234,6 +271,7 @@ void selftest_event_handler(ls_event event) {
     ls_settings_set_servo_top(LS_SERVO_US_MIN);
     ls_settings_set_servo_sweep_pause_ms(500);
     ls_servo_sweep();
+    ls_laser_pulse_init();
     _selftest_stepper_behavior();
     break;
   case LSEVT_STEPPER_FINISHED_MOVE:

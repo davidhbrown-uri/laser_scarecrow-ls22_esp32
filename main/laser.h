@@ -32,5 +32,5 @@ void ls_laser_set_mode(enum ls_laser_mode_t);
 
 uint32_t IRAM_ATTR ls_laser_mode_is_mappped(void);
 uint32_t IRAM_ATTR ls_laser_mode_is_on(void);
-// void ls_laser_pulse_init(void); // used only by self-test
-// void ls_laser_pulse_stop(void); // again for self-test
+void ls_laser_pulse_init(void); // used only by self-test
+void ls_laser_pulse_stop(void); // again for self-test

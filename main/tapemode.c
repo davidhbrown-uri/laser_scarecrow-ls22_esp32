@@ -43,7 +43,7 @@ bool ls_spinmode_is_spinning(void) {
 bool ls_spinmode_is_hopping(void){
     switch (ls_spinmode()) {
         case LS_SPINMODE_HOP:
-        case LS_SPINMODE_HOP_FURTHER:
+        case LS_SPINMODE_HOP_FARTHER:
         return true;
         default:
         return false;

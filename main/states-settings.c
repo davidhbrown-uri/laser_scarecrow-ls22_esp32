@@ -27,6 +27,7 @@
 #include "servo.h"
 #include "settings.h"
 #include "stepper.h"
+#include "tapemode.h"
 #include "util.h"
 #include "freertos/timers.h"
 
@@ -46,7 +47,6 @@ ls_State ls_state_settings_upper(ls_event event) {
 
   switch (event.type) {
   case LSEVT_STATE_ENTRY:
-    // ls_stepper_set_maximum_steps_per_second(ls_settings_get_stepper_speed());
 #ifdef LS_HAS_TAPE_SENSOR
     ls_laser_set_mode((ls_map_get_status() == LS_MAP_STATUS_OK)
                           ? LS_LASER_MAPPED
@@ -54,15 +54,30 @@ ls_State ls_state_settings_upper(ls_event event) {
 #else
     ls_laser_set_mode_on();
 #endif
-    // ls_stepper_forward_hop(LS_STEPPER_STEPS_PER_ROTATION * 5 / 4);
-    ls_stepper_spin_at_rpm(ls_settings_get_maximum_rpm());
+    switch(ls_spinmode()) {
+      case LS_SPINMODE_HOP:
+      case LS_SPINMODE_HOP_FARTHER:
+        ls_stepper_set_maximum_steps_per_second(ls_settings_get_stepper_speed());
+        ls_stepper_forward_hop(LS_STEPPER_STEPS_PER_ROTATION * 5 / 4);
+      break;
+      default: // spinning presumed
+        ls_stepper_spin_at_rpm(ls_settings_get_maximum_rpm());
+      break;
+    }
     ls_servo_sweep();
     ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_ENTER);
     ls_leds_cycle(LEDCYCLE_CONTROLS_UPPER);
     break;
   case LSEVT_STEPPER_FINISHED_MOVE:
-    // ls_stepper_forward_hop(LS_STEPPER_STEPS_PER_ROTATION * 5 / 4);
-    ls_stepper_spin_at_rpm(ls_settings_get_maximum_rpm());
+    switch(ls_spinmode()) {
+      case LS_SPINMODE_HOP:
+      case LS_SPINMODE_HOP_FARTHER:
+        ls_stepper_forward_hop(LS_STEPPER_STEPS_PER_ROTATION * 5 / 4);
+        break;
+      default:
+      ls_stepper_spin_at_rpm(ls_settings_get_maximum_rpm());
+      break;
+    }
     break;
   case LSEVT_SERVO_SWEEP_TOP:
     ls_buzzer_effect(LS_BUZZER_PLAY_OCTAVE);
@@ -72,9 +87,19 @@ ls_State ls_state_settings_upper(ls_event event) {
     break;
   case LSEVT_CONTROLS_SLIDER1: // stepper speed
     control_value = *((BaseType_t *)event.value);
-    // ls_settings_set_stepper_speed(
-    //     ls_settings_map_control_to_stepper_speed(control_value));
-    // ls_stepper_set_maximum_steps_per_second(ls_settings_get_stepper_speed());
+    switch(ls_spinmode()) {
+      case LS_SPINMODE_HOP:
+      case LS_SPINMODE_HOP_FARTHER:
+      ls_settings_set_stepper_speed(
+        ls_settings_map_control_to_stepper_speed(control_value));
+    ls_stepper_set_maximum_steps_per_second(ls_settings_get_stepper_speed());
+    #ifdef LSDEBUG_SETTINGS
+    ls_debug_printf(
+        "Setting maximum steps-per-second = %d .\n",
+        ls_settings_get_stepper_speed());
+#endif
+    break;
+    default:
     ls_settings_set_maximum_rpm(ls_settings_map_control_to_maximum_rpm(control_value));
     ls_stepper_spin_at_rpm(ls_settings_get_maximum_rpm());
 #ifdef LSDEBUG_SETTINGS
@@ -82,6 +107,7 @@ ls_State ls_state_settings_upper(ls_event event) {
         "Setting maximum spin = %d RPM.\n",
         ls_settings_get_maximum_rpm());
 #endif
+      }
   break;
   case LSEVT_CONTROLS_SLIDER2: // servo speed
     ls_stepper_spin_at_rpm(ls_settings_get_minimum_rpm());
@@ -95,7 +121,14 @@ ls_State ls_state_settings_upper(ls_event event) {
 #endif
     break;
   case LSEVT_CONTROLS_OFF:
-    // ls_stepper_stop_hopping();
+  switch(ls_spinmode()) {
+    case LS_SPINMODE_HOP:
+    case LS_SPINMODE_HOP_FARTHER:
+  ls_stepper_stop_hopping();
+  break;
+  default:
+  ls_stepper_stop_spin();
+  }
     successor.func = ls_state_active;
     break;
   case LSEVT_CONTROLS_LOWER:
@@ -160,8 +193,14 @@ ls_State ls_state_settings_lower(ls_event event) {
 #else
     ls_laser_set_mode_on();
 #endif
-    // ls_stepper_forward_hop(LS_STEPPER_STEPS_PER_ROTATION * 5 / 4);
-    ls_stepper_spin_at_rpm(ls_settings_get_minimum_rpm());
+  switch(ls_spinmode()) {
+    case LS_SPINMODE_HOP:
+    case LS_SPINMODE_HOP_FARTHER:
+      ls_stepper_forward_hop(LS_STEPPER_STEPS_PER_ROTATION * 5 / 4);
+      break;
+    default:
+      ls_stepper_spin_at_rpm(ls_settings_get_minimum_rpm());
+    }
     ls_servo_sweep();
     ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_ENTER);
     ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_ENTER);
@@ -176,7 +215,14 @@ ls_State ls_state_settings_lower(ls_event event) {
     }
     break;
   case LSEVT_STEPPER_FINISHED_MOVE:
-    // ls_stepper_forward_hop(LS_STEPPER_STEPS_PER_ROTATION * 5 / 4);
+    switch(ls_spinmode()) {
+      case LS_SPINMODE_HOP:
+      case LS_SPINMODE_HOP_FARTHER:
+    ls_stepper_forward_hop(LS_STEPPER_STEPS_PER_ROTATION * 5 / 4);
+    break;
+    default:
+    ls_stepper_spin_at_rpm(ls_settings_get_minimum_rpm());
+    }
     // if (_ls_state_settings_servo_hold_count > 0) {
     //   _ls_state_settings_servo_hold_count--;
     // } else if (_ls_state_settings_servo_hold_count == 0) {
@@ -216,8 +262,15 @@ ls_State ls_state_settings_lower(ls_event event) {
   }
     break;
   case LSEVT_CONTROLS_OFF:
-    // ls_stepper_stop_hopping();
-    successor.func = ls_state_active;
+  switch(ls_spinmode()) {
+    case LS_SPINMODE_HOP:
+    case LS_SPINMODE_HOP_FARTHER:
+  ls_stepper_stop_hopping();
+  break;
+  default:
+  ls_stepper_stop_spin();
+  }
+      successor.func = ls_state_active;
     break;
   case LSEVT_CONTROLS_UPPER:
 #ifdef LSDEBUG_STATES
