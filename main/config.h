@@ -200,6 +200,8 @@ https://docs.espressif.com/projects/esp-idf/en/v4.4/esp32/api-reference/peripher
 #define LS_STEPPER_STEPS_PER_ROTATION (LS_STEPPER_FULLSTEPS_PER_ROTATION * LS_STEPPER_MICROSTEPS_PER_STEP)
 #define LS_STEPPER_RANDOM_HOP_STEPS_MIN (LS_STEPPER_STEPS_PER_ROTATION / 20)
 #define LS_STEPPER_RANDOM_HOP_STEPS_MAX (LS_STEPPER_STEPS_PER_ROTATION / 2)
+#define LS_STEPPER_RANDOM_HOP_FARTHER_STEPS_MIN (LS_STEPPER_STEPS_PER_ROTATION / 10)
+#define LS_STEPPER_RANDOM_HOP_FARTHER_STEPS_MAX (LS_STEPPER_STEPS_PER_ROTATION * 2)
 #define LS_STEPPER_RANDOM_HOP_REVERSE_PER255 96
 // this value must be low enough that changes in direction are reasonably non-jerky
 // (0 produces div/0 panic, so that's too low!)
@@ -217,6 +219,9 @@ https://docs.espressif.com/projects/esp-idf/en/v4.4/esp32/api-reference/peripher
 #define LS_STEPPER_STEPS_PER_SECOND_MAPPING 1800
 #define LS_STEPPER_STEPS_PER_SECOND_WARNING 7200
 #define LS_STEPPER_STEPS_PER_SECOND_DEFAULT 2700
+#define LS_STEPPER_STEPS_PER_SECOND_FARTHER_MAX 9000
+#define LS_STEPPER_STEPS_PER_SECOND_FARTHER_DEFAULT 4000
+
 // LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_SECOND will be added or subtracted to the steps per second when accelerating or decelerating
 #define LS_STEPPER_MOVEMENT_STEPS_DELTA_PER_SECOND 8000
 // a constant doesn't work as well with the wider range
@@ -234,7 +239,9 @@ https://docs.espressif.com/projects/esp-idf/en/v4.4/esp32/api-reference/peripher
 // though about half the time the magnet was detected while doing the initial stop)
 // 10000 ms or so should be reasonable for deployment
 // set to 2000 for testing whether it can work when hopping
-#define LS_STATE_MAGNET_TIMEOUT_PERIOD_MS 20000
+// #define LS_STATE_MAGNET_TIMEOUT_PERIOD_MS 2000
+// #define LS_STATE_MAGNET_TIMEOUT_PERIOD_MS 20000
+// LS_STATE_MAGNET_TIMEOUT_PERIOD_MS replaced by ls_stepper_get_magnet_timeout_period_ms()
 #define LS_STATE_MAGNET_SLOWSPIN_MS_PER_RPM 1000
 #define LS_STATE_MAGNET_SLOWSPIN_INITIAL_RPM 30
 #define LS_STATE_MAGNET_SLOWSPIN_FINAL_RPM 15
@@ -300,7 +307,8 @@ LS_CONTROLS_SWITCH_THRESHOLD_BOTH < ADC < 4096 => LS_CONTROLS_STATUS_BOTH;
 #define LS_CONTROLS_READING_BOTTOM 200
 // any ADC mV reading must change by this much from its previous value to be
 // registered.
-#define LS_CONTROLS_READING_MOVE_THRESHOLD 40
+#define LS_CONTROLS_READING_MOVE_THRESHOLD_INITIAL 300
+#define LS_CONTROLS_READING_MOVE_THRESHOLD 50
 #define LS_CONTROLS_READINGS_TO_AVERAGE 5
 // when controls are connected, readings are sent every tick, so 50 reads=~5sec
 #define LS_CONTROLS_FASTREADS_AFTER_MOVE 50
@@ -311,6 +319,7 @@ LS_CONTROLS_SWITCH_THRESHOLD_BOTH < ADC < 4096 => LS_CONTROLS_STATUS_BOTH;
 // light is low and dark is high)
 #define LS_REFLECTANCE_ADC_MAX_LIGHT 1300
 #define LS_REFLECTANCE_ADC_MIN_DARK 2000
+
 
 // approximate midpoints (raw ADC) between settings (3 boards tested Apr 2 '22)
 #define LS_TAPEMODE_THRESHOLD_1 300
@@ -342,6 +351,7 @@ LS_CONTROLS_SWITCH_THRESHOLD_BOTH < ADC < 4096 => LS_CONTROLS_STATUS_BOTH;
 #else
 #define LS_STATE_REHOME_TIMER_PERIOD_MS 1800000
 #endif
+
 
 // Thresholds based on sample data recorded in lightsense.h
 // must be comma-separated list

@@ -32,8 +32,8 @@ enum ls_event_t
     LSEVT_MAGNET_TIMEOUT,    // magnet has not been detected while active
     LSEVT_MAGNET_FAILURE,   // magnet not found by slowing
 
-    LSEVT_STEPPER_FINISHED_MOVE = 30, // rotating arm finishes movement
-    LSEVT_STEPPER_REACHED_SPEED = 31, // rotating arm reached requested speed during fast-spin mode
+    LSEVT_STEPPER_FINISHED_MOVE = 30, // rotating arm finishes hopping movement
+    LSEVT_STEPPER_REACHED_SPEED = 31, // rotating arm reached requested spinning speed
 
     LSEVT_SERVO_SWEEP_TOP = 40,    // servo tilt reaches top of sweep range
     LSEVT_SERVO_SWEEP_BOTTOM = 41, // servo tilt reaches bottom of sweep range

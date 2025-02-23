@@ -83,9 +83,6 @@ BaseType_t ls_settings_map_control_to_maximum_rpm(BaseType_t);
 void ls_settings_set_maximum_rpm(BaseType_t rpm);
 BaseType_t ls_settings_get_maximum_rpm(void);
 
-void ls_settings_set_minimum_rpm(BaseType_t rpm);
-BaseType_t ls_settings_get_minimum_rpm(void);
-
 BaseType_t ls_settings_map_control_to_servo_maxlimit(BaseType_t);
 void ls_settings_set_servo_maxlimit(BaseType_t);
 BaseType_t ls_settings_get_servo_maxlimit(void);

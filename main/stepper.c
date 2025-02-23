@@ -101,13 +101,18 @@ uint64_t ls_stepper_timer_alarm_count_stoppable;
 volatile static BaseType_t IRAM_ATTR _ls_stepperstep_phase = 0;
 enum ls_stepper_rotation_mode _current_stepper_rotation_mode;
 enum ls_stepper_action _current_stepper_action;
+#ifdef LSDEBUG_STEPPER
+enum ls_stepper_rotation_mode _previous_stepper_rotation_mode;
+#endif
 enum ls_stepper_direction_t IRAM_ATTR ls_stepper_direction = LS_STEPPER_DIRECTION_FORWARD;
 #ifdef LS_HAS_TAPE_SENSOR
-static bool _ls_stepper_enable_skipping = false;
-static int _ls_stepper_speed_when_skipping = LS_STEPPER_STEPS_PER_SECOND_MAX;
-static int _ls_stepper_speed_not_skipping = LS_STEPPER_STEPS_PER_SECOND_DEFAULT;
+static bool _ls_stepper_enable_skipping;
+static int _ls_stepper_speed_when_skipping;
+static int _ls_stepper_speed_not_skipping;
 #endif
-static int _ls_stepper_steps_per_second_max = LS_STEPPER_STEPS_PER_SECOND_DEFAULT;
+static int _ls_stepper_steps_per_second_max;
+
+static uint64_t _ls_stepper_prior_reached_speed_event_alarm_count = 0;
 
 static int _ls_stepper_speed_current_hop_rate = LS_STEPPER_STEPS_PER_SECOND_MIN;
 
@@ -155,7 +160,7 @@ void ls_stepper_set_maximum_steps_per_second(int steps_per_second)
     // set and constrain new current speed limit (except if doing the warning)
     if (steps_per_second != LS_STEPPER_STEPS_PER_SECOND_WARNING)
     {
-        steps_per_second = _constrain(steps_per_second, LS_STEPPER_STEPS_PER_SECOND_MIN, LS_STEPPER_STEPS_PER_SECOND_MAX);
+        steps_per_second = _constrain(steps_per_second, LS_STEPPER_STEPS_PER_SECOND_MIN,  ls_stepper_get_hopping_sps_max_limit());
     }
     _ls_stepper_steps_per_second_max = steps_per_second;
 #ifdef LSDEBUG_STEPPER
@@ -241,7 +246,13 @@ ls_debug_printf("STEPPER: Laser will be enabled when spinning at least %d RPM [1
 #endif
         ls_stepper_maximum_laser_enable_alarm_count = _alarms_1_rpm / LS_LASER_ENABLE_MINIMUM_RPM_100MM;
     }
-    gpio_set_level(LSGPIO_STEPPERENABLE, STEPPERENABLE_DISABLE); // don't step while we get ready
+    #ifdef LS_HAS_TAPE_SENSOR
+    _ls_stepper_enable_skipping = false;
+    _ls_stepper_speed_when_skipping = ls_stepper_get_hopping_sps_limit();
+    _ls_stepper_speed_not_skipping = ls_stepper_get_hopping_sps_default();
+    #endif
+    _ls_stepper_steps_per_second_max = ls_stepper_get_hopping_sps_default();
+      gpio_set_level(LSGPIO_STEPPERENABLE, STEPPERENABLE_DISABLE); // don't step while we get ready
     gpio_set_level(LSGPIO_STEPPERDIRECTION, LS_STEPPER_DIRECTION_FORWARD); // reasonable default
     ls_stepper_position = 0;
     ls_stepper_direction = LS_STEPPER_DIRECTION_FORWARD; 
@@ -478,9 +489,11 @@ void _ls_stepper_set_direction_and_timer_for_rpm(int rpm){
         gpio_set_level(LSGPIO_STEPPERDIRECTION, ls_stepper_direction);
     }
     _ls_stepper_set_spin_speed();
-    if(ls_stepper_current_timer_alarm_count == ls_stepper_target_timer_alarm_count)
+    if(ls_stepper_current_timer_alarm_count == ls_stepper_target_timer_alarm_count &&
+        _ls_stepper_prior_reached_speed_event_alarm_count != ls_stepper_current_timer_alarm_count)
     {
         _ls_stepper_enqueue_reached_speed();
+        _ls_stepper_prior_reached_speed_event_alarm_count = ls_stepper_current_timer_alarm_count;
     }
 }
 
@@ -548,7 +561,7 @@ void _ls_enqueue_random_spin_target_rpm(void) {
     uint32_t random = esp_random();
     uint8_t rand_rpm = random & 0xFF;
     uint8_t rand_dir = (random >> 8) & 0xFF;
-    BaseType_t rpm = _map(rand_rpm, 0, 255, ls_settings_get_minimum_rpm(), ls_settings_get_maximum_rpm());
+    BaseType_t rpm = _map(rand_rpm, 0, 255, ls_stepper_get_spinning_rpm_min(), ls_settings_get_maximum_rpm());
 #ifdef LSDEBUG_STEPPER_RANDOM
     ls_debug_printf("STEPPER_RANDOM: _ls_enqueue_random_spin_target_rpm: rand_rpm=%d (%d-%d); rand_dir = %d.\n", 
         rpm,  ls_settings_get_minimum_rpm(), ls_settings_get_maximum_rpm(), rand_dir);
@@ -594,10 +607,13 @@ void _ls_enqueue_random_spin_idle_ticks(void) {
 
 void ls_stepper_task(void *pvParameter)
 {
-    ls_stepper_set_maximum_steps_per_second(LS_STEPPER_STEPS_PER_SECOND_DEFAULT);
+    ls_stepper_set_maximum_steps_per_second(ls_stepper_get_hopping_sps_default());
     ls_stepper_action_message message;
     _current_stepper_action = message.action = LS_STEPPER_ACTION_SLEEP;
     _current_stepper_rotation_mode = LS_STEPPER_ROTATION_MODE_UNPOWERED;
+#ifdef LSDEBUG_STEPPER
+    _previous_stepper_rotation_mode = _current_stepper_rotation_mode;
+#endif
     enum ls_stepper_rotation_mode successor_stepper_rotation_mode = _current_stepper_rotation_mode;
 
 // temporary to check arithmetic 
@@ -751,7 +767,9 @@ void ls_stepper_task(void *pvParameter)
                     break;
                     case LS_STEPPER_ACTION_STOP: // LS_STEPPER_ROTATION_MODE_STOPPED
 #ifdef LSDEBUG_STEPPER
+if(_previous_stepper_rotation_mode != _current_stepper_rotation_mode) {
                 ls_debug_printf("STEPPER: has stopped.\n");
+}
 #endif
                     break;
                 } // switch current_action for LS_STEPPER_ROTATION_MODE_STOPPED
@@ -762,7 +780,9 @@ void ls_stepper_task(void *pvParameter)
             case LS_STEPPER_ROTATION_MODE_RANDOM_HOP: // 2
                 gpio_set_level(LSGPIO_STEPPERENABLE, STEPPERENABLE_ENABLE);
                 ls_stepper_mode_hop0_spin1 = 0;
-                if (ls_stepper_steps_remaining <= 0)
+                successor_stepper_rotation_mode = _do_state_hopping(_current_stepper_rotation_mode, &message);
+                // if we've finished a move and need a new one...
+                if ( ls_stepper_steps_remaining <= 0 && LS_STEPPER_ROTATION_MODE_RANDOM_HOP == successor_stepper_rotation_mode)
                 {
 #ifdef LSDEBUG_STEPPER_RANDOM
 ls_debug_printf("Finished move; calling the _ls_stepper_random_strategy\n");
@@ -779,7 +799,6 @@ ls_debug_printf("Finished move; calling the _ls_stepper_random_strategy\n");
     /** @todo should I change the message if "stopping" at this point? */
                     if (message.action == LS_STEPPER_ACTION_STOP) {message.action = LS_STEPPER_ACTION_RANDOM_HOP;}
                 } // finished move
-                successor_stepper_rotation_mode = _do_state_hopping(_current_stepper_rotation_mode, &message);
             break;
             case LS_STEPPER_ROTATION_MODE_RANDOM_SPIN: // 3
                 gpio_set_level(LSGPIO_STEPPERENABLE, STEPPERENABLE_ENABLE);
@@ -843,7 +862,10 @@ if(successor_stepper_rotation_mode != _current_stepper_rotation_mode)
         ls_debug_printf("STEPPER: mode changing from %d to %d.\n", _current_stepper_rotation_mode, successor_stepper_rotation_mode);
     }
 #endif
-        _current_stepper_rotation_mode = successor_stepper_rotation_mode;
+#ifdef LSDEBUG_STEPPER
+_previous_stepper_rotation_mode = _current_stepper_rotation_mode;
+#endif        
+        _current_stepper_rotation_mode = successor_stepper_rotation_mode;     
         vTaskDelay(1);
     } // while 1 forever...
 } // stepper task
@@ -1061,9 +1083,35 @@ void ls_stepper_random_strategy_default(struct ls_stepper_move_t *move)
 {
     uint32_t random = esp_random();
     move->direction = ((uint8_t)random & 0xFF) > _ls_stepper_random_reverse_per255 ? false : true;
-    move->steps = LS_STEPPER_RANDOM_HOP_STEPS_MIN + ((random >> 16) * (ls_settings_get_stepper_random_max() - LS_STEPPER_RANDOM_HOP_STEPS_MIN) / 65536);
+    move->steps = ls_stepper_get_hopping_rnd_min() + ((random >> 16) * (ls_settings_get_stepper_random_max() - ls_stepper_get_hopping_rnd_min()) / 65536);
 #ifdef LSDEBUG_STEPPER_RANDOM
     ls_debug_printf("Default strategy: At end of random move; moving randomly %s%d\n", 
     move->direction?"+":"-", move->steps);
 #endif
+}
+
+int ls_stepper_get_hopping_sps_min_limit(void){
+    return ls_spinmode()==LS_SPINMODE_HOP_FARTHER ? LS_STEPPER_STEPS_PER_SECOND_MIN * 8 : LS_STEPPER_STEPS_PER_SECOND_MIN * 3;
+}
+int ls_stepper_get_hopping_sps_max_limit(void){
+    return ls_spinmode()==LS_SPINMODE_HOP_FARTHER ? LS_STEPPER_STEPS_PER_SECOND_FARTHER_MAX : LS_STEPPER_STEPS_PER_SECOND_MAX;
+}
+int ls_stepper_get_hopping_sps_default(void){
+    return ls_spinmode()==LS_SPINMODE_HOP_FARTHER ? LS_STEPPER_STEPS_PER_SECOND_FARTHER_DEFAULT : LS_STEPPER_STEPS_PER_SECOND_DEFAULT;
+}
+int ls_stepper_get_hopping_rnd_min(void){
+    return ls_spinmode()==LS_SPINMODE_HOP_FARTHER ? LS_STEPPER_RANDOM_HOP_FARTHER_STEPS_MIN : LS_STEPPER_RANDOM_HOP_STEPS_MIN;
+}
+int ls_stepper_get_hopping_rnd_max(void){
+    return ls_spinmode()==LS_SPINMODE_HOP_FARTHER ? LS_STEPPER_RANDOM_HOP_FARTHER_STEPS_MAX : LS_STEPPER_RANDOM_HOP_STEPS_MAX;
+}
+int ls_stepper_get_spinning_rpm_min(void){
+    return ls_spinmode()==LS_SPINMODE_1M ? LS_SETTINGS_MINIMUM_RPM_SCANNING_1M : LS_SETTINGS_MINIMUM_RPM_SCANNING_100MM;
+}
+
+int ls_stepper_get_magnet_timeout_period_ms(void){
+    if  (ls_spinmode_is_hopping()) {
+        return 60000;
+    }
+    return 20000;
 }

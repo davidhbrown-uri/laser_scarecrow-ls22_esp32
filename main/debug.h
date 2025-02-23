@@ -43,7 +43,7 @@ extern SemaphoreHandle_t print_mux; // in ls2022_esp32.c
 // Uncomment any desired classes of debug output to enable output via ls_debug_printf
 
 // output information about rotation
-#define LSDEBUG_STEPPER
+// #define LSDEBUG_STEPPER
 
 #ifdef LSDEBUG_STEPPER
 #define LSDEBUG_STEPPER_STATUS_INTERVAL_MS 4000
@@ -63,9 +63,9 @@ extern SemaphoreHandle_t print_mux; // in ls2022_esp32.c
 
 // #define LSDEBUG_HOMING
 
-#define LSDEBUG_LASER
+// #define LSDEBUG_LASER
 
-#define LSDEBUG_STATES
+// #define LSDEBUG_STATES
 
 // #define LSDEBUG_MAGNET_TIMEOUT
 
@@ -89,7 +89,7 @@ extern SemaphoreHandle_t print_mux; // in ls2022_esp32.c
 
 // #define LSDEBUG_SERVO_VERBOSE
 
-#define LSDEBUG_SETTINGS
+// #define LSDEBUG_SETTINGS
 
 // #define LSDEBUG_LEDS
 
@@ -97,6 +97,6 @@ extern SemaphoreHandle_t print_mux; // in ls2022_esp32.c
 
 // #define LSDEBUG_TILT
 
-#define LSDEBUG_SELFTEST
+// #define LSDEBUG_SELFTEST
 
 #endif

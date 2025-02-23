@@ -131,9 +131,9 @@ void ls_state_init_watchdog_timers(void)
                                           _ls_state_rehome_timer_callback                 // pxCallbackFunction
     );
 #endif
-if(ls_spinmode_is_spinning()) {
+// if(ls_spinmode_is_spinning()) {
 _ls_state_magnet_timeout_timer= xTimerCreate("magnet_timeout_timer",                                 // pcTimerName
-                                          pdMS_TO_TICKS(LS_STATE_MAGNET_TIMEOUT_PERIOD_MS), // xTimerPeriodInTicks
+                                          pdMS_TO_TICKS(ls_stepper_get_magnet_timeout_period_ms()), // xTimerPeriodInTicks
                                           pdFALSE,                                        // uxAutoReload
                                           0,                                              // pvTimerId not used; only timer for callback
                                           _ls_state_magnet_timeout_callback                 // pxCallbackFunction
@@ -145,7 +145,7 @@ _ls_state_magnet_slowspin_timer= xTimerCreate("magnet_slowspin_timer",          
                                           _ls_state_magnet_slowspin_callback                 // pxCallbackFunction
     );
 }
-}
+// }
 
 
 /**
@@ -401,6 +401,11 @@ ls_State ls_state_active(ls_event event)
     switch (event.type)
     {
     case LSEVT_STATE_ENTRY:
+    // this had initially been just when spinning, but it seems like a good idea for hopping, too
+        if (pdFAIL == xTimerStart(_ls_state_magnet_timeout_timer, pdMS_TO_TICKS(500))) 
+        {
+            successor.func = ls_state_error_norotate;
+        }
 #ifdef LSDEBUG_STATES
         ls_debug_printf("STATE Active: Beginning active state...\n");
 #endif
@@ -417,10 +422,6 @@ ls_State ls_state_active(ls_event event)
         ls_debug_printf("STATE Active: enabling random 'spinning' rotation.\n");
 #endif
             ls_stepper_random_spin();
-        if (pdFAIL == xTimerStart(_ls_state_magnet_timeout_timer, pdMS_TO_TICKS(500))) 
-        {
-            successor.func = ls_state_error_norotate;
-        }
         }
         if (ls_spinmode() == LS_SPINMODE_CLASSIIIA){
             // enable failsafe
@@ -456,7 +457,9 @@ ls_State ls_state_active(ls_event event)
 #if defined(LSDEBUG_STATES) || defined (LSDEBUG_MAGNET_TIMEOUT)
         ls_debug_printf("STATE Active: Magnet Enter @ %d %s\n", (int32_t)event.value, ls_stepper_get_direction() ? "-->" : "<--");
 #endif
-if (ls_spinmode_is_spinning()) { xTimerReset(_ls_state_magnet_timeout_timer, 0); }
+// if (ls_spinmode_is_spinning()) { 
+    xTimerReset(_ls_state_magnet_timeout_timer, 0); 
+// }
         ls_buzzer_effect(LS_BUZZER_CLICK);
         break;
 
@@ -464,7 +467,9 @@ if (ls_spinmode_is_spinning()) { xTimerReset(_ls_state_magnet_timeout_timer, 0);
 #if defined(LSDEBUG_STATES) || defined (LSDEBUG_MAGNET_TIMEOUT)
         ls_debug_printf("STATE Active: Magnet Leave @ %d %s\n", (int32_t)event.value, ls_stepper_get_direction() ? "-->" : "<--");
 #endif
-if (ls_spinmode_is_spinning()) { xTimerReset(_ls_state_magnet_timeout_timer, 0); }
+// if (ls_spinmode_is_spinning()) { 
+    xTimerReset(_ls_state_magnet_timeout_timer, 0); 
+// }
         ls_buzzer_effect(LS_BUZZER_CLICK);
         break;
     case LSEVT_STEPPER_FINISHED_MOVE:
@@ -551,7 +556,9 @@ if (ls_spinmode_is_spinning()) { xTimerReset(_ls_state_magnet_timeout_timer, 0);
             vTaskDelete(ls_coverage_task_handle);
             ls_coverage_task_handle = NULL; // probably not necessary now, but just in case
         }
-        if (ls_spinmode_is_spinning()) { xTimerStop(_ls_state_magnet_timeout_timer, 0); }
+        // if (ls_spinmode_is_spinning()) { 
+            xTimerStop(_ls_state_magnet_timeout_timer, 0); 
+        // }
         ls_stepper_stop();
         ls_servo_off();
         ls_laser_set_mode_off();

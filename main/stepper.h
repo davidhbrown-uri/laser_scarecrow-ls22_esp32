@@ -101,7 +101,40 @@ void ls_stepper_set_random_reverse_per255(uint8_t value);
 
 #define ls_stepper_off() ls_stepper_sleep()
 
+/**
+ * @brief get the min limit of hopping speed for this spinmode; constrain setting by this
+ */
+int ls_stepper_get_hopping_sps_min_limit(void);
+/**
+ * @brief get the max limit of hopping speed for this spinmode; constrain setting by this
+ */
+int ls_stepper_get_hopping_sps_max_limit(void);
+/**
+ * @brief get the default hopping speed for this spinmode; reset to this if changing spinmode
+ */
+int ls_stepper_get_hopping_sps_default(void);
+/**
+ * @brief get the minimum steps for random hop in this spinmode; no setting for this
+ */
+int ls_stepper_get_hopping_rnd_min(void);
+/**
+ * @brief get the maximum steps for random hop in this spinmode; no setting for this
+ */
+int ls_stepper_get_hopping_rnd_max(void);
+/**
+ * @brief get the minimum RPM for random spin in this spinmode; no setting for this
+ */
+int ls_stepper_get_spinning_rpm_min(void);
+
+/**
+ * @brief Set the maximum steps per second for the stepper motor
+ * This is constrained by the configuration settings:
+ *  - LS_STEPPER_STEPS_PER_SECOND_MIN
+ * - LS_STEPPER_STEPS_PER_SECOND_MAX
+ */
 void ls_stepper_set_maximum_steps_per_second(int);
+
+int ls_stepper_get_magnet_timeout_period_ms(void);
 
 ls_stepper_position_t ls_stepper_position_constrained(ls_stepper_position_t position);
 

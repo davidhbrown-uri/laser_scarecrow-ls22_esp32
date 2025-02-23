@@ -80,13 +80,17 @@ void ls_controls_task(void *pvParameter)
 #define LS_CONTROLS_TASK_CONTROLS_COUNT 3
 #define LS_CONTROLS_TASK_SWITCH_READINGS 3
     uint8_t switch_reading = 0;
+    // these arrays made more sense when we had three sliders
     adc2_channel_t controls_channels[] = {LSADC2_SWITCHES, LSADC2_SLIDER1, LSADC2_SLIDER2};
     adc_atten_t controls_atten[] = {LSADCATTEN_SWITCHES, LSADCATTEN_SLIDER, LSADCATTEN_SLIDER};
     esp_adc_cal_characteristics_t controls_adc_cal[LS_CONTROLS_TASK_CONTROLS_COUNT];
     uint32_t controls_readings[LS_CONTROLS_TASK_CONTROLS_COUNT];
     bool moved_control[LS_CONTROLS_TASK_CONTROLS_COUNT];
+    BaseType_t move_threshold[LS_CONTROLS_TASK_CONTROLS_COUNT] = {LS_CONTROLS_READING_MOVE_THRESHOLD, LS_CONTROLS_READING_MOVE_THRESHOLD_INITIAL, LS_CONTROLS_READING_MOVE_THRESHOLD_INITIAL};
     _ls_controls_task_controls_havent_moved();
     int fastreads = 0;
+
+    enum ls_controls_status ls_controls_current_status = LS_CONTROLS_STATUS_INVALID;
 
     enum ls_controls_status switch_readings[LS_CONTROLS_TASK_SWITCH_READINGS];
     for (int i = 0; i < LS_CONTROLS_TASK_SWITCH_READINGS; i++)
@@ -104,7 +108,7 @@ void ls_controls_task(void *pvParameter)
         }
 
 #ifdef LSDEBUG_CONTROLS_VERBOSE
-        ls_debug_printf("Controls:  switches=%dmV slider1=%dmV slider2=%dmV\n", controls_readings[0], controls_readings[1], controls_readings[2]);
+        ls_debug_printf("Controls:  switches=%dmV (mode=%d) slider1=%dmV slider2=%dmV\n", controls_readings[0], ls_controls_current_status, controls_readings[1], controls_readings[2]);
 #endif
         // update switch status
 
@@ -117,14 +121,24 @@ void ls_controls_task(void *pvParameter)
         }
         if (switch_readings_match && ls_controls_current_status != switch_readings[0])
         {
+            ls_controls_current_status = switch_readings[0];
 #ifdef LSDEBUG_CONTROLS
             ls_debug_printf("Switches changed status from %d to %d\n", ls_controls_current_status, switch_readings[0]);
             ls_debug_printf("Controls:  switches=%dmV slider1=%dmV slider2=%dmV\n", controls_readings[0], controls_readings[1], controls_readings[2]);
 #endif
+            vTaskDelay(pdMS_TO_TICKS(100));
+        // reread controls after brief delay
+        for (int control_number = 1; control_number < LS_CONTROLS_TASK_CONTROLS_COUNT; control_number++)
+        {
+            move_threshold[control_number] = LS_CONTROLS_READING_MOVE_THRESHOLD_INITIAL;
+            controls_readings[control_number] = _ls_controls_get_averaged_adc_mv(controls_channels[control_number], controls_atten[control_number], &controls_adc_cal[control_number]);
+        }
             _ls_controls_current_slider1 = controls_readings[1];
             _ls_controls_current_slider2 = controls_readings[2];
+#ifdef LSDEBUG_CONTROLS
+            ls_debug_printf("After pause:  switches=%dmV slider1=%dmV slider2=%dmV\n", controls_readings[0], controls_readings[1], controls_readings[2]);
+#endif 
             _ls_controls_task_controls_havent_moved();
-            ls_controls_current_status = switch_readings[0];
             ls_event switch_event;
             switch_event.value = NULL;
             switch (ls_controls_current_status)
@@ -148,10 +162,11 @@ void ls_controls_task(void *pvParameter)
             xQueueSendToBack(ls_event_queue, (void *)&switch_event, pdMS_TO_TICKS(1000));
         } // if switches changed
 
-        if (ls_controls_get_current_status() != LS_CONTROLS_STATUS_OFF)
+        if (ls_controls_current_status != LS_CONTROLS_STATUS_OFF)
         {
-            if (moved_control[1] || _difference_exceeds_threshold(_ls_controls_current_slider1, controls_readings[1], LS_CONTROLS_READING_MOVE_THRESHOLD))
+            if (moved_control[1] || _difference_exceeds_threshold(_ls_controls_current_slider1, controls_readings[1], move_threshold[1]))
             {
+                move_threshold[1] = LS_CONTROLS_READING_MOVE_THRESHOLD;
                 if (!moved_control[1])
                 {
                     fastreads = LS_CONTROLS_FASTREADS_AFTER_MOVE;
@@ -168,8 +183,9 @@ void ls_controls_task(void *pvParameter)
                 ls_debug_printf("Controls new value slider1=%dmV\n", _ls_controls_current_slider1);
 #endif
             }
-            if (moved_control[2] || _difference_exceeds_threshold(_ls_controls_current_slider2, controls_readings[2], LS_CONTROLS_READING_MOVE_THRESHOLD))
+            if (moved_control[2] || _difference_exceeds_threshold(_ls_controls_current_slider2, controls_readings[2], move_threshold[2]))
             {
+                move_threshold[2] = LS_CONTROLS_READING_MOVE_THRESHOLD;
                 if (!moved_control[2])
                 {
                     fastreads = LS_CONTROLS_FASTREADS_AFTER_MOVE;

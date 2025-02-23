@@ -20,11 +20,11 @@
 #include "freertos/queue.h"
 
 enum ls_controls_status{
-    LS_CONTROLS_STATUS_OFF,
-    LS_CONTROLS_STATUS_UPPER,
-    LS_CONTROLS_STATUS_LOWER,
-    LS_CONTROLS_STATUS_BOTH,
-    LS_CONTROLS_STATUS_INVALID
+    LS_CONTROLS_STATUS_OFF, // 0
+    LS_CONTROLS_STATUS_UPPER, // 1
+    LS_CONTROLS_STATUS_LOWER, // 2
+    LS_CONTROLS_STATUS_BOTH, // 3
+    LS_CONTROLS_STATUS_INVALID // 4
 };
 
 enum ls_controls_status ls_controls_get_current_status(void);

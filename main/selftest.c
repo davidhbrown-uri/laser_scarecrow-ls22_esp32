@@ -91,7 +91,7 @@ switch (_selftest_stepper_behavior_sequence) {
 #ifdef LSDEBUG_SELFTEST
   ls_debug_printf("hop forward 1/2");
 #endif
-    ls_stepper_set_maximum_steps_per_second(LS_STEPPER_STEPS_PER_SECOND_MAX);
+    ls_stepper_set_maximum_steps_per_second(ls_stepper_get_hopping_sps_max_limit());
     ls_stepper_forward_hop(LS_STEPPER_STEPS_PER_ROTATION / 2);
     break;
   case 4:
@@ -104,14 +104,14 @@ switch (_selftest_stepper_behavior_sequence) {
 #ifdef LSDEBUG_SELFTEST
   ls_debug_printf("hop forward 2");
 #endif
-    ls_stepper_set_maximum_steps_per_second(LS_STEPPER_STEPS_PER_SECOND_MAX);
+    ls_stepper_set_maximum_steps_per_second(ls_stepper_get_hopping_sps_max_limit());
     ls_stepper_forward_hop(LS_STEPPER_STEPS_PER_ROTATION * 2);
     break;
   case 6:
 #ifdef LSDEBUG_SELFTEST
   ls_debug_printf("spin at minimum");
 #endif
-    ls_stepper_spin_at_rpm(ls_settings_get_minimum_rpm());
+    ls_stepper_spin_at_rpm(ls_stepper_get_spinning_rpm_min());
     // occasionally getting flashes longer than the pulse is supposed to do, so let's leave it off.
     // ls_laser_set_mode_on(); /** @todo need to see whether the pulse is enough to wake up the failsafe */
     break;
@@ -160,7 +160,7 @@ static void _selftest_update_leds(void) {
   sensors_passed = sensors_passed && _selftest_tape_light && _selftest_tape_dark;
 #endif
 
-    if (sensors_passed) {
+    if (sensors_passed && controls_passed) {
       ls_leds_rgb(0, 48, 0); // darker green
     } else if (controls_passed)
     {
@@ -276,6 +276,7 @@ void selftest_event_handler(ls_event event) {
     break;
   case LSEVT_STEPPER_FINISHED_MOVE:
   case LSEVT_STEPPER_REACHED_SPEED:
+  case LSEVT_NOOP:
     _selftest_stepper_behavior();
     break;
   case LSEVT_MAGNET_ENTER:

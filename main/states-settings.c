@@ -56,12 +56,13 @@ ls_State ls_state_settings_upper(ls_event event) {
 #endif
     switch(ls_spinmode()) {
       case LS_SPINMODE_HOP:
-      case LS_SPINMODE_HOP_FARTHER:
-        ls_stepper_set_maximum_steps_per_second(ls_settings_get_stepper_speed());
         ls_stepper_forward_hop(LS_STEPPER_STEPS_PER_ROTATION * 5 / 4);
-      break;
-      default: // spinning presumed
-        ls_stepper_spin_at_rpm(ls_settings_get_maximum_rpm());
+        break;
+      case LS_SPINMODE_HOP_FARTHER:
+        ls_stepper_forward_hop(LS_STEPPER_STEPS_PER_ROTATION * 11 / 4);
+        break;
+      default:
+      ls_stepper_spin_at_rpm(ls_settings_get_maximum_rpm());
       break;
     }
     ls_servo_sweep();
@@ -71,12 +72,13 @@ ls_State ls_state_settings_upper(ls_event event) {
   case LSEVT_STEPPER_FINISHED_MOVE:
     switch(ls_spinmode()) {
       case LS_SPINMODE_HOP:
-      case LS_SPINMODE_HOP_FARTHER:
         ls_stepper_forward_hop(LS_STEPPER_STEPS_PER_ROTATION * 5 / 4);
         break;
+      case LS_SPINMODE_HOP_FARTHER:
+        ls_stepper_forward_hop(LS_STEPPER_STEPS_PER_ROTATION * 11 / 4);
+        break;
       default:
-      ls_stepper_spin_at_rpm(ls_settings_get_maximum_rpm());
-      break;
+      ;
     }
     break;
   case LSEVT_SERVO_SWEEP_TOP:
@@ -93,7 +95,7 @@ ls_State ls_state_settings_upper(ls_event event) {
       ls_settings_set_stepper_speed(
         ls_settings_map_control_to_stepper_speed(control_value));
     ls_stepper_set_maximum_steps_per_second(ls_settings_get_stepper_speed());
-    #ifdef LSDEBUG_SETTINGS
+#ifdef LSDEBUG_SETTINGS
     ls_debug_printf(
         "Setting maximum steps-per-second = %d .\n",
         ls_settings_get_stepper_speed());
@@ -110,7 +112,6 @@ ls_State ls_state_settings_upper(ls_event event) {
       }
   break;
   case LSEVT_CONTROLS_SLIDER2: // servo speed
-    ls_stepper_spin_at_rpm(ls_settings_get_minimum_rpm());
     control_value = *((BaseType_t *)event.value);
     ls_settings_set_servo_pulse_delta(
         ls_settings_map_control_to_servo_pulse_delta(control_value));
@@ -195,12 +196,15 @@ ls_State ls_state_settings_lower(ls_event event) {
 #endif
   switch(ls_spinmode()) {
     case LS_SPINMODE_HOP:
-    case LS_SPINMODE_HOP_FARTHER:
       ls_stepper_forward_hop(LS_STEPPER_STEPS_PER_ROTATION * 5 / 4);
       break;
+    case LS_SPINMODE_HOP_FARTHER:
+      ls_stepper_forward_hop(LS_STEPPER_STEPS_PER_ROTATION * 11 / 4);
+      break;
     default:
-      ls_stepper_spin_at_rpm(ls_settings_get_minimum_rpm());
-    }
+    ls_stepper_spin_at_rpm(ls_settings_get_maximum_rpm());
+    break;
+  }
     ls_servo_sweep();
     ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_ENTER);
     ls_buzzer_effect(LS_BUZZER_PLAY_SETTINGS_CONTROL_ENTER);
@@ -215,20 +219,17 @@ ls_State ls_state_settings_lower(ls_event event) {
     }
     break;
   case LSEVT_STEPPER_FINISHED_MOVE:
-    switch(ls_spinmode()) {
-      case LS_SPINMODE_HOP:
-      case LS_SPINMODE_HOP_FARTHER:
-    ls_stepper_forward_hop(LS_STEPPER_STEPS_PER_ROTATION * 5 / 4);
-    break;
+  switch(ls_spinmode()) {
+    case LS_SPINMODE_HOP:
+      ls_stepper_forward_hop(LS_STEPPER_STEPS_PER_ROTATION * 5 / 4);
+      break;
+    case LS_SPINMODE_HOP_FARTHER:
+      ls_stepper_forward_hop(LS_STEPPER_STEPS_PER_ROTATION * 11 / 4);
+      break;
     default:
-    ls_stepper_spin_at_rpm(ls_settings_get_minimum_rpm());
-    }
-    // if (_ls_state_settings_servo_hold_count > 0) {
-    //   _ls_state_settings_servo_hold_count--;
-    // } else if (_ls_state_settings_servo_hold_count == 0) {
-    //   ls_servo_sweep();
-    //   _ls_state_settings_servo_hold_count = -1;
-    // }
+    ;
+    break;
+  }
     break;
   case LSEVT_SERVO_SWEEP_TOP:
     ls_buzzer_effect(LS_BUZZER_PLAY_OCTAVE);
@@ -241,7 +242,6 @@ ls_State ls_state_settings_lower(ls_event event) {
     ls_settings_set_servo_top(
         ls_settings_map_control_to_servo_top(control_value));
     ls_servo_moveto(ls_servo_get_top_pulse_ms());
-    // _ls_state_settings_servo_hold_count = 3;
     xTimerReset(_ls_state_settings_servo_hold_timer, 0);
     break;
   case LSEVT_CONTROLS_SLIDER2:
@@ -249,7 +249,6 @@ ls_State ls_state_settings_lower(ls_event event) {
     ls_settings_set_servo_bottom(
         ls_settings_map_control_to_servo_bottom(control_value));
     ls_servo_moveto(ls_servo_get_bottom_pulse_ms());
-    // _ls_state_settings_servo_hold_count = 3;
     xTimerReset(_ls_state_settings_servo_hold_timer, 0);
     break;
   case LSEVT_NOOP:

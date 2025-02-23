@@ -103,12 +103,12 @@ void app_main(void) {
   ls_oled_show_logo();
 
   printf("Initialized Hardware\n");
-  ls_settings_configure_limits();
+  printf("Current jumper setting is for spin mode %d\n", ls_spinmode());
   ls_settings_set_defaults();
   ls_settings_read();
   printf("Loaded settings\n");
   if (ls_spinmode() != ls_settings_get_mode()) {
-    printf("Resetting potentially incompatible settings for new jumper mode %d.", ls_spinmode());
+    printf("Resetting potentially incompatible settings (previous spin mode was %d.\n", ls_settings_get_mode());
     ls_settings_reset_for_current_spinmode();
   }
 
@@ -129,12 +129,6 @@ void app_main(void) {
     printf("No accelerometer detected!\n");
     ls_state_current.func = ls_state_error_noaccel;
   }
-  // if (! ls_failsafe_has_heartbeat_at_poweron())
-  // {
-  //   printf("No failsafe heartbeat!\n");
-  //   ls_state_current.func = ls_state_error_heartbeat;
-  // }
-
 
 
   // higher priority tasks get higher priority values
