@@ -913,7 +913,7 @@ ls_debug_printf("STEPPER: ls_stepper_forward_hop(%d) called\n", steps);
     {
         ls_stepper_action_message message;
         message.action = LS_STEPPER_ACTION_HOP_FORWARD_STEPS;
-        message.value = steps;
+        message.value = 2*steps; // we're doubling the steps because the timer IRQ decrements on both edges
         xQueueSend(ls_stepper_queue, (void *)&message, 0);
     }
     else
@@ -934,7 +934,7 @@ ls_debug_printf("STEPPER: ls_stepper_reverse_hop(%d) called\n", steps);
     {
         ls_stepper_action_message message;
         message.action = LS_STEPPER_ACTION_HOP_REVERSE_STEPS;
-        message.value = steps;
+        message.value = 2*steps; // we're doubling the steps because the timer IRQ decrements on both edges
         xQueueSend(ls_stepper_queue, (void *)&message, 0);
     }
     else
@@ -1094,7 +1094,7 @@ int ls_stepper_get_hopping_sps_min_limit(void){
     return ls_spinmode()==LS_SPINMODE_HOP_FARTHER ? LS_STEPPER_STEPS_PER_SECOND_MIN * 8 : LS_STEPPER_STEPS_PER_SECOND_MIN * 3;
 }
 int ls_stepper_get_hopping_sps_max_limit(void){
-    return ls_spinmode()==LS_SPINMODE_HOP_FARTHER ? LS_STEPPER_STEPS_PER_SECOND_FARTHER_MAX : LS_STEPPER_STEPS_PER_SECOND_MAX;
+    return (ls_spinmode()==LS_SPINMODE_HOP_FARTHER || ls_spinmode() == LS_SPINMODE_SELFTEST) ? LS_STEPPER_STEPS_PER_SECOND_FARTHER_MAX : LS_STEPPER_STEPS_PER_SECOND_MAX;
 }
 int ls_stepper_get_hopping_sps_default(void){
     return ls_spinmode()==LS_SPINMODE_HOP_FARTHER ? LS_STEPPER_STEPS_PER_SECOND_FARTHER_DEFAULT : LS_STEPPER_STEPS_PER_SECOND_DEFAULT;
@@ -1106,7 +1106,7 @@ int ls_stepper_get_hopping_rnd_max(void){
     return ls_spinmode()==LS_SPINMODE_HOP_FARTHER ? LS_STEPPER_RANDOM_HOP_FARTHER_STEPS_MAX : LS_STEPPER_RANDOM_HOP_STEPS_MAX;
 }
 int ls_stepper_get_spinning_rpm_min(void){
-    return ls_spinmode()==LS_SPINMODE_1M ? LS_SETTINGS_MINIMUM_RPM_SCANNING_1M : LS_SETTINGS_MINIMUM_RPM_SCANNING_100MM;
+    return (ls_spinmode()==LS_SPINMODE_1M || ls_spinmode() == LS_SPINMODE_SELFTEST) ? LS_SETTINGS_MINIMUM_RPM_SCANNING_1M : LS_SETTINGS_MINIMUM_RPM_SCANNING_100MM;
 }
 
 int ls_stepper_get_magnet_timeout_period_ms(void){

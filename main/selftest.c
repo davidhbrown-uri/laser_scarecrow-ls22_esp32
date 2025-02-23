@@ -119,7 +119,7 @@ switch (_selftest_stepper_behavior_sequence) {
 #ifdef LSDEBUG_SELFTEST
     ls_debug_printf("spin fastest");
 #endif
-    ls_stepper_spin_at_rpm(ls_settings_get_maximum_rpm());
+    ls_stepper_spin_at_rpm(LS_SETTINGS_MAXIMUM_RPM_SCANNING);
     break;
   case 8:
 #ifdef LSDEBUG_SELFTEST
