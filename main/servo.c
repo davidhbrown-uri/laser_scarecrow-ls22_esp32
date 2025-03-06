@@ -283,7 +283,7 @@ void ls_servo_task(void *pvParameter) {
         }
 
         // If no event was received within the delay, move the servo before looping again.
-        else
+        else // move the servo
         {
             // Check if we're already at the target pulse width,
             // and (possibly) change it depending on the mode we're in
@@ -298,11 +298,18 @@ void ls_servo_task(void *pvParameter) {
 #endif
                 // pause when target reached
                 vTaskDelay(pdMS_TO_TICKS(ls_settings_get_servo_random_pause_ms()));
-                uint16_t min = ls_servo_get_top_pulse_ms();
-                uint16_t max = ls_servo_get_bottom_pulse_ms();
-                target_pulse_width = esp_random() % (max - min + 1) + min;
+                uint16_t pmin = ls_servo_get_top_pulse_ms();
+                uint16_t pmax = ls_servo_get_bottom_pulse_ms();
+                target_pulse_width = esp_random() % (pmax - pmin + 1) + pmin;
 #ifdef LS_HAS_SERVO2
-                target_pulse_width2 = esp_random() % (max - min + 1) + min;
+                uint16_t prange = pmax-pmin;
+                uint8_t tries = 20;
+                do{
+                  target_pulse_width2 = esp_random() % (pmax - pmin + 1) + pmin;
+                } while ( // try again if the two targets are too close
+                  (max(target_pulse_width2, target_pulse_width) - min(target_pulse_width2, target_pulse_width) < (prange/5)) 
+                  && --tries>0
+                );
 #endif
 #ifdef LSDEBUG_SERVO
                 ls_debug_printf("New target: %d\n", (int) target_pulse_width);
@@ -369,13 +376,11 @@ void ls_servo_task(void *pvParameter) {
 #endif
 #ifdef LSDEBUG_SERVO_VERBOSE
 #ifdef LS_HAS_SERVO2
-            ls_debug_printf("Servo move to %d / %d\n", current_pulse_width, current_pulse_width2);
+            ls_debug_printf("Servos moving to %d, %d\n", current_pulse_width, current_pulse_width2);
 #else
             ls_debug_printf("Servo move to %d\n", current_pulse_width);
 #endif
-    }
-  }
 #endif
-        }
-    }
-}
+        } // else move the servo
+    } // while 1
+} // ls_servo_task
