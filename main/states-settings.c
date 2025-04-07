@@ -92,9 +92,8 @@ ls_State ls_state_settings_upper(ls_event event) {
     switch(ls_spinmode()) {
       case LS_SPINMODE_HOP:
       case LS_SPINMODE_HOP_FARTHER:
-      ls_settings_set_stepper_speed(
-        ls_settings_map_control_to_stepper_speed(control_value));
-    ls_stepper_set_maximum_steps_per_second(ls_settings_get_stepper_speed());
+      ls_settings_set_stepper_speed(ls_settings_map_control_to_stepper_speed(control_value));
+      ls_stepper_set_maximum_steps_per_second(ls_settings_get_stepper_speed());
 #ifdef LSDEBUG_SETTINGS
     ls_debug_printf(
         "Setting maximum steps-per-second = %d .\n",
@@ -102,14 +101,14 @@ ls_State ls_state_settings_upper(ls_event event) {
 #endif
     break;
     default:
-    ls_settings_set_maximum_rpm(ls_settings_map_control_to_maximum_rpm(control_value));
-    ls_stepper_spin_at_rpm(ls_settings_get_maximum_rpm());
+      ls_settings_set_maximum_rpm(ls_settings_map_control_to_maximum_rpm(control_value));
+      ls_stepper_spin_at_rpm(ls_settings_get_maximum_rpm());
 #ifdef LSDEBUG_SETTINGS
     ls_debug_printf(
         "Setting maximum spin = %d RPM.\n",
         ls_settings_get_maximum_rpm());
 #endif
-      }
+      } // switch on spinmode
   break;
   case LSEVT_CONTROLS_SLIDER2: // servo speed
     control_value = *((BaseType_t *)event.value);
